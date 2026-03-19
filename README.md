@@ -25,3 +25,4 @@ Starter em Next.js + Supabase para registo, acompanhamento e reporte de avarias 
 ## Notas
 - O projeto foi preparado como base de arranque. Convém validar tipos e relações no teu ambiente Supabase.
 - Para produção, recomenda-se Vercel + Supabase + Resend.
+update
