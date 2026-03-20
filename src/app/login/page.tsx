@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -10,33 +9,31 @@ const supabase = createClient(
 );
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [erro, setErro] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function handleLogin(e: React.FormEvent) {
-  e.preventDefault();
-  setErro('');
-  setLoading(true);
+    e.preventDefault();
+    setErro('');
+    setLoading(true);
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-  console.log('LOGIN RESULT:', data, error);
+    console.log('LOGIN RESULT:', data, error);
 
-  setLoading(false);
+    setLoading(false);
 
-  if (error) {
-    setErro('Credenciais inválidas.');
-    return;
-  }
+    if (error) {
+      setErro('Credenciais inválidas.');
+      return;
+    }
 
-  window.location.href = '/dashboard';
-}
+    window.location.href = '/dashboard';
   }
 
   return (
@@ -46,10 +43,11 @@ export default function LoginPage() {
         style={{ backgroundImage: "url('/parque-saude.jpg')" }}
       />
 
-      <div className="absolute inset-0 bg-black/55" />
+      <div className="absolute inset-0 bg-black/60" />
 
       <div className="relative z-10 flex min-h-screen items-center justify-center px-4">
         <div className="w-full max-w-md rounded-2xl bg-white/90 p-8 shadow-2xl backdrop-blur">
+          
           <div className="mb-6 text-center">
             <h1 className="text-3xl font-bold text-sky-700">MAIA SAÚDE</h1>
             <p className="mt-2 text-lg font-semibold text-slate-800">
@@ -61,36 +59,33 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
+            
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Email
-              </label>
+              <label className="mb-1 block text-sm text-slate-700">Email</label>
               <input
                 type="email"
-                placeholder="nome@exemplo.pt"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-sky-500"
+                className="w-full rounded-lg border px-4 py-3"
                 required
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label className="mb-1 block text-sm text-slate-700">
                 Palavra-passe
               </label>
               <input
                 type="password"
-                placeholder="********"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-sky-500"
+                className="w-full rounded-lg border px-4 py-3"
                 required
               />
             </div>
 
             {erro && (
-              <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+              <div className="bg-red-100 text-red-600 p-2 rounded">
                 {erro}
               </div>
             )}
@@ -98,10 +93,11 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-sky-600 px-4 py-3 font-semibold text-white hover:bg-sky-700 disabled:opacity-70"
+              className="w-full bg-sky-600 text-white py-3 rounded-lg"
             >
               {loading ? 'A entrar...' : 'Entrar'}
             </button>
+
           </form>
         </div>
       </div>
