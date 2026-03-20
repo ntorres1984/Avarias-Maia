@@ -17,23 +17,26 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    setErro('');
-    setLoading(true);
+  e.preventDefault();
+  setErro('');
+  setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
 
-    setLoading(false);
+  console.log('LOGIN RESULT:', data, error);
 
-    if (error) {
-      setErro('Credenciais inválidas.');
-      return;
-    }
+  setLoading(false);
 
-    router.push('/dashboard');
+  if (error) {
+    setErro('Credenciais inválidas.');
+    return;
+  }
+
+  window.location.href = '/dashboard';
+}
   }
 
   return (
