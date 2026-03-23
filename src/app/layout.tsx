@@ -2,7 +2,7 @@ import './globals.css';
 
 export const metadata = {
   title: 'Avarias Maia',
-  description: 'Plataforma de avarias',
+  description: 'Plataforma de registo de avarias',
 };
 
 export default function RootLayout({
