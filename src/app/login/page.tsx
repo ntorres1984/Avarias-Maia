@@ -11,7 +11,6 @@ const supabase = createClient(
 
 export default function LoginPage() {
   const router = useRouter();
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -48,9 +47,9 @@ export default function LoginPage() {
         alignItems: 'center',
         justifyContent: 'center',
         fontFamily: 'Arial, sans-serif',
+        position: 'relative',
       }}
     >
-      {/* overlay escuro */}
       <div
         style={{
           position: 'absolute',
@@ -59,7 +58,6 @@ export default function LoginPage() {
         }}
       />
 
-      {/* caixa */}
       <div
         style={{
           position: 'relative',
@@ -71,7 +69,7 @@ export default function LoginPage() {
           boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
         }}
       >
-        <h1 style={{ fontSize: '24px', marginBottom: '10px' }}>
+        <h1 style={{ fontSize: '24px', marginBottom: '10px', color: '#0369a1' }}>
           MAIA SAÚDE
         </h1>
 
@@ -93,6 +91,7 @@ export default function LoginPage() {
                 marginTop: '5px',
                 borderRadius: '6px',
                 border: '1px solid #ccc',
+                boxSizing: 'border-box',
               }}
             />
           </div>
@@ -110,6 +109,7 @@ export default function LoginPage() {
                 marginTop: '5px',
                 borderRadius: '6px',
                 border: '1px solid #ccc',
+                boxSizing: 'border-box',
               }}
             />
           </div>
