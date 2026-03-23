@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -9,97 +10,141 @@ const supabase = createClient(
 );
 
 export default function LoginPage() {
+  const router = useRouter();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [erro, setErro] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    setErro('');
+    setError('');
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    console.log('LOGIN RESULT:', data, error);
-
     setLoading(false);
 
     if (error) {
-      setErro('Credenciais inválidas.');
+      setError('Credenciais inválidas');
       return;
     }
 
-    window.location.href = '/dashboard';
+    router.push('/dashboard');
   }
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden">
+    <div
+      style={{
+        minHeight: '100vh',
+        backgroundImage: "url('/parque-saude.jpg')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'Arial, sans-serif',
+      }}
+    >
+      {/* overlay escuro */}
       <div
-        className="absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: "url('/parque-saude.jpg')" }}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(0,0,0,0.4)',
+        }}
       />
 
-      <div className="absolute inset-0 bg-black/60" />
+      {/* caixa */}
+      <div
+        style={{
+          position: 'relative',
+          background: 'rgba(255,255,255,0.95)',
+          padding: '40px',
+          borderRadius: '12px',
+          width: '100%',
+          maxWidth: '400px',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+        }}
+      >
+        <h1 style={{ fontSize: '24px', marginBottom: '10px' }}>
+          MAIA SAÚDE
+        </h1>
 
-      <div className="relative z-10 flex min-h-screen items-center justify-center px-4">
-        <div className="w-full max-w-md rounded-2xl bg-white/90 p-8 shadow-2xl backdrop-blur">
-          
-          <div className="mb-6 text-center">
-            <h1 className="text-3xl font-bold text-sky-700">MAIA SAÚDE</h1>
-            <p className="mt-2 text-lg font-semibold text-slate-800">
-              Plataforma de Registo de Avarias
-            </p>
-            <p className="mt-1 text-sm text-slate-600">
-              Unidades de Saúde da Maia
-            </p>
+        <p style={{ marginBottom: '20px', color: '#555' }}>
+          Plataforma de Registo de Avarias
+        </p>
+
+        <form onSubmit={handleLogin}>
+          <div style={{ marginBottom: '15px' }}>
+            <label>Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              style={{
+                width: '100%',
+                padding: '10px',
+                marginTop: '5px',
+                borderRadius: '6px',
+                border: '1px solid #ccc',
+              }}
+            />
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-4">
-            
-            <div>
-              <label className="mb-1 block text-sm text-slate-700">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border px-4 py-3"
-                required
-              />
-            </div>
+          <div style={{ marginBottom: '15px' }}>
+            <label>Palavra-passe</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              style={{
+                width: '100%',
+                padding: '10px',
+                marginTop: '5px',
+                borderRadius: '6px',
+                border: '1px solid #ccc',
+              }}
+            />
+          </div>
 
-            <div>
-              <label className="mb-1 block text-sm text-slate-700">
-                Palavra-passe
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border px-4 py-3"
-                required
-              />
-            </div>
-
-            {erro && (
-              <div className="bg-red-100 text-red-600 p-2 rounded">
-                {erro}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-sky-600 text-white py-3 rounded-lg"
+          {error && (
+            <div
+              style={{
+                background: '#ffe5e5',
+                color: '#a00',
+                padding: '10px',
+                borderRadius: '6px',
+                marginBottom: '10px',
+              }}
             >
-              {loading ? 'A entrar...' : 'Entrar'}
-            </button>
+              {error}
+            </div>
+          )}
 
-          </form>
-        </div>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: '#0284c7',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+            }}
+          >
+            {loading ? 'A entrar...' : 'Entrar'}
+          </button>
+        </form>
       </div>
     </div>
   );
