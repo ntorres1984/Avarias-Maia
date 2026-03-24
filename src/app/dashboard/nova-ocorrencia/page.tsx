@@ -12,27 +12,14 @@ type Unit = {
 const categorias = [
   'Iluminação',
   'AVAC',
-  'Sistema Elétrico',
-  'Água Quente Sanitária',
-  'Serralharia',
-  'Carpintaria',
-  'Águas Residuais',
-  'Águas Pluviais',
-  'Desratização',
   'Arranjos Exteriores',
-  'Sinalética',
-  'Deteção de Incêndio',
-  'Canalização',
-  'Inundações',
-  'Edificado',
   'Outro',
-  'Vidros',
 ]
 
 const prioridades = ['Baixa', 'Média', 'Alta']
-const impactos = ['Baixo', 'Médio', 'Alto', 'Crítico']
+const impactos = ['Baixo', 'Médio', 'Alto']
 
-export default function NovaOcorrencia() {
+export default function NovaOcorrenciaPage() {
   const router = useRouter()
   const supabase = createClient()
 
@@ -42,28 +29,23 @@ export default function NovaOcorrencia() {
   const [categoria, setCategoria] = useState('')
   const [prioridade, setPrioridade] = useState('')
   const [impacto, setImpacto] = useState('')
+  const [observacoes, setObservacoes] = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    const loadUnits = async () => {
-      const { data, error } = await supabase
+    async function loadUnits() {
+      const { data } = await supabase
         .from('units')
         .select('id, nome')
-        .eq('ativo', true)
-        .order('nome', { ascending: true })
+        .order('nome')
 
-      if (error) {
-        alert('Erro ao carregar unidades: ' + error.message)
-        return
-      }
-
-      setUnits(data || [])
+      if (data) setUnits(data)
     }
 
     loadUnits()
   }, [supabase])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
 
@@ -75,16 +57,20 @@ export default function NovaOcorrencia() {
       return
     }
 
+    const agora = new Date().toISOString()
+
     const { error } = await supabase.from('occurrences').insert([
       {
         unidade_id: unidadeSelecionada.id,
-       local_ocorrencia: unidadeSelecionada?.nome ?? 'Sem unidade',
+        local_ocorrencia: unidadeSelecionada.nome,
         ocorrencia: descricao,
         categoria,
         prioridade,
         impacto,
         estado: 'Em aberto',
-        data_reporte: new Date().toISOString(),
+        data_reporte: agora,
+        data_estado: agora,
+        observacoes: observacoes || '',
       },
     ])
 
@@ -95,6 +81,7 @@ export default function NovaOcorrencia() {
     }
 
     router.push('/dashboard')
+    router.refresh()
   }
 
   return (
@@ -103,7 +90,12 @@ export default function NovaOcorrencia() {
 
       <form
         onSubmit={handleSubmit}
-        style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}
+        style={{
+          display: 'flex',
+          gap: 10,
+          flexWrap: 'wrap',
+          marginTop: 20,
+        }}
       >
         <select
           value={unidadeId}
@@ -111,9 +103,9 @@ export default function NovaOcorrencia() {
           required
         >
           <option value="">Selecionar unidade</option>
-          {units.map((unit) => (
-            <option key={unit.id} value={unit.id}>
-              {unit.nome}
+          {units.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.nome}
             </option>
           ))}
         </select>
@@ -131,10 +123,8 @@ export default function NovaOcorrencia() {
           required
         >
           <option value="">Categoria</option>
-          {categorias.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
+          {categorias.map((c) => (
+            <option key={c}>{c}</option>
           ))}
         </select>
 
@@ -144,10 +134,8 @@ export default function NovaOcorrencia() {
           required
         >
           <option value="">Prioridade</option>
-          {prioridades.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
+          {prioridades.map((p) => (
+            <option key={p}>{p}</option>
           ))}
         </select>
 
@@ -157,12 +145,18 @@ export default function NovaOcorrencia() {
           required
         >
           <option value="">Impacto</option>
-          {impactos.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
+          {impactos.map((i) => (
+            <option key={i}>{i}</option>
           ))}
         </select>
+
+        <textarea
+          placeholder="Observações"
+          value={observacoes}
+          onChange={(e) => setObservacoes(e.target.value)}
+          rows={3}
+          style={{ minWidth: 250 }}
+        />
 
         <button type="submit" disabled={loading}>
           {loading ? 'A guardar...' : 'Guardar'}
