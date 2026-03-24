@@ -23,6 +23,7 @@ type Occurrence = {
   data_estado: string | null
   data_encerramento: string | null
   observacoes: string | null
+  created_at?: string | null
   units: UnitRelation
 }
 
@@ -44,6 +45,18 @@ function formatDateTime(dateString: string | null) {
   return date.toLocaleString('pt-PT')
 }
 
+function toDateTimeLocal(dateString: string | null) {
+  if (!dateString) return ''
+
+  const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) return ''
+
+  const offset = date.getTimezoneOffset()
+  const localDate = new Date(date.getTime() - offset * 60000)
+
+  return localDate.toISOString().slice(0, 16)
+}
+
 function getUnitName(units: UnitRelation, fallback: string | null) {
   if (Array.isArray(units)) {
     return units[0]?.nome || fallback || '-'
@@ -63,23 +76,30 @@ export default async function DashboardPage() {
     const id = String(formData.get('id') || '')
     const estado = String(formData.get('estado') || '')
     const observacoes = String(formData.get('observacoes') || '').trim()
+    const dataEstadoInput = String(formData.get('data_estado') || '').trim()
+    const dataFimInput = String(formData.get('data_encerramento') || '').trim()
 
-    const agora = new Date().toISOString()
+    let dataEstado = dataEstadoInput
+      ? new Date(dataEstadoInput).toISOString()
+      : new Date().toISOString()
 
-    const updateData: {
-      estado: string
-      observacoes: string | null
-      data_estado: string
-      data_encerramento: string | null
-    } = {
-      estado,
-      observacoes: observacoes || null,
-      data_estado: agora,
-      data_encerramento: null,
+    let dataEncerramento: string | null = dataFimInput
+      ? new Date(dataFimInput).toISOString()
+      : null
+
+    if ((estado === 'Concluída' || estado === 'Encerrada') && !dataEncerramento) {
+      dataEncerramento = dataEstado
     }
 
-    if (estado === 'Concluída' || estado === 'Encerrada') {
-      updateData.data_encerramento = agora
+    if (estado === 'Em aberto' || estado === 'Em execução') {
+      dataEncerramento = null
+    }
+
+    const updateData = {
+      estado,
+      observacoes: observacoes || null,
+      data_estado: dataEstado,
+      data_encerramento: dataEncerramento,
     }
 
     const { error } = await supabase
@@ -108,11 +128,13 @@ export default async function DashboardPage() {
       data_estado,
       data_encerramento,
       observacoes,
+      created_at,
       units (
         nome
       )
     `)
     .order('data_reporte', { ascending: false })
+    .order('data_estado', { ascending: false })
 
   const lista: Occurrence[] = data || []
 
@@ -297,11 +319,27 @@ export default async function DashboardPage() {
                     </td>
 
                     <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                      {formatDateTime(item.data_estado)}
+                      <input
+                        type="datetime-local"
+                        name="data_estado"
+                        form={formId}
+                        defaultValue={toDateTimeLocal(item.data_estado)}
+                      />
+                      <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                        Atual: {formatDateTime(item.data_estado)}
+                      </div>
                     </td>
 
                     <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                      {formatDateTime(item.data_encerramento)}
+                      <input
+                        type="datetime-local"
+                        name="data_encerramento"
+                        form={formId}
+                        defaultValue={toDateTimeLocal(item.data_encerramento)}
+                      />
+                      <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                        Atual: {formatDateTime(item.data_encerramento)}
+                      </div>
                     </td>
 
                     <td style={{ border: '1px solid #ddd', padding: 8 }}>
