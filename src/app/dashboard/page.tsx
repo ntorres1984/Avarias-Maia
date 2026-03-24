@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 
 export default async function Dashboard() {
@@ -6,12 +7,15 @@ export default async function Dashboard() {
   const { data: occurrences, error } = await supabase
     .from('occurrences')
     .select('*')
+    .order('created_at', { ascending: false })
+    .limit(10)
 
   if (error) {
     return <div>Erro ao carregar ocorrências: {error.message}</div>
   }
 
   const total = occurrences?.length || 0
+
   const emAberto =
     occurrences?.filter((o) =>
       ['Em aberto', 'Registada', 'Em análise', 'Em execução'].includes(o.estado)
@@ -27,9 +31,39 @@ export default async function Dashboard() {
 
   return (
     <div style={{ padding: 20 }}>
-      <h1>Dashboard</h1>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 20,
+        }}
+      >
+        <h1>Dashboard</h1>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginTop: 20 }}>
+        <Link
+          href="/dashboard/nova-ocorrencia"
+          style={{
+            padding: '10px 16px',
+            background: '#0f172a',
+            color: '#fff',
+            textDecoration: 'none',
+            borderRadius: 8,
+            fontWeight: 'bold',
+          }}
+        >
+          Nova Ocorrência
+        </Link>
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: 16,
+          marginTop: 20,
+        }}
+      >
         <div style={{ padding: 16, border: '1px solid #ccc', borderRadius: 8 }}>
           <h3>Total</h3>
           <p style={{ fontSize: 28, fontWeight: 'bold' }}>{total}</p>
@@ -65,10 +99,33 @@ export default async function Dashboard() {
           <tbody>
             {occurrences?.map((o) => (
               <tr key={o.id}>
-                <td style={{ border: '1px solid #ccc', padding: 8 }}>{o.ocorrencia || '-'}</td>
-                <td style={{ border: '1px solid #ccc', padding: 8 }}>{o.categoria || '-'}</td>
-                <td style={{ border: '1px solid #ccc', padding: 8 }}>{o.estado || '-'}</td>
-                <td style={{ border: '1px solid #ccc', padding: 8 }}>{o.data_reporte || '-'}</td>
+                <td style={{ border: '1px solid #ccc', padding: 8 }}>
+                  {o.ocorrencia || '-'}
+                </td>
+                <td style={{ border: '1px solid #ccc', padding: 8 }}>
+                  {o.categoria || 'Sem categoria'}
+                </td>
+                <td style={{ border: '1px solid #ccc', padding: 8 }}>
+                  <span
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: 6,
+                      background:
+                        o.estado === 'Em aberto'
+                          ? '#ffeeba'
+                          : o.estado === 'Concluída' || o.estado === 'Encerrada'
+                          ? '#c3e6cb'
+                          : '#e2e3e5',
+                    }}
+                  >
+                    {o.estado || '-'}
+                  </span>
+                </td>
+                <td style={{ border: '1px solid #ccc', padding: 8 }}>
+                  {o.data_reporte
+                    ? new Date(o.data_reporte).toLocaleDateString('pt-PT')
+                    : '-'}
+                </td>
               </tr>
             ))}
           </tbody>
