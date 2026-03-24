@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 
@@ -10,13 +13,13 @@ type Occurrence = {
   impacto: string | null
   estado: string | null
   data_reporte: string | null
+  units?: { nome: string } | null
 }
 
 function formatDate(dateString: string | null) {
   if (!dateString) return '-'
 
   const date = new Date(dateString)
-
   return date.toLocaleDateString('pt-PT')
 }
 
@@ -25,16 +28,21 @@ export default async function DashboardPage() {
 
   const { data: occurrences, error } = await supabase
     .from('occurrences')
-    .select(
-      'id, ocorrencia, local_ocorrencia, categoria, prioridade, impacto, estado, data_reporte'
-    )
+    .select(`
+      *,
+      units (
+        nome
+      )
+    `)
     .order('data_reporte', { ascending: false })
 
-  const lista: Occurrence[] = occurrences || []
+  const lista: Occurrence[] = occurrences ?? []
 
   const total = lista.length
   const emAberto = lista.filter((o) => o.estado === 'Em aberto').length
-  const concluidas = lista.filter((o) => o.estado === 'Concluída' || o.estado === 'Concluida').length
+  const concluidas = lista.filter(
+    (o) => o.estado === 'Concluída' || o.estado === 'Concluida'
+  ).length
   const foraSla = lista.filter((o) => o.estado === 'Fora SLA').length
 
   return (
@@ -111,15 +119,30 @@ export default async function DashboardPage() {
         >
           <thead>
             <tr>
-              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Ocorrência</th>
-              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Unidade</th>
-              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Categoria</th>
-              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Prioridade</th>
-              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Impacto</th>
-              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Estado</th>
-              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Data</th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
+                Ocorrência
+              </th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
+                Unidade
+              </th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
+                Categoria
+              </th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
+                Prioridade
+              </th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
+                Impacto
+              </th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
+                Estado
+              </th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
+                Data
+              </th>
             </tr>
           </thead>
+
           <tbody>
             {lista.length === 0 ? (
               <tr>
@@ -136,21 +159,27 @@ export default async function DashboardPage() {
                   <td style={{ border: '1px solid #ddd', padding: 8 }}>
                     {item.ocorrencia || '-'}
                   </td>
+
                   <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                    {item.local_ocorrencia || '-'}
+                    {item.units?.nome || item.local_ocorrencia || '-'}
                   </td>
+
                   <td style={{ border: '1px solid #ddd', padding: 8 }}>
                     {item.categoria || 'Sem categoria'}
                   </td>
+
                   <td style={{ border: '1px solid #ddd', padding: 8 }}>
                     {item.prioridade || '-'}
                   </td>
+
                   <td style={{ border: '1px solid #ddd', padding: 8 }}>
                     {item.impacto || '-'}
                   </td>
+
                   <td style={{ border: '1px solid #ddd', padding: 8 }}>
                     {item.estado || '-'}
                   </td>
+
                   <td style={{ border: '1px solid #ddd', padding: 8 }}>
                     {formatDate(item.data_reporte)}
                   </td>
