@@ -24,8 +24,7 @@ export default function NovaOcorrencia() {
         local_ocorrencia: local,
         ocorrencia: descricao,
         categoria,
-        prioridade,
-        impacto,
+      
         estado: 'Em aberto'
       }
     ])
