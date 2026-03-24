@@ -2,6 +2,15 @@ import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 
+type UnitRelation =
+  | {
+      nome: string | null
+    }
+  | {
+      nome: string | null
+    }[]
+  | null
+
 type Occurrence = {
   id: string
   ocorrencia: string | null
@@ -14,27 +23,20 @@ type Occurrence = {
   data_estado: string | null
   data_encerramento: string | null
   observacoes: string | null
-  units:
-    | {
-        nome: string | null
-      }
-    | {
-        nome: string | null
-      }[]
-    | null
+  units: UnitRelation
 }
 
 function formatDate(dateString: string | null) {
   if (!dateString) return '-'
 
   const date = new Date(dateString)
+
+  if (Number.isNaN(date.getTime())) return '-'
+
   return date.toLocaleDateString('pt-PT')
 }
 
-function getUnitName(
-  units: Occurrence['units'],
-  fallback: string | null
-) {
+function getUnitName(units: UnitRelation, fallback: string | null) {
   if (Array.isArray(units)) {
     return units[0]?.nome || fallback || '-'
   }
@@ -60,23 +62,19 @@ export default async function DashboardPage() {
       estado: string
       observacoes: string
       data_estado: string
-      data_encerramento?: string | null
+      data_encerramento: string | null
     } = {
       estado,
       observacoes,
       data_estado: agora,
+      data_encerramento: null,
     }
 
     if (estado === 'Concluída' || estado === 'Encerrada') {
       updateData.data_encerramento = agora
-    } else {
-      updateData.data_encerramento = null
     }
 
-    await supabase
-      .from('occurrences')
-      .update(updateData)
-      .eq('id', id)
+    await supabase.from('occurrences').update(updateData).eq('id', id)
 
     revalidatePath('/dashboard')
   }
@@ -110,7 +108,6 @@ export default async function DashboardPage() {
   const concluidas = lista.filter(
     (o) => o.estado === 'Concluída' || o.estado === 'Encerrada'
   ).length
-
   const foraSla = 0
 
   return (
@@ -187,17 +184,39 @@ export default async function DashboardPage() {
         >
           <thead>
             <tr>
-              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Ocorrência</th>
-              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Unidade</th>
-              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Categoria</th>
-              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Prioridade</th>
-              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Impacto</th>
-              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Estado</th>
-              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Data reporte</th>
-              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Data estado</th>
-              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Data fim</th>
-              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Observações</th>
-              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Ação</th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
+                Ocorrência
+              </th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
+                Unidade
+              </th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
+                Categoria
+              </th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
+                Prioridade
+              </th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
+                Impacto
+              </th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
+                Estado
+              </th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
+                Data reporte
+              </th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
+                Data estado
+              </th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
+                Data fim
+              </th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
+                Observações
+              </th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
+                Ação
+              </th>
             </tr>
           </thead>
 
@@ -238,7 +257,7 @@ export default async function DashboardPage() {
                     {item.impacto || '-'}
                   </td>
 
-                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                  <td style={{ border: '1px solid #ddd', padding: 8, verticalAlign: 'top' }}>
                     <form action={updateOccurrence} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <input type="hidden" name="id" value={item.id} />
 
@@ -262,7 +281,7 @@ export default async function DashboardPage() {
                     {formatDate(item.data_encerramento)}
                   </td>
 
-                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                  <td style={{ border: '1px solid #ddd', padding: 8, verticalAlign: 'top' }}>
                       <textarea
                         name="observacoes"
                         defaultValue={item.observacoes || ''}
@@ -271,7 +290,7 @@ export default async function DashboardPage() {
                       />
                   </td>
 
-                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                  <td style={{ border: '1px solid #ddd', padding: 8, verticalAlign: 'top' }}>
                       <button type="submit">Guardar</button>
                     </form>
                   </td>
