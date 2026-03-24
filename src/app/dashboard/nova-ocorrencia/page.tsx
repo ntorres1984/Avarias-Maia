@@ -1,81 +1,87 @@
-"use client";
+'use client'
 
-import { useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 export default function NovaOcorrencia() {
-  const [form, setForm] = useState({
-    local_ocorrencia: "",
-    ocorrencia: "",
-    categoria: "",
-    prioridade: "",
-    impacto: "",
-  });
+  const router = useRouter()
+  const supabase = createClient()
 
-  const handleChange = (e: any) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+  const [local, setLocal] = useState('')
+  const [descricao, setDescricao] = useState('')
+  const [categoria, setCategoria] = useState('')
+  const [prioridade, setPrioridade] = useState('')
+  const [impacto, setImpacto] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: any) => {
-    e.preventDefault();
+    e.preventDefault()
+    setLoading(true)
 
-    const { error } = await supabase.from("occurrences").insert([
+    const { error } = await supabase.from('occurrences').insert([
       {
-        local_ocorrencia: form.local_ocorrencia,
-        ocorrencia: form.ocorrencia,
-        categoria: form.categoria,
-        prioridade: form.prioridade,
-        impacto: form.impacto,
-        estado: "Registada",
-      },
-    ]);
+        local_ocorrencia: local,
+        ocorrencia: descricao,
+        categoria,
+        prioridade,
+        impacto,
+        estado: 'Em aberto'
+      }
+    ])
 
     if (error) {
-      alert("Erro ao guardar");
-    } else {
-      alert("Ocorrência criada com sucesso!");
+      alert('Erro ao guardar: ' + error.message)
+      setLoading(false)
+      return
     }
-  };
+
+    router.push('/dashboard')
+  }
 
   return (
     <div style={{ padding: 20 }}>
       <h1>Nova Ocorrência</h1>
 
-      <form onSubmit={handleSubmit}>
-        <input name="local_ocorrencia" placeholder="Local" onChange={handleChange} />
+      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <input
+          placeholder="Local"
+          value={local}
+          onChange={(e) => setLocal(e.target.value)}
+          required
+        />
 
-        <input name="ocorrencia" placeholder="Descrição" onChange={handleChange} />
+        <input
+          placeholder="Descrição"
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
+          required
+        />
 
-        <select name="categoria" onChange={handleChange}>
+        <select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
           <option value="">Categoria</option>
           <option value="Iluminação">Iluminação</option>
-          <option value="Elétrica">Elétrica</option>
-          <option value="AVAC">AVAC</option>
+          <option value="Equipamento">Equipamento</option>
         </select>
 
-        <select name="prioridade" onChange={handleChange}>
+        <select value={prioridade} onChange={(e) => setPrioridade(e.target.value)}>
           <option value="">Prioridade</option>
           <option value="Baixa">Baixa</option>
           <option value="Média">Média</option>
           <option value="Alta">Alta</option>
-          <option value="Urgente">Urgente</option>
         </select>
 
-        <select name="impacto" onChange={handleChange}>
+        <select value={impacto} onChange={(e) => setImpacto(e.target.value)}>
           <option value="">Impacto</option>
           <option value="Baixo">Baixo</option>
           <option value="Médio">Médio</option>
           <option value="Alto">Alto</option>
-          <option value="Crítico">Crítico</option>
         </select>
 
-        <button type="submit">Guardar</button>
+        <button type="submit" disabled={loading}>
+          {loading ? 'A guardar...' : 'Guardar'}
+        </button>
       </form>
     </div>
-  );
+  )
 }
