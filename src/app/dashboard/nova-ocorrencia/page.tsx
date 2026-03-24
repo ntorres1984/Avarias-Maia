@@ -1,65 +1,107 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+
+type Unit = {
+  id: string
+  nome: string
+}
+
+const categorias = [
+  'Iluminação',
+  'AVAC',
+  'Sistema Elétrico',
+  'Água Quente Sanitária',
+  'Serralharia',
+  'Carpintaria',
+  'Águas Residuais',
+  'Águas Pluviais',
+  'Desratização',
+  'Arranjos Exteriores',
+  'Sinalética',
+  'Deteção de Incêndio',
+  'Canalização',
+  'Inundações',
+  'Edificado',
+  'Outro',
+  'Vidros',
+]
 
 export default function NovaOcorrencia() {
   const router = useRouter()
   const supabase = createClient()
 
-  const [local, setLocal] = useState('')
+  const [units, setUnits] = useState<Unit[]>([])
+  const [unidadeId, setUnidadeId] = useState('')
   const [descricao, setDescricao] = useState('')
   const [categoria, setCategoria] = useState('')
-  const [prioridade, setPrioridade] = useState('')
-  const [impacto, setImpacto] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e: any) => {
-  e.preventDefault()
-  setLoading(true)
+  useEffect(() => {
+    async function loadUnits() {
+      const { data, error } = await supabase
+        .from('units')
+        .select('id, nome')
+        .order('nome', { ascending: true })
 
-  const { data: unidade, error: unidadeError } = await supabase
-    .from('units')
-    .select('id, nome')
-    .eq('nome', local)
-    .single()
+      if (error) {
+        alert('Erro ao carregar unidades: ' + error.message)
+        return
+      }
 
-  if (unidadeError || !unidade) {
-    alert('Unidade não encontrada. Confirma o nome exatamente como está registado.')
-    setLoading(false)
-    return
-  }
-
-  const { error } = await supabase.from('occurrences').insert([
-    {
-      unidade_id: unidade.id,
-      local_ocorrencia: local,
-      ocorrencia: descricao,
-      categoria,
-      estado: 'Em aberto'
+      setUnits(data || [])
     }
-  ])
 
-  if (error) {
-    alert('Erro ao guardar: ' + error.message)
-    setLoading(false)
-    return
+    loadUnits()
+  }, [supabase])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+
+    const unidadeSelecionada = units.find((u) => u.id === unidadeId)
+
+    const { error } = await supabase.from('occurrences').insert([
+      {
+        unidade_id: unidadeId,
+        local_ocorrencia: unidadeSelecionada?.nome || null,
+        ocorrencia: descricao,
+        categoria,
+        estado: 'Em aberto',
+      },
+    ])
+
+    if (error) {
+      alert('Erro ao guardar: ' + error.message)
+      setLoading(false)
+      return
+    }
+
+    router.push('/dashboard')
   }
 
-  router.push('/dashboard')
-}
   return (
     <div style={{ padding: 20 }}>
       <h1>Nova Ocorrência</h1>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <input
-          placeholder="Local"
-          value={local}
-          onChange={(e) => setLocal(e.target.value)}
+      <form
+        onSubmit={handleSubmit}
+        style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}
+      >
+        <select
+          value={unidadeId}
+          onChange={(e) => setUnidadeId(e.target.value)}
           required
-        />
+        >
+          <option value="">Selecionar unidade</option>
+          {units.map((unit) => (
+            <option key={unit.id} value={unit.id}>
+              {unit.nome}
+            </option>
+          ))}
+        </select>
 
         <input
           placeholder="Descrição"
@@ -68,24 +110,17 @@ export default function NovaOcorrencia() {
           required
         />
 
-        <select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
+        <select
+          value={categoria}
+          onChange={(e) => setCategoria(e.target.value)}
+          required
+        >
           <option value="">Categoria</option>
-          <option value="Iluminação">Iluminação</option>
-          <option value="Equipamento">Equipamento</option>
-        </select>
-
-        <select value={prioridade} onChange={(e) => setPrioridade(e.target.value)}>
-          <option value="">Prioridade</option>
-          <option value="Baixa">Baixa</option>
-          <option value="Média">Média</option>
-          <option value="Alta">Alta</option>
-        </select>
-
-        <select value={impacto} onChange={(e) => setImpacto(e.target.value)}>
-          <option value="">Impacto</option>
-          <option value="Baixo">Baixo</option>
-          <option value="Médio">Médio</option>
-          <option value="Alto">Alto</option>
+          {categorias.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
         </select>
 
         <button type="submit" disabled={loading}>
