@@ -12,12 +12,25 @@ type Unit = {
 const categorias = [
   'Iluminação',
   'AVAC',
+  'Sistema Elétrico',
+  'Água Quente Sanitária',
+  'Serralharia',
+  'Carpintaria',
+  'Águas Residuais',
+  'Águas Pluviais',
+  'Desratização',
   'Arranjos Exteriores',
+  'Sinalética',
+  'Deteção de Incêndio',
+  'Canalização',
+  'Inundações',
+  'Edificado',
   'Outro',
+  'Vidros',
 ]
 
 const prioridades = ['Baixa', 'Média', 'Alta']
-const impactos = ['Baixo', 'Médio', 'Alto']
+const impactos = ['Baixo', 'Médio', 'Alto', 'Crítico']
 
 export default function NovaOcorrenciaPage() {
   const router = useRouter()
@@ -34,12 +47,14 @@ export default function NovaOcorrenciaPage() {
 
   useEffect(() => {
     async function loadUnits() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('units')
         .select('id, nome')
-        .order('nome')
+        .order('nome', { ascending: true })
 
-      if (data) setUnits(data)
+      if (!error && data) {
+        setUnits(data)
+      }
     }
 
     loadUnits()
@@ -94,6 +109,7 @@ export default function NovaOcorrenciaPage() {
           display: 'flex',
           gap: 10,
           flexWrap: 'wrap',
+          alignItems: 'flex-start',
           marginTop: 20,
         }}
       >
@@ -103,9 +119,9 @@ export default function NovaOcorrenciaPage() {
           required
         >
           <option value="">Selecionar unidade</option>
-          {units.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.nome}
+          {units.map((unit) => (
+            <option key={unit.id} value={unit.id}>
+              {unit.nome}
             </option>
           ))}
         </select>
@@ -123,8 +139,10 @@ export default function NovaOcorrenciaPage() {
           required
         >
           <option value="">Categoria</option>
-          {categorias.map((c) => (
-            <option key={c}>{c}</option>
+          {categorias.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
           ))}
         </select>
 
@@ -135,7 +153,9 @@ export default function NovaOcorrenciaPage() {
         >
           <option value="">Prioridade</option>
           {prioridades.map((p) => (
-            <option key={p}>{p}</option>
+            <option key={p} value={p}>
+              {p}
+            </option>
           ))}
         </select>
 
@@ -146,7 +166,9 @@ export default function NovaOcorrenciaPage() {
         >
           <option value="">Impacto</option>
           {impactos.map((i) => (
-            <option key={i}>{i}</option>
+            <option key={i} value={i}>
+              {i}
+            </option>
           ))}
         </select>
 
@@ -154,8 +176,8 @@ export default function NovaOcorrenciaPage() {
           placeholder="Observações"
           value={observacoes}
           onChange={(e) => setObservacoes(e.target.value)}
-          rows={3}
-          style={{ minWidth: 250 }}
+          rows={4}
+          style={{ minWidth: 260 }}
         />
 
         <button type="submit" disabled={loading}>
