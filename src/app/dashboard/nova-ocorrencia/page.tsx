@@ -29,6 +29,9 @@ const categorias = [
   'Vidros',
 ]
 
+const prioridades = ['Baixa', 'Média', 'Alta']
+const impactos = ['Baixo', 'Médio', 'Alto', 'Crítico']
+
 export default function NovaOcorrencia() {
   const router = useRouter()
   const supabase = createClient()
@@ -37,6 +40,8 @@ export default function NovaOcorrencia() {
   const [unidadeId, setUnidadeId] = useState('')
   const [descricao, setDescricao] = useState('')
   const [categoria, setCategoria] = useState('')
+  const [prioridade, setPrioridade] = useState('')
+  const [impacto, setImpacto] = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -76,6 +81,8 @@ export default function NovaOcorrencia() {
         local_ocorrencia: unidadeSelecionada.nome,
         ocorrencia: descricao,
         categoria,
+        prioridade,
+        impacto,
         estado: 'Em aberto',
         data_reporte: new Date().toISOString(),
       },
@@ -96,7 +103,7 @@ export default function NovaOcorrencia() {
 
       <form
         onSubmit={handleSubmit}
-        style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}
+        style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}
       >
         <select
           value={unidadeId}
@@ -127,6 +134,32 @@ export default function NovaOcorrencia() {
           {categorias.map((cat) => (
             <option key={cat} value={cat}>
               {cat}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={prioridade}
+          onChange={(e) => setPrioridade(e.target.value)}
+          required
+        >
+          <option value="">Prioridade</option>
+          {prioridades.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={impacto}
+          onChange={(e) => setImpacto(e.target.value)}
+          required
+        >
+          <option value="">Impacto</option>
+          {impactos.map((item) => (
+            <option key={item} value={item}>
+              {item}
             </option>
           ))}
         </select>
