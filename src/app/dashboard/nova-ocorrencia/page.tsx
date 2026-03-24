@@ -40,10 +40,11 @@ export default function NovaOcorrencia() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    async function loadUnits() {
+    const loadUnits = async () => {
       const { data, error } = await supabase
         .from('units')
         .select('id, nome')
+        .eq('ativo', true)
         .order('nome', { ascending: true })
 
       if (error) {
@@ -58,39 +59,34 @@ export default function NovaOcorrencia() {
   }, [supabase])
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault()
-  setLoading(true)
+    e.preventDefault()
+    setLoading(true)
 
-  // encontrar unidade selecionada
-  const unidadeSelecionada = units.find((u) => u.id === unidadeId)
+    const unidadeSelecionada = units.find((u) => u.id === unidadeId)
 
-  if (!unidadeSelecionada) {
-    alert('Seleciona uma unidade válida')
-    setLoading(false)
-    return
-  }
-
-  // inserir ocorrência
-  const { error } = await supabase.from('occurrences').insert([
-    {
-      unidade_id: unidadeSelecionada.id,
-      local_ocorrencia: unidadeSelecionada.nome,
-      ocorrencia: descricao,
-      categoria,
-      estado: 'Em aberto',
-      data_reporte: new Date().toISOString()
+    if (!unidadeSelecionada) {
+      alert('Seleciona uma unidade válida')
+      setLoading(false)
+      return
     }
-  ])
 
-  if (error) {
-    alert('Erro ao guardar: ' + error.message)
-    setLoading(false)
-    return
-  }
+    const { error } = await supabase.from('occurrences').insert([
+      {
+        unidade_id: unidadeSelecionada.id,
+        local_ocorrencia: unidadeSelecionada.nome,
+        ocorrencia: descricao,
+        categoria,
+        estado: 'Em aberto',
+        data_reporte: new Date().toISOString(),
+      },
+    ])
 
-  // redirecionar
-  router.push('/dashboard')
-}
+    if (error) {
+      alert('Erro ao guardar: ' + error.message)
+      setLoading(false)
+      return
+    }
+
     router.push('/dashboard')
   }
 
