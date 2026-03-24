@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 
 type UnitRelation =
@@ -30,7 +29,6 @@ function formatDate(dateString: string | null) {
   if (!dateString) return '-'
 
   const date = new Date(dateString)
-
   if (Number.isNaN(date.getTime())) return '-'
 
   return date.toLocaleDateString('pt-PT')
@@ -47,39 +45,7 @@ function getUnitName(units: UnitRelation, fallback: string | null) {
 export default async function DashboardPage() {
   const supabase = createClient()
 
-  async function updateOccurrence(formData: FormData) {
-    'use server'
-
-    const supabase = createClient()
-
-    const id = String(formData.get('id') || '')
-    const estado = String(formData.get('estado') || '')
-    const observacoes = String(formData.get('observacoes') || '')
-
-    const agora = new Date().toISOString()
-
-    const updateData: {
-      estado: string
-      observacoes: string
-      data_estado: string
-      data_encerramento: string | null
-    } = {
-      estado,
-      observacoes,
-      data_estado: agora,
-      data_encerramento: null,
-    }
-
-    if (estado === 'Concluída' || estado === 'Encerrada') {
-      updateData.data_encerramento = agora
-    }
-
-    await supabase.from('occurrences').update(updateData).eq('id', id)
-
-    revalidatePath('/dashboard')
-  }
-
-  const { data: occurrences, error } = await supabase
+  const { data, error } = await supabase
     .from('occurrences')
     .select(`
       id,
@@ -99,7 +65,7 @@ export default async function DashboardPage() {
     `)
     .order('data_reporte', { ascending: false })
 
-  const lista: Occurrence[] = occurrences || []
+  const lista: Occurrence[] = data || []
 
   const total = lista.length
   const emAberto = lista.filter(
@@ -214,9 +180,6 @@ export default async function DashboardPage() {
               <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
                 Observações
               </th>
-              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
-                Ação
-              </th>
             </tr>
           </thead>
 
@@ -224,7 +187,7 @@ export default async function DashboardPage() {
             {lista.length === 0 ? (
               <tr>
                 <td
-                  colSpan={11}
+                  colSpan={10}
                   style={{
                     border: '1px solid #ddd',
                     padding: 8,
@@ -257,16 +220,8 @@ export default async function DashboardPage() {
                     {item.impacto || '-'}
                   </td>
 
-                  <td style={{ border: '1px solid #ddd', padding: 8, verticalAlign: 'top' }}>
-                    <form action={updateOccurrence} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <input type="hidden" name="id" value={item.id} />
-
-                      <select name="estado" defaultValue={item.estado || 'Em aberto'}>
-                        <option value="Em aberto">Em aberto</option>
-                        <option value="Em execução">Em execução</option>
-                        <option value="Concluída">Concluída</option>
-                        <option value="Encerrada">Encerrada</option>
-                      </select>
+                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                    {item.estado || '-'}
                   </td>
 
                   <td style={{ border: '1px solid #ddd', padding: 8 }}>
@@ -281,18 +236,8 @@ export default async function DashboardPage() {
                     {formatDate(item.data_encerramento)}
                   </td>
 
-                  <td style={{ border: '1px solid #ddd', padding: 8, verticalAlign: 'top' }}>
-                      <textarea
-                        name="observacoes"
-                        defaultValue={item.observacoes || ''}
-                        rows={3}
-                        style={{ minWidth: 180 }}
-                      />
-                  </td>
-
-                  <td style={{ border: '1px solid #ddd', padding: 8, verticalAlign: 'top' }}>
-                      <button type="submit">Guardar</button>
-                    </form>
+                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                    {item.observacoes || '-'}
                   </td>
                 </tr>
               ))
