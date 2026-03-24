@@ -1,33 +1,41 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 
-export default async function Dashboard() {
-  const supabase = await createClient()
+type Occurrence = {
+  id: string
+  ocorrencia: string | null
+  local_ocorrencia: string | null
+  categoria: string | null
+  prioridade: string | null
+  impacto: string | null
+  estado: string | null
+  data_reporte: string | null
+}
+
+function formatDate(dateString: string | null) {
+  if (!dateString) return '-'
+
+  const date = new Date(dateString)
+
+  return date.toLocaleDateString('pt-PT')
+}
+
+export default async function DashboardPage() {
+  const supabase = createClient()
 
   const { data: occurrences, error } = await supabase
     .from('occurrences')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(10)
+    .select(
+      'id, ocorrencia, local_ocorrencia, categoria, prioridade, impacto, estado, data_reporte'
+    )
+    .order('data_reporte', { ascending: false })
 
-  if (error) {
-    return <div>Erro ao carregar ocorrências: {error.message}</div>
-  }
+  const lista: Occurrence[] = occurrences || []
 
-  const total = occurrences?.length || 0
-
-  const emAberto =
-    occurrences?.filter((o) =>
-      ['Em aberto', 'Registada', 'Em análise', 'Em execução'].includes(o.estado)
-    ).length || 0
-
-  const concluidas =
-    occurrences?.filter((o) =>
-      ['Concluída', 'Concluidas', 'Resolvida', 'Encerrada'].includes(o.estado)
-    ).length || 0
-
-  const foraSla =
-    occurrences?.filter((o) => o.fora_sla === true).length || 0
+  const total = lista.length
+  const emAberto = lista.filter((o) => o.estado === 'Em aberto').length
+  const concluidas = lista.filter((o) => o.estado === 'Concluída' || o.estado === 'Concluida').length
+  const foraSla = lista.filter((o) => o.estado === 'Fora SLA').length
 
   return (
     <div style={{ padding: 20 }}>
@@ -36,7 +44,7 @@ export default async function Dashboard() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: 20,
+          marginBottom: 24,
         }}
       >
         <h1>Dashboard</h1>
@@ -44,90 +52,111 @@ export default async function Dashboard() {
         <Link
           href="/dashboard/nova-ocorrencia"
           style={{
-            padding: '10px 16px',
-            background: '#0f172a',
+            backgroundColor: '#0f172a',
             color: '#fff',
-            textDecoration: 'none',
+            padding: '10px 16px',
             borderRadius: 8,
-            fontWeight: 'bold',
+            textDecoration: 'none',
+            fontWeight: 600,
           }}
         >
           Nova Ocorrência
         </Link>
       </div>
 
+      {error && (
+        <p style={{ color: 'red', marginBottom: 16 }}>
+          Erro ao carregar dashboard: {error.message}
+        </p>
+      )}
+
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(4, 1fr)',
           gap: 16,
-          marginTop: 20,
+          marginBottom: 24,
         }}
       >
-        <div style={{ padding: 16, border: '1px solid #ccc', borderRadius: 8 }}>
+        <div style={{ border: '1px solid #ddd', borderRadius: 10, padding: 16 }}>
           <h3>Total</h3>
-          <p style={{ fontSize: 28, fontWeight: 'bold' }}>{total}</p>
+          <p style={{ fontSize: 18, fontWeight: 'bold' }}>{total}</p>
         </div>
 
-        <div style={{ padding: 16, border: '1px solid #ccc', borderRadius: 8 }}>
+        <div style={{ border: '1px solid #ddd', borderRadius: 10, padding: 16 }}>
           <h3>Em aberto</h3>
-          <p style={{ fontSize: 28, fontWeight: 'bold' }}>{emAberto}</p>
+          <p style={{ fontSize: 18, fontWeight: 'bold' }}>{emAberto}</p>
         </div>
 
-        <div style={{ padding: 16, border: '1px solid #ccc', borderRadius: 8 }}>
+        <div style={{ border: '1px solid #ddd', borderRadius: 10, padding: 16 }}>
           <h3>Concluídas</h3>
-          <p style={{ fontSize: 28, fontWeight: 'bold' }}>{concluidas}</p>
+          <p style={{ fontSize: 18, fontWeight: 'bold' }}>{concluidas}</p>
         </div>
 
-        <div style={{ padding: 16, border: '1px solid #ccc', borderRadius: 8 }}>
+        <div style={{ border: '1px solid #ddd', borderRadius: 10, padding: 16 }}>
           <h3>Fora SLA</h3>
-          <p style={{ fontSize: 28, fontWeight: 'bold' }}>{foraSla}</p>
+          <p style={{ fontSize: 18, fontWeight: 'bold' }}>{foraSla}</p>
         </div>
       </div>
 
-      <div style={{ marginTop: 30 }}>
-        <h2>Últimas ocorrências</h2>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12 }}>
+      <h2>Últimas ocorrências</h2>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table
+          style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            marginTop: 12,
+          }}
+        >
           <thead>
             <tr>
-              <th style={{ border: '1px solid #ccc', padding: 8, textAlign: 'left' }}>Ocorrência</th>
-              <th style={{ border: '1px solid #ccc', padding: 8, textAlign: 'left' }}>Categoria</th>
-              <th style={{ border: '1px solid #ccc', padding: 8, textAlign: 'left' }}>Estado</th>
-              <th style={{ border: '1px solid #ccc', padding: 8, textAlign: 'left' }}>Data</th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Ocorrência</th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Unidade</th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Categoria</th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Prioridade</th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Impacto</th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Estado</th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Data</th>
             </tr>
           </thead>
           <tbody>
-            {occurrences?.map((o) => (
-              <tr key={o.id}>
-                <td style={{ border: '1px solid #ccc', padding: 8 }}>
-                  {o.ocorrencia || '-'}
-                </td>
-                <td style={{ border: '1px solid #ccc', padding: 8 }}>
-                  {o.categoria || 'Sem categoria'}
-                </td>
-                <td style={{ border: '1px solid #ccc', padding: 8 }}>
-                  <span
-                    style={{
-                      padding: '4px 8px',
-                      borderRadius: 6,
-                      background:
-                        o.estado === 'Em aberto'
-                          ? '#ffeeba'
-                          : o.estado === 'Concluída' || o.estado === 'Encerrada'
-                          ? '#c3e6cb'
-                          : '#e2e3e5',
-                    }}
-                  >
-                    {o.estado || '-'}
-                  </span>
-                </td>
-                <td style={{ border: '1px solid #ccc', padding: 8 }}>
-                  {o.data_reporte
-                    ? new Date(o.data_reporte).toLocaleDateString('pt-PT')
-                    : '-'}
+            {lista.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={7}
+                  style={{ border: '1px solid #ddd', padding: 8, textAlign: 'center' }}
+                >
+                  Sem ocorrências registadas
                 </td>
               </tr>
-            ))}
+            ) : (
+              lista.map((item) => (
+                <tr key={item.id}>
+                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                    {item.ocorrencia || '-'}
+                  </td>
+                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                    {item.local_ocorrencia || '-'}
+                  </td>
+                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                    {item.categoria || 'Sem categoria'}
+                  </td>
+                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                    {item.prioridade || '-'}
+                  </td>
+                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                    {item.impacto || '-'}
+                  </td>
+                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                    {item.estado || '-'}
+                  </td>
+                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                    {formatDate(item.data_reporte)}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
