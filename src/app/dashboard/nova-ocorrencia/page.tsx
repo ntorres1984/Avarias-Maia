@@ -78,7 +78,7 @@ export default function NovaOcorrencia() {
     const { error } = await supabase.from('occurrences').insert([
       {
         unidade_id: unidadeSelecionada.id,
-        local_ocorrencia: unidadeSelecionada.nome,
+       local_ocorrencia: unidadeSelecionada?.nome ?? 'Sem unidade',
         ocorrencia: descricao,
         categoria,
         prioridade,
