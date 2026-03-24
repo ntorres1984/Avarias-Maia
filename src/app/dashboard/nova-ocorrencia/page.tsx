@@ -16,28 +16,39 @@ export default function NovaOcorrencia() {
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: any) => {
-    e.preventDefault()
-    setLoading(true)
+  e.preventDefault()
+  setLoading(true)
 
-    const { error } = await supabase.from('occurrences').insert([
-      {
-        local_ocorrencia: local,
-        ocorrencia: descricao,
-        categoria,
-      
-        estado: 'Em aberto'
-      }
-    ])
+  const { data: unidade, error: unidadeError } = await supabase
+    .from('units')
+    .select('id, nome')
+    .eq('nome', local)
+    .single()
 
-    if (error) {
-      alert('Erro ao guardar: ' + error.message)
-      setLoading(false)
-      return
-    }
-
-    router.push('/dashboard')
+  if (unidadeError || !unidade) {
+    alert('Unidade não encontrada. Confirma o nome exatamente como está registado.')
+    setLoading(false)
+    return
   }
 
+  const { error } = await supabase.from('occurrences').insert([
+    {
+      unidade_id: unidade.id,
+      local_ocorrencia: local,
+      ocorrencia: descricao,
+      categoria,
+      estado: 'Em aberto'
+    }
+  ])
+
+  if (error) {
+    alert('Erro ao guardar: ' + error.message)
+    setLoading(false)
+    return
+  }
+
+  router.push('/dashboard')
+}
   return (
     <div style={{ padding: 20 }}>
       <h1>Nova Ocorrência</h1>
