@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 
 type UnitRelation =
@@ -34,6 +35,15 @@ function formatDate(dateString: string | null) {
   return date.toLocaleDateString('pt-PT')
 }
 
+function formatDateTime(dateString: string | null) {
+  if (!dateString) return '-'
+
+  const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) return '-'
+
+  return date.toLocaleString('pt-PT')
+}
+
 function getUnitName(units: UnitRelation, fallback: string | null) {
   if (Array.isArray(units)) {
     return units[0]?.nome || fallback || '-'
@@ -44,6 +54,45 @@ function getUnitName(units: UnitRelation, fallback: string | null) {
 
 export default async function DashboardPage() {
   const supabase = createClient()
+
+  async function updateOccurrence(formData: FormData) {
+    'use server'
+
+    const supabase = createClient()
+
+    const id = String(formData.get('id') || '')
+    const estado = String(formData.get('estado') || '')
+    const observacoes = String(formData.get('observacoes') || '').trim()
+
+    const agora = new Date().toISOString()
+
+    const updateData: {
+      estado: string
+      observacoes: string | null
+      data_estado: string
+      data_encerramento: string | null
+    } = {
+      estado,
+      observacoes: observacoes || null,
+      data_estado: agora,
+      data_encerramento: null,
+    }
+
+    if (estado === 'Concluída' || estado === 'Encerrada') {
+      updateData.data_encerramento = agora
+    }
+
+    const { error } = await supabase
+      .from('occurrences')
+      .update(updateData)
+      .eq('id', id)
+
+    if (error) {
+      console.error('Erro ao atualizar ocorrência:', error.message)
+    }
+
+    revalidatePath('/dashboard')
+  }
 
   const { data, error } = await supabase
     .from('occurrences')
@@ -172,13 +221,16 @@ export default async function DashboardPage() {
                 Data reporte
               </th>
               <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
-                Data estado
+                Data alteração estado
               </th>
               <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
                 Data fim
               </th>
               <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
                 Observações
+              </th>
+              <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
+                Guardar
               </th>
             </tr>
           </thead>
@@ -187,7 +239,7 @@ export default async function DashboardPage() {
             {lista.length === 0 ? (
               <tr>
                 <td
-                  colSpan={10}
+                  colSpan={11}
                   style={{
                     border: '1px solid #ddd',
                     padding: 8,
@@ -198,49 +250,78 @@ export default async function DashboardPage() {
                 </td>
               </tr>
             ) : (
-              lista.map((item) => (
-                <tr key={item.id}>
-                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                    {item.ocorrencia || '-'}
-                  </td>
+              lista.map((item) => {
+                const formId = `form-${item.id}`
 
-                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                    {getUnitName(item.units, item.local_ocorrencia)}
-                  </td>
+                return (
+                  <tr key={item.id}>
+                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                      {item.ocorrencia || '-'}
+                    </td>
 
-                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                    {item.categoria || 'Sem categoria'}
-                  </td>
+                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                      {getUnitName(item.units, item.local_ocorrencia)}
+                    </td>
 
-                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                    {item.prioridade || '-'}
-                  </td>
+                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                      {item.categoria || 'Sem categoria'}
+                    </td>
 
-                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                    {item.impacto || '-'}
-                  </td>
+                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                      {item.prioridade || '-'}
+                    </td>
 
-                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                    {item.estado || '-'}
-                  </td>
+                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                      {item.impacto || '-'}
+                    </td>
 
-                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                    {formatDate(item.data_reporte)}
-                  </td>
+                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                      <form id={formId} action={updateOccurrence}>
+                        <input type="hidden" name="id" value={item.id} />
+                      </form>
 
-                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                    {formatDate(item.data_estado)}
-                  </td>
+                      <select
+                        name="estado"
+                        form={formId}
+                        defaultValue={item.estado || 'Em aberto'}
+                      >
+                        <option value="Em aberto">Em aberto</option>
+                        <option value="Em execução">Em execução</option>
+                        <option value="Concluída">Concluída</option>
+                        <option value="Encerrada">Encerrada</option>
+                      </select>
+                    </td>
 
-                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                    {formatDate(item.data_encerramento)}
-                  </td>
+                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                      {formatDate(item.data_reporte)}
+                    </td>
 
-                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                    {item.observacoes || '-'}
-                  </td>
-                </tr>
-              ))
+                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                      {formatDateTime(item.data_estado)}
+                    </td>
+
+                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                      {formatDateTime(item.data_encerramento)}
+                    </td>
+
+                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                      <textarea
+                        name="observacoes"
+                        form={formId}
+                        defaultValue={item.observacoes || ''}
+                        rows={3}
+                        style={{ minWidth: 220 }}
+                      />
+                    </td>
+
+                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                      <button type="submit" form={formId}>
+                        Guardar
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>
