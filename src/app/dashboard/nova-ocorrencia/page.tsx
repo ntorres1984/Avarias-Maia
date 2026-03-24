@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 type Unit = {
@@ -33,7 +32,6 @@ const prioridades = ['Baixa', 'Média', 'Alta']
 const impactos = ['Baixo', 'Médio', 'Alto', 'Crítico']
 
 export default function NovaOcorrenciaPage() {
-  const router = useRouter()
   const supabase = createClient()
 
   const [units, setUnits] = useState<Unit[]>([])
@@ -64,30 +62,61 @@ export default function NovaOcorrenciaPage() {
     e.preventDefault()
     setLoading(true)
 
-    const unidadeSelecionada = units.find((u) => u.id === unidadeId)
-
-    if (!unidadeSelecionada) {
-      alert('Seleciona uma unidade válida')
+    if (!unidadeId) {
+      alert('Seleciona uma unidade.')
       setLoading(false)
       return
     }
 
+    if (!descricao.trim()) {
+      alert('Preenche a descrição.')
+      setLoading(false)
+      return
+    }
+
+    if (!categoria) {
+      alert('Seleciona a categoria.')
+      setLoading(false)
+      return
+    }
+
+    if (!prioridade) {
+      alert('Seleciona a prioridade.')
+      setLoading(false)
+      return
+    }
+
+    if (!impacto) {
+      alert('Seleciona o impacto.')
+      setLoading(false)
+      return
+    }
+
+    const unidadeSelecionada = units.find((u) => u.id === unidadeId)
+
+    if (!unidadeSelecionada) {
+      alert('Unidade inválida.')
+      setLoading(false)
+      return
+    }
+
+    const hoje = new Date().toISOString().slice(0, 10)
     const agora = new Date().toISOString()
 
-    const { error } = await supabase.from('occurrences').insert([
-      {
-        unidade_id: unidadeSelecionada.id,
-        local_ocorrencia: unidadeSelecionada.nome,
-        ocorrencia: descricao,
-        categoria,
-        prioridade,
-        impacto,
-        estado: 'Em aberto',
-        data_reporte: agora,
-        data_estado: agora,
-        observacoes: observacoes || '',
-      },
-    ])
+    const payload = {
+      unidade_id: unidadeSelecionada.id,
+      local_ocorrencia: unidadeSelecionada.nome,
+      ocorrencia: descricao.trim(),
+      categoria,
+      prioridade,
+      impacto,
+      estado: 'Em aberto',
+      data_reporte: hoje,
+      data_estado: agora,
+      observacoes: observacoes.trim() || null,
+    }
+
+    const { error } = await supabase.from('occurrences').insert([payload])
 
     if (error) {
       alert('Erro ao guardar: ' + error.message)
@@ -95,8 +124,8 @@ export default function NovaOcorrenciaPage() {
       return
     }
 
-    router.push('/dashboard')
-    router.refresh()
+    alert('Ocorrência registada com sucesso.')
+    window.location.href = '/dashboard'
   }
 
   return (
@@ -152,9 +181,9 @@ export default function NovaOcorrenciaPage() {
           required
         >
           <option value="">Prioridade</option>
-          {prioridades.map((p) => (
-            <option key={p} value={p}>
-              {p}
+          {prioridades.map((item) => (
+            <option key={item} value={item}>
+              {item}
             </option>
           ))}
         </select>
@@ -165,9 +194,9 @@ export default function NovaOcorrenciaPage() {
           required
         >
           <option value="">Impacto</option>
-          {impactos.map((i) => (
-            <option key={i} value={i}>
-              {i}
+          {impactos.map((item) => (
+            <option key={item} value={item}>
+              {item}
             </option>
           ))}
         </select>
@@ -176,8 +205,8 @@ export default function NovaOcorrenciaPage() {
           placeholder="Observações"
           value={observacoes}
           onChange={(e) => setObservacoes(e.target.value)}
-          rows={4}
-          style={{ minWidth: 260 }}
+          rows={3}
+          style={{ minWidth: 220 }}
         />
 
         <button type="submit" disabled={loading}>
