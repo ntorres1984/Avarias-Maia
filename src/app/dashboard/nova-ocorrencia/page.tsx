@@ -100,8 +100,9 @@ export default function NovaOcorrenciaPage() {
       return
     }
 
-    const hoje = new Date().toISOString().slice(0, 10)
-    const agora = new Date().toISOString()
+    const agora = new Date()
+    const agoraIso = agora.toISOString()
+    const hoje = agoraIso.slice(0, 10)
 
     const payload = {
       unidade_id: unidadeSelecionada.id,
@@ -112,7 +113,7 @@ export default function NovaOcorrenciaPage() {
       impacto,
       estado: 'Em aberto',
       data_reporte: hoje,
-      data_estado: agora,
+      data_estado: agoraIso,
       observacoes: observacoes.trim() || null,
     }
 
@@ -124,8 +125,7 @@ export default function NovaOcorrenciaPage() {
       return
     }
 
-    alert('Ocorrência registada com sucesso.')
-    window.location.href = '/dashboard'
+    window.location.href = '/dashboard?refresh=' + Date.now()
   }
 
   return (
