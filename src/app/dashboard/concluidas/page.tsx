@@ -35,6 +35,13 @@ function formatDate(dateString: string | null) {
   return date.toLocaleDateString('pt-PT')
 }
 
+function formatDateTime(dateString: string | null) {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) return '-'
+  return date.toLocaleString('pt-PT')
+}
+
 function getUnitName(units: UnitRelation, fallback: string | null) {
   if (Array.isArray(units)) {
     return units[0]?.nome || fallback || '-'
@@ -63,9 +70,9 @@ function exportToCSV(lista: Occurrence[]) {
     item.prioridade || '',
     item.impacto || '',
     item.estado || '',
-    item.data_reporte || '',
-    item.data_estado || '',
-    item.data_encerramento || '',
+    formatDate(item.data_reporte),
+    formatDateTime(item.data_estado),
+    formatDateTime(item.data_encerramento),
     item.observacoes || '',
   ])
 
@@ -75,7 +82,11 @@ function exportToCSV(lista: Occurrence[]) {
     )
     .join('\n')
 
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const bom = '\uFEFF'
+  const blob = new Blob([bom + csvContent], {
+    type: 'text/csv;charset=utf-8;',
+  })
+
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
@@ -174,7 +185,7 @@ export default function ConcluidasPage() {
       )}
 
       <div style={{ marginBottom: 16 }}>
-        <label>Filtrar por unidade: </label>
+        <label>Filtrar por unidade: </label>{' '}
         <select
           value={filtroUnidade}
           onChange={(e) => setFiltroUnidade(e.target.value)}
@@ -216,7 +227,14 @@ export default function ConcluidasPage() {
             <tbody>
               {listaFiltrada.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={{ border: '1px solid #ddd', padding: 8, textAlign: 'center' }}>
+                  <td
+                    colSpan={10}
+                    style={{
+                      border: '1px solid #ddd',
+                      padding: 8,
+                      textAlign: 'center',
+                    }}
+                  >
                     Sem ocorrências concluídas
                   </td>
                 </tr>
@@ -224,14 +242,16 @@ export default function ConcluidasPage() {
                 listaFiltrada.map((item) => (
                   <tr key={item.id}>
                     <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.ocorrencia || '-'}</td>
-                    <td style={{ border: '1px solid #ddd', padding: 8 }}>{getUnitName(item.units, item.local_ocorrencia)}</td>
+                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                      {getUnitName(item.units, item.local_ocorrencia)}
+                    </td>
                     <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.categoria || 'Sem categoria'}</td>
                     <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.prioridade || '-'}</td>
                     <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.impacto || '-'}</td>
                     <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.estado || '-'}</td>
                     <td style={{ border: '1px solid #ddd', padding: 8 }}>{formatDate(item.data_reporte)}</td>
-                    <td style={{ border: '1px solid #ddd', padding: 8 }}>{formatDate(item.data_estado)}</td>
-                    <td style={{ border: '1px solid #ddd', padding: 8 }}>{formatDate(item.data_encerramento)}</td>
+                    <td style={{ border: '1px solid #ddd', padding: 8 }}>{formatDateTime(item.data_estado)}</td>
+                    <td style={{ border: '1px solid #ddd', padding: 8 }}>{formatDateTime(item.data_encerramento)}</td>
                     <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.observacoes || '-'}</td>
                   </tr>
                 ))
