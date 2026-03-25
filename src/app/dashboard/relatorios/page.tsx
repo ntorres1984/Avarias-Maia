@@ -25,22 +25,27 @@ type Occurrence = {
   data_estado: string | null
   data_encerramento: string | null
   observacoes: string | null
-  fora_sla?: boolean | null
   units: UnitRelation
 }
 
-function formatDate(dateString: string | null) {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return '-'
-  return date.toLocaleDateString('pt-PT')
+type UnitSummary = {
+  unidade: string
+  total: number
+  emAberto: number
+  emAnalise: number
+  emExecucao: number
+  concluidas: number
+  encerradas: number
 }
 
-function formatDateTime(dateString: string | null) {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return '-'
-  return date.toLocaleString('pt-PT')
+type CategorySummary = {
+  categoria: string
+  total: number
+  emAberto: number
+  emAnalise: number
+  emExecucao: number
+  concluidas: number
+  encerradas: number
 }
 
 function getUnitName(units: UnitRelation, fallback: string | null) {
@@ -50,31 +55,29 @@ function getUnitName(units: UnitRelation, fallback: string | null) {
   return units?.nome || fallback || '-'
 }
 
-function exportToCSV(lista: Occurrence[]) {
+function normalizeCategoria(value: string | null) {
+  return value || 'Sem categoria'
+}
+
+function exportUnitsCSV(lista: UnitSummary[]) {
   const headers = [
-    'Ocorrência',
     'Unidade',
-    'Categoria',
-    'Prioridade',
-    'Impacto',
-    'Estado',
-    'Data reporte',
-    'Data alteração estado',
-    'Data fim',
-    'Observações',
+    'Total',
+    'Em aberto',
+    'Em análise',
+    'Em execução',
+    'Concluídas',
+    'Encerradas',
   ]
 
   const rows = lista.map((item) => [
-    item.ocorrencia || '',
-    getUnitName(item.units, item.local_ocorrencia),
-    item.categoria || '',
-    item.prioridade || '',
-    item.impacto || '',
-    item.estado || '',
-    formatDate(item.data_reporte),
-    formatDateTime(item.data_estado),
-    formatDateTime(item.data_encerramento),
-    item.observacoes || '',
+    item.unidade,
+    item.total,
+    item.emAberto,
+    item.emAnalise,
+    item.emExecucao,
+    item.concluidas,
+    item.encerradas,
   ])
 
   const csvContent = [headers, ...rows]
@@ -91,7 +94,49 @@ function exportToCSV(lista: Occurrence[]) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.setAttribute('download', 'ocorrencias_dashboard.csv')
+  link.setAttribute('download', 'relatorio_unidades.csv')
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+function exportCategoriesCSV(lista: CategorySummary[]) {
+  const headers = [
+    'Categoria',
+    'Total',
+    'Em aberto',
+    'Em análise',
+    'Em execução',
+    'Concluídas',
+    'Encerradas',
+  ]
+
+  const rows = lista.map((item) => [
+    item.categoria,
+    item.total,
+    item.emAberto,
+    item.emAnalise,
+    item.emExecucao,
+    item.concluidas,
+    item.encerradas,
+  ])
+
+  const csvContent = [headers, ...rows]
+    .map((row) =>
+      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(';')
+    )
+    .join('\n')
+
+  const bom = '\uFEFF'
+  const blob = new Blob([bom + csvContent], {
+    type: 'text/csv;charset=utf-8;',
+  })
+
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', 'relatorio_categorias.csv')
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
@@ -122,10 +167,10 @@ const styles = {
     fontWeight: 700,
   } as const,
 
-  actions: {
-    display: 'flex',
-    gap: '12px',
-    flexWrap: 'wrap',
+  subLink: {
+    color: '#475569',
+    textDecoration: 'none',
+    fontWeight: 600,
   } as const,
 
   btn: {
@@ -143,54 +188,9 @@ const styles = {
     fontSize: '14px',
   } as const,
 
-  btnPrimary: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '10px 16px',
-    borderRadius: '10px',
-    border: '1px solid #0f172a',
-    backgroundColor: '#0f172a',
-    color: '#ffffff',
-    textDecoration: 'none',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontSize: '14px',
-  } as const,
-
-  btnBlue: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '10px 16px',
-    borderRadius: '10px',
-    border: '1px solid #1d4ed8',
-    backgroundColor: '#1d4ed8',
-    color: '#ffffff',
-    textDecoration: 'none',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontSize: '14px',
-  } as const,
-
-  btnGray: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '10px 16px',
-    borderRadius: '10px',
-    border: '1px solid #475569',
-    backgroundColor: '#475569',
-    color: '#ffffff',
-    textDecoration: 'none',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontSize: '14px',
-  } as const,
-
   statsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
     gap: '16px',
     marginBottom: '24px',
   } as const,
@@ -217,44 +217,20 @@ const styles = {
     color: '#0f172a',
   } as const,
 
-  sectionTitle: {
-    margin: '0 0 16px 0',
-    fontSize: '30px',
-    fontWeight: 700,
-  } as const,
-
-  filtersBox: {
-    backgroundColor: '#ffffff',
-    border: '1px solid #e2e8f0',
-    borderRadius: '16px',
-    padding: '16px',
-    marginBottom: '18px',
+  sectionHeader: {
     display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     gap: '16px',
+    marginTop: '24px',
+    marginBottom: '12px',
     flexWrap: 'wrap',
-    alignItems: 'flex-end',
   } as const,
 
-  filterGroup: {
-    minWidth: '180px',
-  } as const,
-
-  label: {
-    display: 'block',
-    marginBottom: '6px',
-    fontSize: '14px',
-    fontWeight: 600,
-    color: '#334155',
-  } as const,
-
-  select: {
-    width: '100%',
-    minHeight: '40px',
-    borderRadius: '10px',
-    border: '1px solid #cbd5e1',
-    padding: '8px 12px',
-    backgroundColor: '#ffffff',
-    fontSize: '14px',
+  sectionTitle: {
+    margin: 0,
+    fontSize: '28px',
+    fontWeight: 700,
   } as const,
 
   tableWrapper: {
@@ -263,12 +239,13 @@ const styles = {
     borderRadius: '16px',
     overflow: 'auto',
     boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+    marginBottom: '32px',
   } as const,
 
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
-    minWidth: '1100px',
+    minWidth: '900px',
   },
 
   th: {
@@ -279,48 +256,18 @@ const styles = {
     fontSize: '14px',
     fontWeight: 700,
     color: '#334155',
-    whiteSpace: 'nowrap' as const,
   },
 
   td: {
     borderBottom: '1px solid #f1f5f9',
     padding: '14px 12px',
     fontSize: '14px',
-    verticalAlign: 'top' as const,
   },
 
   empty: {
     padding: '24px',
     textAlign: 'center' as const,
     color: '#64748b',
-  } as const,
-
-  badgeBase: {
-    display: 'inline-block',
-    padding: '6px 10px',
-    borderRadius: '999px',
-    fontSize: '12px',
-    fontWeight: 700,
-    whiteSpace: 'nowrap' as const,
-  },
-
-  obsCell: {
-    maxWidth: '280px',
-    whiteSpace: 'normal' as const,
-    wordBreak: 'break-word' as const,
-  },
-
-  editBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0f172a',
-    color: '#fff',
-    padding: '8px 12px',
-    borderRadius: '8px',
-    textDecoration: 'none',
-    fontWeight: 600,
-    fontSize: '13px',
   } as const,
 
   error: {
@@ -333,72 +280,12 @@ const styles = {
   } as const,
 }
 
-function getEstadoBadgeStyle(estado: string | null) {
-  if (estado === 'Concluída') {
-    return { ...styles.badgeBase, backgroundColor: '#dcfce7', color: '#166534' }
-  }
-
-  if (estado === 'Encerrada') {
-    return { ...styles.badgeBase, backgroundColor: '#e2e8f0', color: '#334155' }
-  }
-
-  if (estado === 'Em execução') {
-    return { ...styles.badgeBase, backgroundColor: '#dbeafe', color: '#1d4ed8' }
-  }
-
-  if (estado === 'Em análise') {
-    return { ...styles.badgeBase, backgroundColor: '#fef3c7', color: '#92400e' }
-  }
-
-  return { ...styles.badgeBase, backgroundColor: '#ede9fe', color: '#6d28d9' }
-}
-
-function getImpactoBadgeStyle(impacto: string | null) {
-  if (impacto === 'Crítico') {
-    return { ...styles.badgeBase, backgroundColor: '#fee2e2', color: '#b91c1c' }
-  }
-
-  if (impacto === 'Alto') {
-    return { ...styles.badgeBase, backgroundColor: '#ffedd5', color: '#c2410c' }
-  }
-
-  if (impacto === 'Médio') {
-    return { ...styles.badgeBase, backgroundColor: '#fef3c7', color: '#a16207' }
-  }
-
-  if (impacto === 'Baixo') {
-    return { ...styles.badgeBase, backgroundColor: '#dcfce7', color: '#166534' }
-  }
-
-  return { ...styles.badgeBase, backgroundColor: '#f1f5f9', color: '#475569' }
-}
-
-function getPrioridadeBadgeStyle(prioridade: string | null) {
-  if (prioridade === 'Alta') {
-    return { ...styles.badgeBase, backgroundColor: '#fee2e2', color: '#b91c1c' }
-  }
-
-  if (prioridade === 'Média') {
-    return { ...styles.badgeBase, backgroundColor: '#fef3c7', color: '#92400e' }
-  }
-
-  if (prioridade === 'Baixa') {
-    return { ...styles.badgeBase, backgroundColor: '#dcfce7', color: '#166534' }
-  }
-
-  return { ...styles.badgeBase, backgroundColor: '#f1f5f9', color: '#475569' }
-}
-
-export default function DashboardPage() {
+export default function RelatoriosPage() {
   const supabase = createClient()
 
   const [rows, setRows] = useState<Occurrence[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
-
-  const [filtroUnidade, setFiltroUnidade] = useState('')
-  const [filtroCategoria, setFiltroCategoria] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState('')
 
   async function loadOccurrences() {
     setLoading(true)
@@ -418,7 +305,6 @@ export default function DashboardPage() {
         data_estado,
         data_encerramento,
         observacoes,
-        fora_sla,
         units (
           nome
         )
@@ -440,242 +326,219 @@ export default function DashboardPage() {
     loadOccurrences()
   }, [])
 
-  const total = rows.length
+  const resumoPorUnidade = useMemo(() => {
+    const map = new Map<string, UnitSummary>()
 
-  const emAberto = rows.filter(
+    rows.forEach((item) => {
+      const unidade = getUnitName(item.units, item.local_ocorrencia)
+      const estado = item.estado || '-'
+
+      if (!map.has(unidade)) {
+        map.set(unidade, {
+          unidade,
+          total: 0,
+          emAberto: 0,
+          emAnalise: 0,
+          emExecucao: 0,
+          concluidas: 0,
+          encerradas: 0,
+        })
+      }
+
+      const current = map.get(unidade)!
+      current.total += 1
+
+      if (estado === 'Em aberto') current.emAberto += 1
+      if (estado === 'Em análise') current.emAnalise += 1
+      if (estado === 'Em execução') current.emExecucao += 1
+      if (estado === 'Concluída') current.concluidas += 1
+      if (estado === 'Encerrada') current.encerradas += 1
+    })
+
+    return Array.from(map.values()).sort((a, b) =>
+      a.unidade.localeCompare(b.unidade)
+    )
+  }, [rows])
+
+  const resumoPorCategoria = useMemo(() => {
+    const map = new Map<string, CategorySummary>()
+
+    rows.forEach((item) => {
+      const categoria = normalizeCategoria(item.categoria)
+      const estado = item.estado || '-'
+
+      if (!map.has(categoria)) {
+        map.set(categoria, {
+          categoria,
+          total: 0,
+          emAberto: 0,
+          emAnalise: 0,
+          emExecucao: 0,
+          concluidas: 0,
+          encerradas: 0,
+        })
+      }
+
+      const current = map.get(categoria)!
+      current.total += 1
+
+      if (estado === 'Em aberto') current.emAberto += 1
+      if (estado === 'Em análise') current.emAnalise += 1
+      if (estado === 'Em execução') current.emExecucao += 1
+      if (estado === 'Concluída') current.concluidas += 1
+      if (estado === 'Encerrada') current.encerradas += 1
+    })
+
+    return Array.from(map.values()).sort((a, b) =>
+      a.categoria.localeCompare(b.categoria)
+    )
+  }, [rows])
+
+  const total = rows.length
+  const totalConcluidas = rows.filter(
+    (o) => o.estado === 'Concluída' || o.estado === 'Encerrada'
+  ).length
+  const totalAbertas = rows.filter(
     (o) =>
       o.estado === 'Em aberto' ||
       o.estado === 'Em análise' ||
       o.estado === 'Em execução'
   ).length
 
-  const concluidas = rows.filter(
-    (o) => o.estado === 'Concluída' || o.estado === 'Encerrada'
-  ).length
-
-  const foraSla = rows.filter((o) => o.fora_sla === true).length
-
-  const listaDashboard = rows.filter(
-    (o) => o.estado !== 'Concluída' && o.estado !== 'Encerrada'
-  )
-
-  const unidades = useMemo(() => {
-    const values = rows
-      .map((item) => getUnitName(item.units, item.local_ocorrencia))
-      .filter((value) => value && value !== '-')
-
-    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b))
-  }, [rows])
-
-  const categorias = useMemo(() => {
-    const values = rows.map((item) => item.categoria || 'Sem categoria')
-    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b))
-  }, [rows])
-
-  const estados = useMemo(() => {
-    const values = listaDashboard.map((item) => item.estado || '-')
-    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b))
-  }, [listaDashboard])
-
-  const listaFiltrada = useMemo(() => {
-    return listaDashboard.filter((item) => {
-      const unidade = getUnitName(item.units, item.local_ocorrencia)
-      const categoria = item.categoria || 'Sem categoria'
-      const estado = item.estado || '-'
-
-      const matchUnidade = !filtroUnidade || unidade === filtroUnidade
-      const matchCategoria = !filtroCategoria || categoria === filtroCategoria
-      const matchEstado = !filtroEstado || estado === filtroEstado
-
-      return matchUnidade && matchCategoria && matchEstado
-    })
-  }, [listaDashboard, filtroUnidade, filtroCategoria, filtroEstado])
-
   return (
     <div style={styles.page}>
       <div style={styles.header}>
-        <h1 style={styles.title}>Dashboard</h1>
-
-        <div style={styles.actions}>
-          <button style={styles.btn} onClick={() => exportToCSV(rows)}>
-            Exportar CSV
-          </button>
-
-          <Link href="/dashboard/relatorios" style={styles.btnBlue}>
-            Relatórios
-          </Link>
-
-          <Link href="/dashboard/concluidas" style={styles.btnGray}>
-            Ver concluídas
-          </Link>
-
-          <Link href="/dashboard/nova-ocorrencia" style={styles.btnPrimary}>
-            Nova Ocorrência
-          </Link>
+        <div>
+          <h1 style={styles.title}>Relatórios de gestão</h1>
+          <div style={{ marginTop: 8 }}>
+            <Link href="/dashboard" style={styles.subLink}>
+              ← Voltar ao dashboard
+            </Link>
+          </div>
         </div>
       </div>
 
-      {errorMessage && <div style={styles.error}>Erro ao carregar dashboard: {errorMessage}</div>}
+      {errorMessage && (
+        <div style={styles.error}>
+          Erro ao carregar relatórios: {errorMessage}
+        </div>
+      )}
 
       <div style={styles.statsGrid}>
         <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Total</h3>
+          <h3 style={styles.cardTitle}>Total de ocorrências</h3>
           <p style={styles.cardValue}>{total}</p>
         </div>
 
         <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Em aberto</h3>
-          <p style={styles.cardValue}>{emAberto}</p>
+          <h3 style={styles.cardTitle}>Ocorrências abertas</h3>
+          <p style={styles.cardValue}>{totalAbertas}</p>
         </div>
 
         <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Concluídas</h3>
-          <p style={styles.cardValue}>{concluidas}</p>
-        </div>
-
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Fora SLA</h3>
-          <p style={styles.cardValue}>{foraSla}</p>
-        </div>
-      </div>
-
-      <h2 style={styles.sectionTitle}>Ocorrências em aberto</h2>
-
-      <div style={styles.filtersBox}>
-        <div style={styles.filterGroup}>
-          <label style={styles.label}>Unidade</label>
-          <select
-            style={styles.select}
-            value={filtroUnidade}
-            onChange={(e) => setFiltroUnidade(e.target.value)}
-          >
-            <option value="">Todas</option>
-            {unidades.map((unidade) => (
-              <option key={unidade} value={unidade}>
-                {unidade}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div style={styles.filterGroup}>
-          <label style={styles.label}>Categoria</label>
-          <select
-            style={styles.select}
-            value={filtroCategoria}
-            onChange={(e) => setFiltroCategoria(e.target.value)}
-          >
-            <option value="">Todas</option>
-            {categorias.map((categoria) => (
-              <option key={categoria} value={categoria}>
-                {categoria}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div style={styles.filterGroup}>
-          <label style={styles.label}>Estado</label>
-          <select
-            style={styles.select}
-            value={filtroEstado}
-            onChange={(e) => setFiltroEstado(e.target.value)}
-          >
-            <option value="">Todos</option>
-            {estados.map((estado) => (
-              <option key={estado} value={estado}>
-                {estado}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <button
-            style={styles.btn}
-            onClick={() => {
-              setFiltroUnidade('')
-              setFiltroCategoria('')
-              setFiltroEstado('')
-            }}
-          >
-            Limpar filtros
-          </button>
+          <h3 style={styles.cardTitle}>Ocorrências concluídas</h3>
+          <p style={styles.cardValue}>{totalConcluidas}</p>
         </div>
       </div>
 
       {loading ? (
         <div style={styles.card}>A carregar...</div>
       ) : (
-        <div style={styles.tableWrapper}>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Ocorrência</th>
-                <th style={styles.th}>Unidade</th>
-                <th style={styles.th}>Categoria</th>
-                <th style={styles.th}>Prioridade</th>
-                <th style={styles.th}>Impacto</th>
-                <th style={styles.th}>Estado</th>
-                <th style={styles.th}>Data reporte</th>
-                <th style={styles.th}>Observações</th>
-                <th style={styles.th}>Ações</th>
-              </tr>
-            </thead>
+        <>
+          <div style={styles.sectionHeader}>
+            <h2 style={styles.sectionTitle}>Resumo por unidade</h2>
+            <button
+              style={styles.btn}
+              onClick={() => exportUnitsCSV(resumoPorUnidade)}
+            >
+              Exportar unidades CSV
+            </button>
+          </div>
 
-            <tbody>
-              {listaFiltrada.length === 0 ? (
+          <div style={styles.tableWrapper}>
+            <table style={styles.table}>
+              <thead>
                 <tr>
-                  <td colSpan={9} style={styles.empty}>
-                    Sem ocorrências em aberto para os filtros escolhidos
-                  </td>
+                  <th style={styles.th}>Unidade</th>
+                  <th style={styles.th}>Total</th>
+                  <th style={styles.th}>Em aberto</th>
+                  <th style={styles.th}>Em análise</th>
+                  <th style={styles.th}>Em execução</th>
+                  <th style={styles.th}>Concluídas</th>
+                  <th style={styles.th}>Encerradas</th>
                 </tr>
-              ) : (
-                listaFiltrada.map((item) => (
-                  <tr key={item.id}>
-                    <td style={styles.td}>{item.ocorrencia || '-'}</td>
-
-                    <td style={styles.td}>
-                      {getUnitName(item.units, item.local_ocorrencia)}
-                    </td>
-
-                    <td style={styles.td}>{item.categoria || 'Sem categoria'}</td>
-
-                    <td style={styles.td}>
-                      <span style={getPrioridadeBadgeStyle(item.prioridade)}>
-                        {item.prioridade || '-'}
-                      </span>
-                    </td>
-
-                    <td style={styles.td}>
-                      <span style={getImpactoBadgeStyle(item.impacto)}>
-                        {item.impacto || '-'}
-                      </span>
-                    </td>
-
-                    <td style={styles.td}>
-                      <span style={getEstadoBadgeStyle(item.estado)}>
-                        {item.estado || '-'}
-                      </span>
-                    </td>
-
-                    <td style={styles.td}>{formatDate(item.data_reporte)}</td>
-
-                    <td style={{ ...styles.td, ...styles.obsCell }}>
-                      {item.observacoes || '-'}
-                    </td>
-
-                    <td style={styles.td}>
-                      <Link href={`/dashboard/ocorrencia/${item.id}`} style={styles.editBtn}>
-                        Editar
-                      </Link>
+              </thead>
+              <tbody>
+                {resumoPorUnidade.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={styles.empty}>
+                      Sem dados
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  resumoPorUnidade.map((item) => (
+                    <tr key={item.unidade}>
+                      <td style={styles.td}>{item.unidade}</td>
+                      <td style={styles.td}>{item.total}</td>
+                      <td style={styles.td}>{item.emAberto}</td>
+                      <td style={styles.td}>{item.emAnalise}</td>
+                      <td style={styles.td}>{item.emExecucao}</td>
+                      <td style={styles.td}>{item.concluidas}</td>
+                      <td style={styles.td}>{item.encerradas}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={styles.sectionHeader}>
+            <h2 style={styles.sectionTitle}>Resumo por categoria</h2>
+            <button
+              style={styles.btn}
+              onClick={() => exportCategoriesCSV(resumoPorCategoria)}
+            >
+              Exportar categorias CSV
+            </button>
+          </div>
+
+          <div style={styles.tableWrapper}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Categoria</th>
+                  <th style={styles.th}>Total</th>
+                  <th style={styles.th}>Em aberto</th>
+                  <th style={styles.th}>Em análise</th>
+                  <th style={styles.th}>Em execução</th>
+                  <th style={styles.th}>Concluídas</th>
+                  <th style={styles.th}>Encerradas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resumoPorCategoria.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={styles.empty}>
+                      Sem dados
+                    </td>
+                  </tr>
+                ) : (
+                  resumoPorCategoria.map((item) => (
+                    <tr key={item.categoria}>
+                      <td style={styles.td}>{item.categoria}</td>
+                      <td style={styles.td}>{item.total}</td>
+                      <td style={styles.td}>{item.emAberto}</td>
+                      <td style={styles.td}>{item.emAnalise}</td>
+                      <td style={styles.td}>{item.emExecucao}</td>
+                      <td style={styles.td}>{item.concluidas}</td>
+                      <td style={styles.td}>{item.encerradas}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   )
