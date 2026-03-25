@@ -25,7 +25,6 @@ type Occurrence = {
   data_estado: string | null
   data_encerramento: string | null
   observacoes: string | null
-  fora_sla?: boolean | null
   units: UnitRelation
 }
 
@@ -91,7 +90,7 @@ function exportToCSV(lista: Occurrence[]) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.setAttribute('download', 'ocorrencias_dashboard.csv')
+  link.setAttribute('download', 'ocorrencias_concluidas.csv')
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
@@ -122,10 +121,10 @@ const styles = {
     fontWeight: 700,
   } as const,
 
-  actions: {
-    display: 'flex',
-    gap: '12px',
-    flexWrap: 'wrap',
+  subLink: {
+    color: '#475569',
+    textDecoration: 'none',
+    fontWeight: 600,
   } as const,
 
   btn: {
@@ -143,86 +142,6 @@ const styles = {
     fontSize: '14px',
   } as const,
 
-  btnPrimary: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '10px 16px',
-    borderRadius: '10px',
-    border: '1px solid #0f172a',
-    backgroundColor: '#0f172a',
-    color: '#ffffff',
-    textDecoration: 'none',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontSize: '14px',
-  } as const,
-
-  btnBlue: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '10px 16px',
-    borderRadius: '10px',
-    border: '1px solid #1d4ed8',
-    backgroundColor: '#1d4ed8',
-    color: '#ffffff',
-    textDecoration: 'none',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontSize: '14px',
-  } as const,
-
-  btnGray: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '10px 16px',
-    borderRadius: '10px',
-    border: '1px solid #475569',
-    backgroundColor: '#475569',
-    color: '#ffffff',
-    textDecoration: 'none',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontSize: '14px',
-  } as const,
-
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-    gap: '16px',
-    marginBottom: '24px',
-  } as const,
-
-  card: {
-    backgroundColor: '#ffffff',
-    border: '1px solid #e2e8f0',
-    borderRadius: '16px',
-    padding: '20px',
-    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
-  } as const,
-
-  cardTitle: {
-    margin: '0 0 12px 0',
-    fontSize: '16px',
-    fontWeight: 600,
-    color: '#334155',
-  } as const,
-
-  cardValue: {
-    margin: 0,
-    fontSize: '34px',
-    fontWeight: 700,
-    color: '#0f172a',
-  } as const,
-
-  sectionTitle: {
-    margin: '0 0 16px 0',
-    fontSize: '30px',
-    fontWeight: 700,
-  } as const,
-
   filtersBox: {
     backgroundColor: '#ffffff',
     border: '1px solid #e2e8f0',
@@ -236,7 +155,7 @@ const styles = {
   } as const,
 
   filterGroup: {
-    minWidth: '180px',
+    minWidth: '220px',
   } as const,
 
   label: {
@@ -268,7 +187,7 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
-    minWidth: '1100px',
+    minWidth: '1200px',
   },
 
   th: {
@@ -279,7 +198,6 @@ const styles = {
     fontSize: '14px',
     fontWeight: 700,
     color: '#334155',
-    whiteSpace: 'nowrap' as const,
   },
 
   td: {
@@ -310,19 +228,6 @@ const styles = {
     wordBreak: 'break-word' as const,
   },
 
-  editBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0f172a',
-    color: '#fff',
-    padding: '8px 12px',
-    borderRadius: '8px',
-    textDecoration: 'none',
-    fontWeight: 600,
-    fontSize: '13px',
-  } as const,
-
   error: {
     color: '#b91c1c',
     backgroundColor: '#fee2e2',
@@ -342,15 +247,7 @@ function getEstadoBadgeStyle(estado: string | null) {
     return { ...styles.badgeBase, backgroundColor: '#e2e8f0', color: '#334155' }
   }
 
-  if (estado === 'Em execução') {
-    return { ...styles.badgeBase, backgroundColor: '#dbeafe', color: '#1d4ed8' }
-  }
-
-  if (estado === 'Em análise') {
-    return { ...styles.badgeBase, backgroundColor: '#fef3c7', color: '#92400e' }
-  }
-
-  return { ...styles.badgeBase, backgroundColor: '#ede9fe', color: '#6d28d9' }
+  return { ...styles.badgeBase, backgroundColor: '#f1f5f9', color: '#475569' }
 }
 
 function getImpactoBadgeStyle(impacto: string | null) {
@@ -389,16 +286,13 @@ function getPrioridadeBadgeStyle(prioridade: string | null) {
   return { ...styles.badgeBase, backgroundColor: '#f1f5f9', color: '#475569' }
 }
 
-export default function DashboardPage() {
+export default function ConcluidasPage() {
   const supabase = createClient()
 
   const [rows, setRows] = useState<Occurrence[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
-
   const [filtroUnidade, setFiltroUnidade] = useState('')
-  const [filtroCategoria, setFiltroCategoria] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState('')
 
   async function loadOccurrences() {
     setLoading(true)
@@ -418,12 +312,13 @@ export default function DashboardPage() {
         data_estado,
         data_encerramento,
         observacoes,
-        fora_sla,
         units (
           nome
         )
       `)
-      .order('data_reporte', { ascending: false })
+      .in('estado', ['Concluída', 'Encerrada'])
+      .order('data_encerramento', { ascending: false })
+      .order('data_estado', { ascending: false })
 
     if (error) {
       setErrorMessage(error.message)
@@ -440,110 +335,44 @@ export default function DashboardPage() {
     loadOccurrences()
   }, [])
 
-  const total = rows.length
-
-  const emAberto = rows.filter(
-    (o) =>
-      o.estado === 'Em aberto' ||
-      o.estado === 'Em análise' ||
-      o.estado === 'Em execução'
-  ).length
-
-  const concluidas = rows.filter(
-    (o) => o.estado === 'Concluída' || o.estado === 'Encerrada'
-  ).length
-
-  const foraSla = rows.filter((o) => o.fora_sla === true).length
-
-  const listaDashboard = rows.filter(
-    (o) => o.estado !== 'Concluída' && o.estado !== 'Encerrada'
-  )
-
   const unidades = useMemo(() => {
-    const values = rows
-      .map((item) => getUnitName(item.units, item.local_ocorrencia))
-      .filter((value) => value && value !== '-')
-
+    const values = rows.map((item) => getUnitName(item.units, item.local_ocorrencia))
     return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b))
   }, [rows])
-
-  const categorias = useMemo(() => {
-    const values = rows.map((item) => item.categoria || 'Sem categoria')
-    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b))
-  }, [rows])
-
-  const estados = useMemo(() => {
-    const values = listaDashboard.map((item) => item.estado || '-')
-    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b))
-  }, [listaDashboard])
 
   const listaFiltrada = useMemo(() => {
-    return listaDashboard.filter((item) => {
+    return rows.filter((item) => {
       const unidade = getUnitName(item.units, item.local_ocorrencia)
-      const categoria = item.categoria || 'Sem categoria'
-      const estado = item.estado || '-'
-
-      const matchUnidade = !filtroUnidade || unidade === filtroUnidade
-      const matchCategoria = !filtroCategoria || categoria === filtroCategoria
-      const matchEstado = !filtroEstado || estado === filtroEstado
-
-      return matchUnidade && matchCategoria && matchEstado
+      return !filtroUnidade || unidade === filtroUnidade
     })
-  }, [listaDashboard, filtroUnidade, filtroCategoria, filtroEstado])
+  }, [rows, filtroUnidade])
 
   return (
     <div style={styles.page}>
       <div style={styles.header}>
-        <h1 style={styles.title}>Dashboard</h1>
-
-        <div style={styles.actions}>
-          <button style={styles.btn} onClick={() => exportToCSV(rows)}>
-            Exportar CSV
-          </button>
-
-          <Link href="/dashboard/relatorios" style={styles.btnBlue}>
-            Relatórios
-          </Link>
-
-          <Link href="/dashboard/concluidas" style={styles.btnGray}>
-            Ver concluídas
-          </Link>
-
-          <Link href="/dashboard/nova-ocorrencia" style={styles.btnPrimary}>
-            Nova Ocorrência
-          </Link>
+        <div>
+          <h1 style={styles.title}>Ocorrências concluídas</h1>
+          <div style={{ marginTop: 8 }}>
+            <Link href="/dashboard" style={styles.subLink}>
+              ← Voltar ao dashboard
+            </Link>
+          </div>
         </div>
+
+        <button style={styles.btn} onClick={() => exportToCSV(listaFiltrada)}>
+          Exportar CSV
+        </button>
       </div>
 
-      {errorMessage && <div style={styles.error}>Erro ao carregar dashboard: {errorMessage}</div>}
-
-      <div style={styles.statsGrid}>
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Total</h3>
-          <p style={styles.cardValue}>{total}</p>
+      {errorMessage && (
+        <div style={styles.error}>
+          Erro ao carregar: {errorMessage}
         </div>
-
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Em aberto</h3>
-          <p style={styles.cardValue}>{emAberto}</p>
-        </div>
-
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Concluídas</h3>
-          <p style={styles.cardValue}>{concluidas}</p>
-        </div>
-
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Fora SLA</h3>
-          <p style={styles.cardValue}>{foraSla}</p>
-        </div>
-      </div>
-
-      <h2 style={styles.sectionTitle}>Ocorrências em aberto</h2>
+      )}
 
       <div style={styles.filtersBox}>
         <div style={styles.filterGroup}>
-          <label style={styles.label}>Unidade</label>
+          <label style={styles.label}>Filtrar por unidade</label>
           <select
             style={styles.select}
             value={filtroUnidade}
@@ -558,54 +387,15 @@ export default function DashboardPage() {
           </select>
         </div>
 
-        <div style={styles.filterGroup}>
-          <label style={styles.label}>Categoria</label>
-          <select
-            style={styles.select}
-            value={filtroCategoria}
-            onChange={(e) => setFiltroCategoria(e.target.value)}
-          >
-            <option value="">Todas</option>
-            {categorias.map((categoria) => (
-              <option key={categoria} value={categoria}>
-                {categoria}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div style={styles.filterGroup}>
-          <label style={styles.label}>Estado</label>
-          <select
-            style={styles.select}
-            value={filtroEstado}
-            onChange={(e) => setFiltroEstado(e.target.value)}
-          >
-            <option value="">Todos</option>
-            {estados.map((estado) => (
-              <option key={estado} value={estado}>
-                {estado}
-              </option>
-            ))}
-          </select>
-        </div>
-
         <div>
-          <button
-            style={styles.btn}
-            onClick={() => {
-              setFiltroUnidade('')
-              setFiltroCategoria('')
-              setFiltroEstado('')
-            }}
-          >
-            Limpar filtros
+          <button style={styles.btn} onClick={() => setFiltroUnidade('')}>
+            Limpar filtro
           </button>
         </div>
       </div>
 
       {loading ? (
-        <div style={styles.card}>A carregar...</div>
+        <div style={{ ...styles.tableWrapper, padding: 20 }}>A carregar...</div>
       ) : (
         <div style={styles.tableWrapper}>
           <table style={styles.table}>
@@ -618,57 +408,46 @@ export default function DashboardPage() {
                 <th style={styles.th}>Impacto</th>
                 <th style={styles.th}>Estado</th>
                 <th style={styles.th}>Data reporte</th>
+                <th style={styles.th}>Data alteração estado</th>
+                <th style={styles.th}>Data fim</th>
                 <th style={styles.th}>Observações</th>
-                <th style={styles.th}>Ações</th>
               </tr>
             </thead>
-
             <tbody>
               {listaFiltrada.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={styles.empty}>
-                    Sem ocorrências em aberto para os filtros escolhidos
+                  <td colSpan={10} style={styles.empty}>
+                    Sem ocorrências concluídas
                   </td>
                 </tr>
               ) : (
                 listaFiltrada.map((item) => (
                   <tr key={item.id}>
                     <td style={styles.td}>{item.ocorrencia || '-'}</td>
-
                     <td style={styles.td}>
                       {getUnitName(item.units, item.local_ocorrencia)}
                     </td>
-
                     <td style={styles.td}>{item.categoria || 'Sem categoria'}</td>
-
                     <td style={styles.td}>
                       <span style={getPrioridadeBadgeStyle(item.prioridade)}>
                         {item.prioridade || '-'}
                       </span>
                     </td>
-
                     <td style={styles.td}>
                       <span style={getImpactoBadgeStyle(item.impacto)}>
                         {item.impacto || '-'}
                       </span>
                     </td>
-
                     <td style={styles.td}>
                       <span style={getEstadoBadgeStyle(item.estado)}>
                         {item.estado || '-'}
                       </span>
                     </td>
-
                     <td style={styles.td}>{formatDate(item.data_reporte)}</td>
-
+                    <td style={styles.td}>{formatDateTime(item.data_estado)}</td>
+                    <td style={styles.td}>{formatDateTime(item.data_encerramento)}</td>
                     <td style={{ ...styles.td, ...styles.obsCell }}>
                       {item.observacoes || '-'}
-                    </td>
-
-                    <td style={styles.td}>
-                      <Link href={`/dashboard/ocorrencia/${item.id}`} style={styles.editBtn}>
-                        Editar
-                      </Link>
                     </td>
                   </tr>
                 ))
