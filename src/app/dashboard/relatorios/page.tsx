@@ -1,193 +1,453 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+
+type UnitRelation =
+  | {
+      nome: string | null
+    }
+  | {
+      nome: string | null
+    }[]
+  | null
 
 type Occurrence = {
   id: string
-  ocorrencia: string
+  ocorrencia: string | null
+  local_ocorrencia: string | null
   categoria: string | null
+  prioridade: string | null
+  impacto: string | null
   estado: string | null
-  units: { name: string } | null
+  data_reporte: string | null
+  data_estado: string | null
+  data_encerramento: string | null
+  observacoes: string | null
+  units: UnitRelation
+}
+
+type UnitSummary = {
+  unidade: string
+  total: number
+  emAberto: number
+  emAnalise: number
+  emExecucao: number
+  concluidas: number
+  encerradas: number
+}
+
+type CategorySummary = {
+  categoria: string
+  total: number
+  emAberto: number
+  emAnalise: number
+  emExecucao: number
+  concluidas: number
+  encerradas: number
+}
+
+function getUnitName(units: UnitRelation, fallback: string | null) {
+  if (Array.isArray(units)) {
+    return units[0]?.nome || fallback || '-'
+  }
+
+  return units?.nome || fallback || '-'
+}
+
+function normalizeCategoria(value: string | null) {
+  return value || 'Sem categoria'
+}
+
+function exportUnitsCSV(lista: UnitSummary[]) {
+  const headers = [
+    'Unidade',
+    'Total',
+    'Em aberto',
+    'Em análise',
+    'Em execução',
+    'Concluídas',
+    'Encerradas',
+  ]
+
+  const rows = lista.map((item) => [
+    item.unidade,
+    item.total,
+    item.emAberto,
+    item.emAnalise,
+    item.emExecucao,
+    item.concluidas,
+    item.encerradas,
+  ])
+
+  const csvContent = [headers, ...rows]
+    .map((row) =>
+      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(';')
+    )
+    .join('\n')
+
+  const bom = '\uFEFF'
+  const blob = new Blob([bom + csvContent], {
+    type: 'text/csv;charset=utf-8;',
+  })
+
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', 'relatorio_unidades.csv')
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+function exportCategoriesCSV(lista: CategorySummary[]) {
+  const headers = [
+    'Categoria',
+    'Total',
+    'Em aberto',
+    'Em análise',
+    'Em execução',
+    'Concluídas',
+    'Encerradas',
+  ]
+
+  const rows = lista.map((item) => [
+    item.categoria,
+    item.total,
+    item.emAberto,
+    item.emAnalise,
+    item.emExecucao,
+    item.concluidas,
+    item.encerradas,
+  ])
+
+  const csvContent = [headers, ...rows]
+    .map((row) =>
+      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(';')
+    )
+    .join('\n')
+
+  const bom = '\uFEFF'
+  const blob = new Blob([bom + csvContent], {
+    type: 'text/csv;charset=utf-8;',
+  })
+
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', 'relatorio_categorias.csv')
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }
 
 export default function RelatoriosPage() {
-  const [data, setData] = useState<Occurrence[]>([])
+  const supabase = createClient()
+
+  const [rows, setRows] = useState<Occurrence[]>([])
+  const [loading, setLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState('')
+
+  async function loadOccurrences() {
+    setLoading(true)
+    setErrorMessage('')
+
+    const { data, error } = await supabase
+      .from('occurrences')
+      .select(`
+        id,
+        ocorrencia,
+        local_ocorrencia,
+        categoria,
+        prioridade,
+        impacto,
+        estado,
+        data_reporte,
+        data_estado,
+        data_encerramento,
+        observacoes,
+        units (
+          nome
+        )
+      `)
+      .order('data_reporte', { ascending: false })
+
+    if (error) {
+      setErrorMessage(error.message)
+      setRows([])
+      setLoading(false)
+      return
+    }
+
+    setRows((data || []) as Occurrence[])
+    setLoading(false)
+  }
 
   useEffect(() => {
-    fetchData()
+    loadOccurrences()
   }, [])
 
-  async function fetchData() {
-    const supabase = createClient()
+  const resumoPorUnidade = useMemo(() => {
+    const map = new Map<string, UnitSummary>()
 
-    const { data } = await supabase
-      .from('occurrences')
-      .select('id, ocorrencia, categoria, estado, units(name)')
+    rows.forEach((item) => {
+      const unidade = getUnitName(item.units, item.local_ocorrencia)
+      const estado = item.estado || '-'
 
-    setData(data || [])
-  }
-
-  const total = data.length
-  const abertas = data.filter(d => d.estado !== 'Concluída').length
-  const concluidas = data.filter(d => d.estado === 'Concluída').length
-
-  // ===== AGRUPAMENTO POR UNIDADE =====
-  const unidades: any = {}
-
-  data.forEach(o => {
-    const unidade = o.units?.name || 'Sem unidade'
-
-    if (!unidades[unidade]) {
-      unidades[unidade] = {
-        total: 0,
-        abertas: 0,
-        analise: 0,
-        execucao: 0,
-        concluidas: 0,
-        encerradas: 0
+      if (!map.has(unidade)) {
+        map.set(unidade, {
+          unidade,
+          total: 0,
+          emAberto: 0,
+          emAnalise: 0,
+          emExecucao: 0,
+          concluidas: 0,
+          encerradas: 0,
+        })
       }
-    }
 
-    unidades[unidade].total++
+      const current = map.get(unidade)!
+      current.total += 1
 
-    if (o.estado === 'Em análise') unidades[unidade].analise++
-    else if (o.estado === 'Em execução') unidades[unidade].execucao++
-    else if (o.estado === 'Concluída') unidades[unidade].concluidas++
-    else if (o.estado === 'Encerrada') unidades[unidade].encerradas++
-    else unidades[unidade].abertas++
-  })
+      if (estado === 'Em aberto') current.emAberto += 1
+      if (estado === 'Em análise') current.emAnalise += 1
+      if (estado === 'Em execução') current.emExecucao += 1
+      if (estado === 'Concluída') current.concluidas += 1
+      if (estado === 'Encerrada') current.encerradas += 1
+    })
 
-  // ===== AGRUPAMENTO POR CATEGORIA =====
-  const categorias: any = {}
+    return Array.from(map.values()).sort((a, b) =>
+      a.unidade.localeCompare(b.unidade)
+    )
+  }, [rows])
 
-  data.forEach(o => {
-    const cat = o.categoria || 'Sem categoria'
+  const resumoPorCategoria = useMemo(() => {
+    const map = new Map<string, CategorySummary>()
 
-    if (!categorias[cat]) {
-      categorias[cat] = {
-        total: 0,
-        abertas: 0,
-        analise: 0,
-        execucao: 0,
-        concluidas: 0,
-        encerradas: 0
+    rows.forEach((item) => {
+      const categoria = normalizeCategoria(item.categoria)
+      const estado = item.estado || '-'
+
+      if (!map.has(categoria)) {
+        map.set(categoria, {
+          categoria,
+          total: 0,
+          emAberto: 0,
+          emAnalise: 0,
+          emExecucao: 0,
+          concluidas: 0,
+          encerradas: 0,
+        })
       }
-    }
 
-    categorias[cat].total++
+      const current = map.get(categoria)!
+      current.total += 1
 
-    if (o.estado === 'Em análise') categorias[cat].analise++
-    else if (o.estado === 'Em execução') categorias[cat].execucao++
-    else if (o.estado === 'Concluída') categorias[cat].concluidas++
-    else if (o.estado === 'Encerrada') categorias[cat].encerradas++
-    else categorias[cat].abertas++
-  })
+      if (estado === 'Em aberto') current.emAberto += 1
+      if (estado === 'Em análise') current.emAnalise += 1
+      if (estado === 'Em execução') current.emExecucao += 1
+      if (estado === 'Concluída') current.concluidas += 1
+      if (estado === 'Encerrada') current.encerradas += 1
+    })
 
-  // ===== EXPORT CSV =====
-  function exportCSV(obj: any, nome: string) {
-    const headers = ['Nome', 'Total', 'Em aberto', 'Em análise', 'Em execução', 'Concluídas', 'Encerradas']
+    return Array.from(map.values()).sort((a, b) =>
+      a.categoria.localeCompare(b.categoria)
+    )
+  }, [rows])
 
-    const rows = Object.entries(obj).map(([key, val]: any) => [
-      key,
-      val.total,
-      val.abertas,
-      val.analise,
-      val.execucao,
-      val.concluidas,
-      val.encerradas
-    ])
-
-    const csv = [
-      headers.join(';'),
-      ...rows.map(r => r.join(';'))
-    ].join('\n')
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-
-    const link = document.createElement('a')
-    link.href = url
-    link.download = nome
-    link.click()
-  }
+  const total = rows.length
+  const totalConcluidas = rows.filter(
+    (o) => o.estado === 'Concluída' || o.estado === 'Encerrada'
+  ).length
+  const totalAbertas = rows.filter(
+    (o) =>
+      o.estado === 'Em aberto' ||
+      o.estado === 'Em análise' ||
+      o.estado === 'Em execução'
+  ).length
 
   return (
     <div style={{ padding: 20 }}>
-      <h1>Relatórios de gestão</h1>
-
-      <Link href="/dashboard">← Voltar ao dashboard</Link>
-
-      <div style={{ display: 'flex', gap: 20, marginTop: 20 }}>
-        <div>Total: {total}</div>
-        <div>Abertas: {abertas}</div>
-        <div>Concluídas: {concluidas}</div>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 24,
+        }}
+      >
+        <div>
+          <h1>Relatórios de gestão</h1>
+          <Link href="/dashboard">← Voltar ao dashboard</Link>
+        </div>
       </div>
 
-      <h2 style={{ marginTop: 30 }}>Resumo por unidade</h2>
-      <button onClick={() => exportCSV(unidades, 'unidades.csv')}>
-        Exportar unidades CSV
-      </button>
+      {errorMessage && (
+        <p style={{ color: 'red', marginBottom: 16 }}>
+          Erro ao carregar relatórios: {errorMessage}
+        </p>
+      )}
 
-      <table border={1} cellPadding={5}>
-        <thead>
-          <tr>
-            <th>Unidade</th>
-            <th>Total</th>
-            <th>Em aberto</th>
-            <th>Em análise</th>
-            <th>Em execução</th>
-            <th>Concluídas</th>
-            <th>Encerradas</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Object.entries(unidades).map(([key, val]: any) => (
-            <tr key={key}>
-              <td>{key}</td>
-              <td>{val.total}</td>
-              <td>{val.abertas}</td>
-              <td>{val.analise}</td>
-              <td>{val.execucao}</td>
-              <td>{val.concluidas}</td>
-              <td>{val.encerradas}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: 16,
+          marginBottom: 24,
+        }}
+      >
+        <div style={{ border: '1px solid #ddd', borderRadius: 10, padding: 16 }}>
+          <h3>Total de ocorrências</h3>
+          <p style={{ fontSize: 18, fontWeight: 'bold' }}>{total}</p>
+        </div>
 
-      <h2 style={{ marginTop: 30 }}>Resumo por categoria</h2>
-      <button onClick={() => exportCSV(categorias, 'categorias.csv')}>
-        Exportar categorias CSV
-      </button>
+        <div style={{ border: '1px solid #ddd', borderRadius: 10, padding: 16 }}>
+          <h3>Ocorrências abertas</h3>
+          <p style={{ fontSize: 18, fontWeight: 'bold' }}>{totalAbertas}</p>
+        </div>
 
-      <table border={1} cellPadding={5}>
-        <thead>
-          <tr>
-            <th>Categoria</th>
-            <th>Total</th>
-            <th>Em aberto</th>
-            <th>Em análise</th>
-            <th>Em execução</th>
-            <th>Concluídas</th>
-            <th>Encerradas</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Object.entries(categorias).map(([key, val]: any) => (
-            <tr key={key}>
-              <td>{key}</td>
-              <td>{val.total}</td>
-              <td>{val.abertas}</td>
-              <td>{val.analise}</td>
-              <td>{val.execucao}</td>
-              <td>{val.concluidas}</td>
-              <td>{val.encerradas}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        <div style={{ border: '1px solid #ddd', borderRadius: 10, padding: 16 }}>
+          <h3>Ocorrências concluídas</h3>
+          <p style={{ fontSize: 18, fontWeight: 'bold' }}>{totalConcluidas}</p>
+        </div>
+      </div>
+
+      {loading ? (
+        <p>A carregar...</p>
+      ) : (
+        <>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginTop: 24,
+              marginBottom: 12,
+            }}
+          >
+            <h2>Resumo por unidade</h2>
+            <button onClick={() => exportUnitsCSV(resumoPorUnidade)}>
+              Exportar unidades CSV
+            </button>
+          </div>
+
+          <div style={{ overflowX: 'auto', marginBottom: 32 }}>
+            <table
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+              }}
+            >
+              <thead>
+                <tr>
+                  <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Unidade</th>
+                  <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Total</th>
+                  <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Em aberto</th>
+                  <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Em análise</th>
+                  <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Em execução</th>
+                  <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Concluídas</th>
+                  <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Encerradas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resumoPorUnidade.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      style={{
+                        border: '1px solid #ddd',
+                        padding: 8,
+                        textAlign: 'center',
+                      }}
+                    >
+                      Sem dados
+                    </td>
+                  </tr>
+                ) : (
+                  resumoPorUnidade.map((item) => (
+                    <tr key={item.unidade}>
+                      <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.unidade}</td>
+                      <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.total}</td>
+                      <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.emAberto}</td>
+                      <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.emAnalise}</td>
+                      <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.emExecucao}</td>
+                      <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.concluidas}</td>
+                      <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.encerradas}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginTop: 24,
+              marginBottom: 12,
+            }}
+          >
+            <h2>Resumo por categoria</h2>
+            <button onClick={() => exportCategoriesCSV(resumoPorCategoria)}>
+              Exportar categorias CSV
+            </button>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+              }}
+            >
+              <thead>
+                <tr>
+                  <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Categoria</th>
+                  <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Total</th>
+                  <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Em aberto</th>
+                  <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Em análise</th>
+                  <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Em execução</th>
+                  <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Concluídas</th>
+                  <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>Encerradas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resumoPorCategoria.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      style={{
+                        border: '1px solid #ddd',
+                        padding: 8,
+                        textAlign: 'center',
+                      }}
+                    >
+                      Sem dados
+                    </td>
+                  </tr>
+                ) : (
+                  resumoPorCategoria.map((item) => (
+                    <tr key={item.categoria}>
+                      <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.categoria}</td>
+                      <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.total}</td>
+                      <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.emAberto}</td>
+                      <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.emAnalise}</td>
+                      <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.emExecucao}</td>
+                      <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.concluidas}</td>
+                      <td style={{ border: '1px solid #ddd', padding: 8 }}>{item.encerradas}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   )
 }
