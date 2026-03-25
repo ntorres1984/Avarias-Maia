@@ -37,6 +37,15 @@ function formatDate(dateString: string | null) {
   return date.toLocaleDateString('pt-PT')
 }
 
+function formatDateTime(dateString: string | null) {
+  if (!dateString) return '-'
+
+  const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) return '-'
+
+  return date.toLocaleString('pt-PT')
+}
+
 function getUnitName(units: UnitRelation, fallback: string | null) {
   if (Array.isArray(units)) {
     return units[0]?.nome || fallback || '-'
@@ -66,9 +75,9 @@ function exportToCSV(lista: Occurrence[]) {
     item.prioridade || '',
     item.impacto || '',
     item.estado || '',
-    item.data_reporte || '',
-    item.data_estado || '',
-    item.data_encerramento || '',
+    formatDate(item.data_reporte),
+    formatDateTime(item.data_estado),
+    formatDateTime(item.data_encerramento),
     item.observacoes || '',
   ])
 
@@ -78,16 +87,18 @@ function exportToCSV(lista: Occurrence[]) {
     )
     .join('\n')
 
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
+  const bom = '\uFEFF'
+  const blob = new Blob([bom + csvContent], {
+    type: 'text/csv;charset=utf-8;',
+  })
 
+  const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
   link.setAttribute('download', 'ocorrencias_dashboard.csv')
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
-
   URL.revokeObjectURL(url)
 }
 
