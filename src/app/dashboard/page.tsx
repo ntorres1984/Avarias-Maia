@@ -515,7 +515,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {errorMessage && <div style={styles.error}>Erro ao carregar dashboard: {errorMessage}</div>}
+      {errorMessage && (
+        <div style={styles.error}>
+          Erro ao carregar dashboard: {errorMessage}
+        </div>
+      )}
 
       <div style={styles.statsGrid}>
         <div style={styles.card}>
@@ -666,7 +670,10 @@ export default function DashboardPage() {
                     </td>
 
                     <td style={styles.td}>
-                      <Link href={`/dashboard/ocorrencia/${item.id}`} style={styles.editBtn}>
+                      <Link
+                        href={`/dashboard/ocorrencia/${item.id}`}
+                        style={styles.editBtn}
+                      >
                         Editar
                       </Link>
                     </td>
