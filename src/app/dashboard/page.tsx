@@ -31,19 +31,15 @@ type Occurrence = {
 
 function formatDate(dateString: string | null) {
   if (!dateString) return '-'
-
   const date = new Date(dateString)
   if (Number.isNaN(date.getTime())) return '-'
-
   return date.toLocaleDateString('pt-PT')
 }
 
 function formatDateTime(dateString: string | null) {
   if (!dateString) return '-'
-
   const date = new Date(dateString)
   if (Number.isNaN(date.getTime())) return '-'
-
   return date.toLocaleString('pt-PT')
 }
 
@@ -51,7 +47,6 @@ function getUnitName(units: UnitRelation, fallback: string | null) {
   if (Array.isArray(units)) {
     return units[0]?.nome || fallback || '-'
   }
-
   return units?.nome || fallback || '-'
 }
 
@@ -101,6 +96,297 @@ function exportToCSV(lista: Occurrence[]) {
   link.click()
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
+}
+
+const styles = {
+  page: {
+    padding: '24px',
+    backgroundColor: '#f8fafc',
+    minHeight: '100vh',
+    fontFamily: 'Arial, sans-serif',
+    color: '#0f172a',
+  } as const,
+
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '24px',
+    gap: '16px',
+    flexWrap: 'wrap',
+  } as const,
+
+  title: {
+    margin: 0,
+    fontSize: '40px',
+    fontWeight: 700,
+  } as const,
+
+  actions: {
+    display: 'flex',
+    gap: '12px',
+    flexWrap: 'wrap',
+  } as const,
+
+  btn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '10px 16px',
+    borderRadius: '10px',
+    border: '1px solid #cbd5e1',
+    backgroundColor: '#ffffff',
+    color: '#0f172a',
+    textDecoration: 'none',
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontSize: '14px',
+  } as const,
+
+  btnPrimary: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '10px 16px',
+    borderRadius: '10px',
+    border: '1px solid #0f172a',
+    backgroundColor: '#0f172a',
+    color: '#ffffff',
+    textDecoration: 'none',
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontSize: '14px',
+  } as const,
+
+  btnBlue: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '10px 16px',
+    borderRadius: '10px',
+    border: '1px solid #1d4ed8',
+    backgroundColor: '#1d4ed8',
+    color: '#ffffff',
+    textDecoration: 'none',
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontSize: '14px',
+  } as const,
+
+  btnGray: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '10px 16px',
+    borderRadius: '10px',
+    border: '1px solid #475569',
+    backgroundColor: '#475569',
+    color: '#ffffff',
+    textDecoration: 'none',
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontSize: '14px',
+  } as const,
+
+  statsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    gap: '16px',
+    marginBottom: '24px',
+  } as const,
+
+  card: {
+    backgroundColor: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '16px',
+    padding: '20px',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+  } as const,
+
+  cardTitle: {
+    margin: '0 0 12px 0',
+    fontSize: '16px',
+    fontWeight: 600,
+    color: '#334155',
+  } as const,
+
+  cardValue: {
+    margin: 0,
+    fontSize: '34px',
+    fontWeight: 700,
+    color: '#0f172a',
+  } as const,
+
+  sectionTitle: {
+    margin: '0 0 16px 0',
+    fontSize: '30px',
+    fontWeight: 700,
+  } as const,
+
+  filtersBox: {
+    backgroundColor: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '16px',
+    padding: '16px',
+    marginBottom: '18px',
+    display: 'flex',
+    gap: '16px',
+    flexWrap: 'wrap',
+    alignItems: 'flex-end',
+  } as const,
+
+  filterGroup: {
+    minWidth: '180px',
+  } as const,
+
+  label: {
+    display: 'block',
+    marginBottom: '6px',
+    fontSize: '14px',
+    fontWeight: 600,
+    color: '#334155',
+  } as const,
+
+  select: {
+    width: '100%',
+    minHeight: '40px',
+    borderRadius: '10px',
+    border: '1px solid #cbd5e1',
+    padding: '8px 12px',
+    backgroundColor: '#ffffff',
+    fontSize: '14px',
+  } as const,
+
+  tableWrapper: {
+    backgroundColor: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '16px',
+    overflow: 'auto',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+  } as const,
+
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse' as const,
+    minWidth: '1100px',
+  },
+
+  th: {
+    borderBottom: '1px solid #e2e8f0',
+    padding: '14px 12px',
+    textAlign: 'left' as const,
+    backgroundColor: '#f8fafc',
+    fontSize: '14px',
+    fontWeight: 700,
+    color: '#334155',
+    whiteSpace: 'nowrap' as const,
+  },
+
+  td: {
+    borderBottom: '1px solid #f1f5f9',
+    padding: '14px 12px',
+    fontSize: '14px',
+    verticalAlign: 'top' as const,
+  },
+
+  empty: {
+    padding: '24px',
+    textAlign: 'center' as const,
+    color: '#64748b',
+  } as const,
+
+  badgeBase: {
+    display: 'inline-block',
+    padding: '6px 10px',
+    borderRadius: '999px',
+    fontSize: '12px',
+    fontWeight: 700,
+    whiteSpace: 'nowrap' as const,
+  },
+
+  obsCell: {
+    maxWidth: '280px',
+    whiteSpace: 'normal' as const,
+    wordBreak: 'break-word' as const,
+  },
+
+  editBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0f172a',
+    color: '#fff',
+    padding: '8px 12px',
+    borderRadius: '8px',
+    textDecoration: 'none',
+    fontWeight: 600,
+    fontSize: '13px',
+  } as const,
+
+  error: {
+    color: '#b91c1c',
+    backgroundColor: '#fee2e2',
+    border: '1px solid #fecaca',
+    borderRadius: '10px',
+    padding: '12px 14px',
+    marginBottom: '16px',
+  } as const,
+}
+
+function getEstadoBadgeStyle(estado: string | null) {
+  if (estado === 'Concluída') {
+    return { ...styles.badgeBase, backgroundColor: '#dcfce7', color: '#166534' }
+  }
+
+  if (estado === 'Encerrada') {
+    return { ...styles.badgeBase, backgroundColor: '#e2e8f0', color: '#334155' }
+  }
+
+  if (estado === 'Em execução') {
+    return { ...styles.badgeBase, backgroundColor: '#dbeafe', color: '#1d4ed8' }
+  }
+
+  if (estado === 'Em análise') {
+    return { ...styles.badgeBase, backgroundColor: '#fef3c7', color: '#92400e' }
+  }
+
+  return { ...styles.badgeBase, backgroundColor: '#ede9fe', color: '#6d28d9' }
+}
+
+function getImpactoBadgeStyle(impacto: string | null) {
+  if (impacto === 'Crítico') {
+    return { ...styles.badgeBase, backgroundColor: '#fee2e2', color: '#b91c1c' }
+  }
+
+  if (impacto === 'Alto') {
+    return { ...styles.badgeBase, backgroundColor: '#ffedd5', color: '#c2410c' }
+  }
+
+  if (impacto === 'Médio') {
+    return { ...styles.badgeBase, backgroundColor: '#fef3c7', color: '#a16207' }
+  }
+
+  if (impacto === 'Baixo') {
+    return { ...styles.badgeBase, backgroundColor: '#dcfce7', color: '#166534' }
+  }
+
+  return { ...styles.badgeBase, backgroundColor: '#f1f5f9', color: '#475569' }
+}
+
+function getPrioridadeBadgeStyle(prioridade: string | null) {
+  if (prioridade === 'Alta') {
+    return { ...styles.badgeBase, backgroundColor: '#fee2e2', color: '#b91c1c' }
+  }
+
+  if (prioridade === 'Média') {
+    return { ...styles.badgeBase, backgroundColor: '#fef3c7', color: '#92400e' }
+  }
+
+  if (prioridade === 'Baixa') {
+    return { ...styles.badgeBase, backgroundColor: '#dcfce7', color: '#166534' }
+  }
+
+  return { ...styles.badgeBase, backgroundColor: '#f1f5f9', color: '#475569' }
 }
 
 export default function DashboardPage() {
@@ -182,16 +468,12 @@ export default function DashboardPage() {
   }, [rows])
 
   const categorias = useMemo(() => {
-    const values = rows
-      .map((item) => item.categoria || 'Sem categoria')
-
+    const values = rows.map((item) => item.categoria || 'Sem categoria')
     return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b))
   }, [rows])
 
   const estados = useMemo(() => {
-    const values = listaDashboard
-      .map((item) => item.estado || '-')
-
+    const values = listaDashboard.map((item) => item.estado || '-')
     return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b))
   }, [listaDashboard])
 
@@ -210,116 +492,60 @@ export default function DashboardPage() {
   }, [listaDashboard, filtroUnidade, filtroCategoria, filtroEstado])
 
   return (
-    <div style={{ padding: 20 }}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 24,
-        }}
-      >
-        <h1>Dashboard</h1>
+    <div style={styles.page}>
+      <div style={styles.header}>
+        <h1 style={styles.title}>Dashboard</h1>
 
-        <div style={{ display: 'flex', gap: 12 }}>
-          <button onClick={() => exportToCSV(rows)}>
+        <div style={styles.actions}>
+          <button style={styles.btn} onClick={() => exportToCSV(rows)}>
             Exportar CSV
           </button>
 
-          <Link
-            href="/dashboard/relatorios"
-            style={{
-              backgroundColor: '#1d4ed8',
-              color: '#fff',
-              padding: '10px 16px',
-              borderRadius: 8,
-              textDecoration: 'none',
-              fontWeight: 600,
-            }}
-          >
+          <Link href="/dashboard/relatorios" style={styles.btnBlue}>
             Relatórios
           </Link>
 
-          <Link
-            href="/dashboard/concluidas"
-            style={{
-              backgroundColor: '#475569',
-              color: '#fff',
-              padding: '10px 16px',
-              borderRadius: 8,
-              textDecoration: 'none',
-              fontWeight: 600,
-            }}
-          >
+          <Link href="/dashboard/concluidas" style={styles.btnGray}>
             Ver concluídas
           </Link>
 
-          <Link
-            href="/dashboard/nova-ocorrencia"
-            style={{
-              backgroundColor: '#0f172a',
-              color: '#fff',
-              padding: '10px 16px',
-              borderRadius: 8,
-              textDecoration: 'none',
-              fontWeight: 600,
-            }}
-          >
+          <Link href="/dashboard/nova-ocorrencia" style={styles.btnPrimary}>
             Nova Ocorrência
           </Link>
         </div>
       </div>
 
-      {errorMessage && (
-        <p style={{ color: 'red', marginBottom: 16 }}>
-          Erro ao carregar dashboard: {errorMessage}
-        </p>
-      )}
+      {errorMessage && <div style={styles.error}>Erro ao carregar dashboard: {errorMessage}</div>}
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: 16,
-          marginBottom: 24,
-        }}
-      >
-        <div style={{ border: '1px solid #ddd', borderRadius: 10, padding: 16 }}>
-          <h3>Total</h3>
-          <p style={{ fontSize: 18, fontWeight: 'bold' }}>{total}</p>
+      <div style={styles.statsGrid}>
+        <div style={styles.card}>
+          <h3 style={styles.cardTitle}>Total</h3>
+          <p style={styles.cardValue}>{total}</p>
         </div>
 
-        <div style={{ border: '1px solid #ddd', borderRadius: 10, padding: 16 }}>
-          <h3>Em aberto</h3>
-          <p style={{ fontSize: 18, fontWeight: 'bold' }}>{emAberto}</p>
+        <div style={styles.card}>
+          <h3 style={styles.cardTitle}>Em aberto</h3>
+          <p style={styles.cardValue}>{emAberto}</p>
         </div>
 
-        <div style={{ border: '1px solid #ddd', borderRadius: 10, padding: 16 }}>
-          <h3>Concluídas</h3>
-          <p style={{ fontSize: 18, fontWeight: 'bold' }}>{concluidas}</p>
+        <div style={styles.card}>
+          <h3 style={styles.cardTitle}>Concluídas</h3>
+          <p style={styles.cardValue}>{concluidas}</p>
         </div>
 
-        <div style={{ border: '1px solid #ddd', borderRadius: 10, padding: 16 }}>
-          <h3>Fora SLA</h3>
-          <p style={{ fontSize: 18, fontWeight: 'bold' }}>{foraSla}</p>
+        <div style={styles.card}>
+          <h3 style={styles.cardTitle}>Fora SLA</h3>
+          <p style={styles.cardValue}>{foraSla}</p>
         </div>
       </div>
 
-      <h2>Ocorrências em aberto</h2>
+      <h2 style={styles.sectionTitle}>Ocorrências em aberto</h2>
 
-      <div
-        style={{
-          display: 'flex',
-          gap: 12,
-          flexWrap: 'wrap',
-          marginTop: 12,
-          marginBottom: 16,
-        }}
-      >
-        <div>
-          <label>Unidade</label>
-          <br />
+      <div style={styles.filtersBox}>
+        <div style={styles.filterGroup}>
+          <label style={styles.label}>Unidade</label>
           <select
+            style={styles.select}
             value={filtroUnidade}
             onChange={(e) => setFiltroUnidade(e.target.value)}
           >
@@ -332,10 +558,10 @@ export default function DashboardPage() {
           </select>
         </div>
 
-        <div>
-          <label>Categoria</label>
-          <br />
+        <div style={styles.filterGroup}>
+          <label style={styles.label}>Categoria</label>
           <select
+            style={styles.select}
             value={filtroCategoria}
             onChange={(e) => setFiltroCategoria(e.target.value)}
           >
@@ -348,10 +574,10 @@ export default function DashboardPage() {
           </select>
         </div>
 
-        <div>
-          <label>Estado</label>
-          <br />
+        <div style={styles.filterGroup}>
+          <label style={styles.label}>Estado</label>
           <select
+            style={styles.select}
             value={filtroEstado}
             onChange={(e) => setFiltroEstado(e.target.value)}
           >
@@ -364,8 +590,9 @@ export default function DashboardPage() {
           </select>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+        <div>
           <button
+            style={styles.btn}
             onClick={() => {
               setFiltroUnidade('')
               setFiltroCategoria('')
@@ -378,109 +605,68 @@ export default function DashboardPage() {
       </div>
 
       {loading ? (
-        <p>A carregar...</p>
+        <div style={styles.card}>A carregar...</div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table
-            style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              marginTop: 12,
-            }}
-          >
+        <div style={styles.tableWrapper}>
+          <table style={styles.table}>
             <thead>
               <tr>
-                <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
-                  Ocorrência
-                </th>
-                <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
-                  Unidade
-                </th>
-                <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
-                  Categoria
-                </th>
-                <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
-                  Prioridade
-                </th>
-                <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
-                  Impacto
-                </th>
-                <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
-                  Estado
-                </th>
-                <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
-                  Data reporte
-                </th>
-                <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
-                  Observações
-                </th>
-                <th style={{ border: '1px solid #ddd', padding: 8, textAlign: 'left' }}>
-                  Ações
-                </th>
+                <th style={styles.th}>Ocorrência</th>
+                <th style={styles.th}>Unidade</th>
+                <th style={styles.th}>Categoria</th>
+                <th style={styles.th}>Prioridade</th>
+                <th style={styles.th}>Impacto</th>
+                <th style={styles.th}>Estado</th>
+                <th style={styles.th}>Data reporte</th>
+                <th style={styles.th}>Observações</th>
+                <th style={styles.th}>Ações</th>
               </tr>
             </thead>
 
             <tbody>
               {listaFiltrada.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={9}
-                    style={{
-                      border: '1px solid #ddd',
-                      padding: 8,
-                      textAlign: 'center',
-                    }}
-                  >
+                  <td colSpan={9} style={styles.empty}>
                     Sem ocorrências em aberto para os filtros escolhidos
                   </td>
                 </tr>
               ) : (
                 listaFiltrada.map((item) => (
                   <tr key={item.id}>
-                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                      {item.ocorrencia || '-'}
-                    </td>
+                    <td style={styles.td}>{item.ocorrencia || '-'}</td>
 
-                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                    <td style={styles.td}>
                       {getUnitName(item.units, item.local_ocorrencia)}
                     </td>
 
-                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                      {item.categoria || 'Sem categoria'}
+                    <td style={styles.td}>{item.categoria || 'Sem categoria'}</td>
+
+                    <td style={styles.td}>
+                      <span style={getPrioridadeBadgeStyle(item.prioridade)}>
+                        {item.prioridade || '-'}
+                      </span>
                     </td>
 
-                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                      {item.prioridade || '-'}
+                    <td style={styles.td}>
+                      <span style={getImpactoBadgeStyle(item.impacto)}>
+                        {item.impacto || '-'}
+                      </span>
                     </td>
 
-                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                      {item.impacto || '-'}
+                    <td style={styles.td}>
+                      <span style={getEstadoBadgeStyle(item.estado)}>
+                        {item.estado || '-'}
+                      </span>
                     </td>
 
-                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                      {item.estado || '-'}
-                    </td>
+                    <td style={styles.td}>{formatDate(item.data_reporte)}</td>
 
-                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                      {formatDate(item.data_reporte)}
-                    </td>
-
-                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                    <td style={{ ...styles.td, ...styles.obsCell }}>
                       {item.observacoes || '-'}
                     </td>
 
-                    <td style={{ border: '1px solid #ddd', padding: 8 }}>
-                      <Link
-                        href={`/dashboard/ocorrencia/${item.id}`}
-                        style={{
-                          display: 'inline-block',
-                          backgroundColor: '#0f172a',
-                          color: '#fff',
-                          padding: '8px 12px',
-                          borderRadius: 6,
-                          textDecoration: 'none',
-                        }}
-                      >
+                    <td style={styles.td}>
+                      <Link href={`/dashboard/ocorrencia/${item.id}`} style={styles.editBtn}>
                         Editar
                       </Link>
                     </td>
