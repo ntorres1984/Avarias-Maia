@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 type UnitRelation =
@@ -109,6 +109,10 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
 
+  const [filtroUnidade, setFiltroUnidade] = useState('')
+  const [filtroCategoria, setFiltroCategoria] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState('')
+
   async function loadOccurrences() {
     setLoading(true)
     setErrorMessage('')
@@ -167,6 +171,37 @@ export default function DashboardPage() {
   const listaDashboard = rows.filter(
     (o) => o.estado !== 'Concluída' && o.estado !== 'Encerrada'
   )
+
+  const unidades = useMemo(() => {
+    const values = rows.map((item) => getUnitName(item.units, item.local_ocorrencia))
+    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b))
+  }, [rows])
+
+  const categorias = useMemo(() => {
+    const values = rows
+      .map((item) => item.categoria || 'Sem categoria')
+    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b))
+  }, [rows])
+
+  const estados = useMemo(() => {
+    const values = rows
+      .map((item) => item.estado || '-')
+    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b))
+  }, [rows])
+
+  const listaFiltrada = useMemo(() => {
+    return listaDashboard.filter((item) => {
+      const unidade = getUnitName(item.units, item.local_ocorrencia)
+      const categoria = item.categoria || 'Sem categoria'
+      const estado = item.estado || '-'
+
+      const matchUnidade = !filtroUnidade || unidade === filtroUnidade
+      const matchCategoria = !filtroCategoria || categoria === filtroCategoria
+      const matchEstado = !filtroEstado || estado === filtroEstado
+
+      return matchUnidade && matchCategoria && matchEstado
+    })
+  }, [listaDashboard, filtroUnidade, filtroCategoria, filtroEstado])
 
   return (
     <div style={{ padding: 20 }}>
@@ -252,6 +287,76 @@ export default function DashboardPage() {
 
       <h2>Ocorrências em aberto</h2>
 
+      <div
+        style={{
+          display: 'flex',
+          gap: 12,
+          flexWrap: 'wrap',
+          marginTop: 12,
+          marginBottom: 16,
+        }}
+      >
+        <div>
+          <label>Unidade</label>
+          <br />
+          <select
+            value={filtroUnidade}
+            onChange={(e) => setFiltroUnidade(e.target.value)}
+          >
+            <option value="">Todas</option>
+            {unidades.map((unidade) => (
+              <option key={unidade} value={unidade}>
+                {unidade}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label>Categoria</label>
+          <br />
+          <select
+            value={filtroCategoria}
+            onChange={(e) => setFiltroCategoria(e.target.value)}
+          >
+            <option value="">Todas</option>
+            {categorias.map((categoria) => (
+              <option key={categoria} value={categoria}>
+                {categoria}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label>Estado</label>
+          <br />
+          <select
+            value={filtroEstado}
+            onChange={(e) => setFiltroEstado(e.target.value)}
+          >
+            <option value="">Todos</option>
+            {estados.map((estado) => (
+              <option key={estado} value={estado}>
+                {estado}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+          <button
+            onClick={() => {
+              setFiltroUnidade('')
+              setFiltroCategoria('')
+              setFiltroEstado('')
+            }}
+          >
+            Limpar filtros
+          </button>
+        </div>
+      </div>
+
       {loading ? (
         <p>A carregar...</p>
       ) : (
@@ -296,7 +401,7 @@ export default function DashboardPage() {
             </thead>
 
             <tbody>
-              {listaDashboard.length === 0 ? (
+              {listaFiltrada.length === 0 ? (
                 <tr>
                   <td
                     colSpan={9}
@@ -306,11 +411,11 @@ export default function DashboardPage() {
                       textAlign: 'center',
                     }}
                   >
-                    Sem ocorrências em aberto
+                    Sem ocorrências em aberto para os filtros escolhidos
                   </td>
                 </tr>
               ) : (
-                listaDashboard.map((item) => (
+                listaFiltrada.map((item) => (
                   <tr key={item.id}>
                     <td style={{ border: '1px solid #ddd', padding: 8 }}>
                       {item.ocorrencia || '-'}
