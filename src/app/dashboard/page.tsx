@@ -45,6 +45,52 @@ function getUnitName(units: UnitRelation, fallback: string | null) {
   return units?.nome || fallback || '-'
 }
 
+function exportToCSV(lista: Occurrence[]) {
+  const headers = [
+    'Ocorrência',
+    'Unidade',
+    'Categoria',
+    'Prioridade',
+    'Impacto',
+    'Estado',
+    'Data reporte',
+    'Data alteração estado',
+    'Data fim',
+    'Observações',
+  ]
+
+  const rows = lista.map((item) => [
+    item.ocorrencia || '',
+    getUnitName(item.units, item.local_ocorrencia),
+    item.categoria || '',
+    item.prioridade || '',
+    item.impacto || '',
+    item.estado || '',
+    item.data_reporte || '',
+    item.data_estado || '',
+    item.data_encerramento || '',
+    item.observacoes || '',
+  ])
+
+  const csvContent = [headers, ...rows]
+    .map((row) =>
+      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(';')
+    )
+    .join('\n')
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', 'ocorrencias_dashboard.csv')
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+
+  URL.revokeObjectURL(url)
+}
+
 export default function DashboardPage() {
   const supabase = createClient()
 
@@ -93,6 +139,7 @@ export default function DashboardPage() {
   }, [])
 
   const total = rows.length
+
   const emAberto = rows.filter(
     (o) =>
       o.estado === 'Em aberto' ||
@@ -122,19 +169,39 @@ export default function DashboardPage() {
       >
         <h1>Dashboard</h1>
 
-        <Link
-          href="/dashboard/nova-ocorrencia"
-          style={{
-            backgroundColor: '#0f172a',
-            color: '#fff',
-            padding: '10px 16px',
-            borderRadius: 8,
-            textDecoration: 'none',
-            fontWeight: 600,
-          }}
-        >
-          Nova Ocorrência
-        </Link>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button onClick={() => exportToCSV(rows)}>
+            Exportar CSV
+          </button>
+
+          <Link
+            href="/dashboard/concluidas"
+            style={{
+              backgroundColor: '#475569',
+              color: '#fff',
+              padding: '10px 16px',
+              borderRadius: 8,
+              textDecoration: 'none',
+              fontWeight: 600,
+            }}
+          >
+            Ver concluídas
+          </Link>
+
+          <Link
+            href="/dashboard/nova-ocorrencia"
+            style={{
+              backgroundColor: '#0f172a',
+              color: '#fff',
+              padding: '10px 16px',
+              borderRadius: 8,
+              textDecoration: 'none',
+              fontWeight: 600,
+            }}
+          >
+            Nova Ocorrência
+          </Link>
+        </div>
       </div>
 
       {errorMessage && (
