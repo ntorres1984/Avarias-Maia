@@ -25,6 +25,8 @@ type Occurrence = {
   data_estado: string | null
   data_encerramento: string | null
   observacoes: string | null
+  fora_sla: boolean | null
+  sla_dias: number | null
   units: UnitRelation
 }
 
@@ -49,6 +51,23 @@ function getUnitName(units: UnitRelation, fallback: string | null) {
   return units?.nome || fallback || '-'
 }
 
+function isForaSLA(item: Occurrence) {
+  if (!item.data_reporte || !item.sla_dias) return false
+
+  const inicio = new Date(item.data_reporte).getTime()
+  if (Number.isNaN(inicio)) return false
+
+  const referencia = item.data_encerramento
+    ? new Date(item.data_encerramento).getTime()
+    : Date.now()
+
+  if (Number.isNaN(referencia)) return false
+
+  const diasPassados = (referencia - inicio) / (1000 * 60 * 60 * 24)
+
+  return diasPassados > item.sla_dias
+}
+
 function exportToCSV(lista: Occurrence[]) {
   const headers = [
     'Ocorrência',
@@ -60,6 +79,8 @@ function exportToCSV(lista: Occurrence[]) {
     'Data reporte',
     'Data alteração estado',
     'Data fim',
+    'SLA dias',
+    'Fora SLA',
     'Observações',
   ]
 
@@ -73,6 +94,8 @@ function exportToCSV(lista: Occurrence[]) {
     formatDate(item.data_reporte),
     formatDateTime(item.data_estado),
     formatDateTime(item.data_encerramento),
+    item.sla_dias ?? '',
+    isForaSLA(item) ? 'Sim' : 'Não',
     item.observacoes || '',
   ])
 
@@ -187,7 +210,7 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
-    minWidth: '1200px',
+    minWidth: '1300px',
   },
 
   th: {
@@ -286,6 +309,23 @@ function getPrioridadeBadgeStyle(prioridade: string | null) {
   return { ...styles.badgeBase, backgroundColor: '#f1f5f9', color: '#475569' }
 }
 
+function getSlaBadgeStyle(foraSla: boolean) {
+  if (foraSla) {
+    return {
+      ...styles.badgeBase,
+      backgroundColor: '#dc2626',
+      color: '#ffffff',
+      fontWeight: 800,
+    }
+  }
+
+  return {
+    ...styles.badgeBase,
+    backgroundColor: '#16a34a',
+    color: '#ffffff',
+  }
+}
+
 export default function ConcluidasPage() {
   const supabase = createClient()
 
@@ -312,6 +352,8 @@ export default function ConcluidasPage() {
         data_estado,
         data_encerramento,
         observacoes,
+        fora_sla,
+        sla_dias,
         units (
           nome
         )
@@ -407,6 +449,7 @@ export default function ConcluidasPage() {
                 <th style={styles.th}>Prioridade</th>
                 <th style={styles.th}>Impacto</th>
                 <th style={styles.th}>Estado</th>
+                <th style={styles.th}>SLA</th>
                 <th style={styles.th}>Data reporte</th>
                 <th style={styles.th}>Data alteração estado</th>
                 <th style={styles.th}>Data fim</th>
@@ -416,41 +459,53 @@ export default function ConcluidasPage() {
             <tbody>
               {listaFiltrada.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={styles.empty}>
+                  <td colSpan={11} style={styles.empty}>
                     Sem ocorrências concluídas
                   </td>
                 </tr>
               ) : (
-                listaFiltrada.map((item) => (
-                  <tr key={item.id}>
-                    <td style={styles.td}>{item.ocorrencia || '-'}</td>
-                    <td style={styles.td}>
-                      {getUnitName(item.units, item.local_ocorrencia)}
-                    </td>
-                    <td style={styles.td}>{item.categoria || 'Sem categoria'}</td>
-                    <td style={styles.td}>
-                      <span style={getPrioridadeBadgeStyle(item.prioridade)}>
-                        {item.prioridade || '-'}
-                      </span>
-                    </td>
-                    <td style={styles.td}>
-                      <span style={getImpactoBadgeStyle(item.impacto)}>
-                        {item.impacto || '-'}
-                      </span>
-                    </td>
-                    <td style={styles.td}>
-                      <span style={getEstadoBadgeStyle(item.estado)}>
-                        {item.estado || '-'}
-                      </span>
-                    </td>
-                    <td style={styles.td}>{formatDate(item.data_reporte)}</td>
-                    <td style={styles.td}>{formatDateTime(item.data_estado)}</td>
-                    <td style={styles.td}>{formatDateTime(item.data_encerramento)}</td>
-                    <td style={{ ...styles.td, ...styles.obsCell }}>
-                      {item.observacoes || '-'}
-                    </td>
-                  </tr>
-                ))
+                listaFiltrada.map((item) => {
+                  const foraSlaAtual = isForaSLA(item)
+
+                  return (
+                    <tr key={item.id}>
+                      <td style={styles.td}>{item.ocorrencia || '-'}</td>
+                      <td style={styles.td}>
+                        {getUnitName(item.units, item.local_ocorrencia)}
+                      </td>
+                      <td style={styles.td}>{item.categoria || 'Sem categoria'}</td>
+                      <td style={styles.td}>
+                        <span style={getPrioridadeBadgeStyle(item.prioridade)}>
+                          {item.prioridade || '-'}
+                        </span>
+                      </td>
+                      <td style={styles.td}>
+                        <span style={getImpactoBadgeStyle(item.impacto)}>
+                          {item.impacto || '-'}
+                        </span>
+                      </td>
+                      <td style={styles.td}>
+                        <span style={getEstadoBadgeStyle(item.estado)}>
+                          {item.estado || '-'}
+                        </span>
+                      </td>
+                      <td style={styles.td}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <span>{item.sla_dias ? `${item.sla_dias} dias` : '-'}</span>
+                          <span style={getSlaBadgeStyle(foraSlaAtual)}>
+                            {foraSlaAtual ? 'Fora SLA' : 'Dentro SLA'}
+                          </span>
+                        </div>
+                      </td>
+                      <td style={styles.td}>{formatDate(item.data_reporte)}</td>
+                      <td style={styles.td}>{formatDateTime(item.data_estado)}</td>
+                      <td style={styles.td}>{formatDateTime(item.data_encerramento)}</td>
+                      <td style={{ ...styles.td, ...styles.obsCell }}>
+                        {item.observacoes || '-'}
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
