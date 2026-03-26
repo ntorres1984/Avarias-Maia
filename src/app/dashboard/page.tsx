@@ -396,10 +396,19 @@ function getPrioridadeBadgeStyle(prioridade: string | null) {
 
 function getSlaBadgeStyle(foraSla: boolean | null) {
   if (foraSla) {
-    return { ...styles.badgeBase, backgroundColor: '#fee2e2', color: '#b91c1c' }
+    return {
+      ...styles.badgeBase,
+      backgroundColor: '#dc2626',
+      color: '#ffffff',
+      fontWeight: 800,
+    }
   }
 
-  return { ...styles.badgeBase, backgroundColor: '#dcfce7', color: '#166534' }
+  return {
+    ...styles.badgeBase,
+    backgroundColor: '#16a34a',
+    color: '#ffffff',
+  }
 }
 
 export default function DashboardPage() {
@@ -651,7 +660,10 @@ export default function DashboardPage() {
                 </tr>
               ) : (
                 listaFiltrada.map((item) => (
-                  <tr key={item.id}>
+                  <tr
+                    key={item.id}
+                    style={item.fora_sla ? { backgroundColor: '#fef2f2' } : undefined}
+                  >
                     <td style={styles.td}>{item.ocorrencia || '-'}</td>
 
                     <td style={styles.td}>
