@@ -25,7 +25,8 @@ type Occurrence = {
   data_estado: string | null
   data_encerramento: string | null
   observacoes: string | null
-  fora_sla?: boolean | null
+  fora_sla: boolean | null
+  sla_dias: number | null
   units: UnitRelation
 }
 
@@ -61,6 +62,8 @@ function exportToCSV(lista: Occurrence[]) {
     'Data reporte',
     'Data alteração estado',
     'Data fim',
+    'SLA dias',
+    'Fora SLA',
     'Observações',
   ]
 
@@ -74,6 +77,8 @@ function exportToCSV(lista: Occurrence[]) {
     formatDate(item.data_reporte),
     formatDateTime(item.data_estado),
     formatDateTime(item.data_encerramento),
+    item.sla_dias ?? '',
+    item.fora_sla ? 'Sim' : 'Não',
     item.observacoes || '',
   ])
 
@@ -268,7 +273,7 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
-    minWidth: '1100px',
+    minWidth: '1200px',
   },
 
   th: {
@@ -389,6 +394,14 @@ function getPrioridadeBadgeStyle(prioridade: string | null) {
   return { ...styles.badgeBase, backgroundColor: '#f1f5f9', color: '#475569' }
 }
 
+function getSlaBadgeStyle(foraSla: boolean | null) {
+  if (foraSla) {
+    return { ...styles.badgeBase, backgroundColor: '#fee2e2', color: '#b91c1c' }
+  }
+
+  return { ...styles.badgeBase, backgroundColor: '#dcfce7', color: '#166534' }
+}
+
 export default function DashboardPage() {
   const supabase = createClient()
 
@@ -419,6 +432,7 @@ export default function DashboardPage() {
         data_encerramento,
         observacoes,
         fora_sla,
+        sla_dias,
         units (
           nome
         )
@@ -621,6 +635,7 @@ export default function DashboardPage() {
                 <th style={styles.th}>Prioridade</th>
                 <th style={styles.th}>Impacto</th>
                 <th style={styles.th}>Estado</th>
+                <th style={styles.th}>SLA</th>
                 <th style={styles.th}>Data reporte</th>
                 <th style={styles.th}>Observações</th>
                 <th style={styles.th}>Ações</th>
@@ -630,7 +645,7 @@ export default function DashboardPage() {
             <tbody>
               {listaFiltrada.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={styles.empty}>
+                  <td colSpan={10} style={styles.empty}>
                     Sem ocorrências em aberto para os filtros escolhidos
                   </td>
                 </tr>
@@ -661,6 +676,15 @@ export default function DashboardPage() {
                       <span style={getEstadoBadgeStyle(item.estado)}>
                         {item.estado || '-'}
                       </span>
+                    </td>
+
+                    <td style={styles.td}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <span>{item.sla_dias ? `${item.sla_dias} dias` : '-'}</span>
+                        <span style={getSlaBadgeStyle(item.fora_sla)}>
+                          {item.fora_sla ? 'Fora SLA' : 'Dentro SLA'}
+                        </span>
+                      </div>
                     </td>
 
                     <td style={styles.td}>{formatDate(item.data_reporte)}</td>
