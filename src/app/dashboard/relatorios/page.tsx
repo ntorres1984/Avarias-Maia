@@ -25,6 +25,8 @@ type Occurrence = {
   data_estado: string | null
   data_encerramento: string | null
   observacoes: string | null
+  fora_sla: boolean | null
+  sla_dias: number | null
   units: UnitRelation
 }
 
@@ -36,6 +38,7 @@ type UnitSummary = {
   emExecucao: number
   concluidas: number
   encerradas: number
+  foraSla: number
 }
 
 type CategorySummary = {
@@ -46,6 +49,7 @@ type CategorySummary = {
   emExecucao: number
   concluidas: number
   encerradas: number
+  foraSla: number
 }
 
 function getUnitName(units: UnitRelation, fallback: string | null) {
@@ -59,6 +63,22 @@ function normalizeCategoria(value: string | null) {
   return value || 'Sem categoria'
 }
 
+function isForaSLA(item: Occurrence) {
+  if (!item.data_reporte || !item.sla_dias) return false
+
+  if (item.estado === 'Concluída' || item.estado === 'Encerrada') {
+    return false
+  }
+
+  const inicio = new Date(item.data_reporte).getTime()
+  if (Number.isNaN(inicio)) return false
+
+  const agora = Date.now()
+  const diasPassados = (agora - inicio) / (1000 * 60 * 60 * 24)
+
+  return diasPassados > item.sla_dias
+}
+
 function exportUnitsCSV(lista: UnitSummary[]) {
   const headers = [
     'Unidade',
@@ -68,6 +88,7 @@ function exportUnitsCSV(lista: UnitSummary[]) {
     'Em execução',
     'Concluídas',
     'Encerradas',
+    'Fora SLA',
   ]
 
   const rows = lista.map((item) => [
@@ -78,6 +99,7 @@ function exportUnitsCSV(lista: UnitSummary[]) {
     item.emExecucao,
     item.concluidas,
     item.encerradas,
+    item.foraSla,
   ])
 
   const csvContent = [headers, ...rows]
@@ -110,6 +132,7 @@ function exportCategoriesCSV(lista: CategorySummary[]) {
     'Em execução',
     'Concluídas',
     'Encerradas',
+    'Fora SLA',
   ]
 
   const rows = lista.map((item) => [
@@ -120,6 +143,7 @@ function exportCategoriesCSV(lista: CategorySummary[]) {
     item.emExecucao,
     item.concluidas,
     item.encerradas,
+    item.foraSla,
   ])
 
   const csvContent = [headers, ...rows]
@@ -190,7 +214,7 @@ const styles = {
 
   statsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
     gap: '16px',
     marginBottom: '24px',
   } as const,
@@ -245,7 +269,7 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
-    minWidth: '900px',
+    minWidth: '1000px',
   },
 
   th: {
@@ -305,6 +329,8 @@ export default function RelatoriosPage() {
         data_estado,
         data_encerramento,
         observacoes,
+        fora_sla,
+        sla_dias,
         units (
           nome
         )
@@ -332,6 +358,7 @@ export default function RelatoriosPage() {
     rows.forEach((item) => {
       const unidade = getUnitName(item.units, item.local_ocorrencia)
       const estado = item.estado || '-'
+      const foraSlaAtual = isForaSLA(item)
 
       if (!map.has(unidade)) {
         map.set(unidade, {
@@ -342,6 +369,7 @@ export default function RelatoriosPage() {
           emExecucao: 0,
           concluidas: 0,
           encerradas: 0,
+          foraSla: 0,
         })
       }
 
@@ -353,6 +381,7 @@ export default function RelatoriosPage() {
       if (estado === 'Em execução') current.emExecucao += 1
       if (estado === 'Concluída') current.concluidas += 1
       if (estado === 'Encerrada') current.encerradas += 1
+      if (foraSlaAtual) current.foraSla += 1
     })
 
     return Array.from(map.values()).sort((a, b) =>
@@ -366,6 +395,7 @@ export default function RelatoriosPage() {
     rows.forEach((item) => {
       const categoria = normalizeCategoria(item.categoria)
       const estado = item.estado || '-'
+      const foraSlaAtual = isForaSLA(item)
 
       if (!map.has(categoria)) {
         map.set(categoria, {
@@ -376,6 +406,7 @@ export default function RelatoriosPage() {
           emExecucao: 0,
           concluidas: 0,
           encerradas: 0,
+          foraSla: 0,
         })
       }
 
@@ -387,6 +418,7 @@ export default function RelatoriosPage() {
       if (estado === 'Em execução') current.emExecucao += 1
       if (estado === 'Concluída') current.concluidas += 1
       if (estado === 'Encerrada') current.encerradas += 1
+      if (foraSlaAtual) current.foraSla += 1
     })
 
     return Array.from(map.values()).sort((a, b) =>
@@ -404,6 +436,7 @@ export default function RelatoriosPage() {
       o.estado === 'Em análise' ||
       o.estado === 'Em execução'
   ).length
+  const totalForaSla = rows.filter((o) => isForaSLA(o)).length
 
   return (
     <div style={styles.page}>
@@ -439,6 +472,11 @@ export default function RelatoriosPage() {
           <h3 style={styles.cardTitle}>Ocorrências concluídas</h3>
           <p style={styles.cardValue}>{totalConcluidas}</p>
         </div>
+
+        <div style={styles.card}>
+          <h3 style={styles.cardTitle}>Fora SLA</h3>
+          <p style={styles.cardValue}>{totalForaSla}</p>
+        </div>
       </div>
 
       {loading ? (
@@ -466,12 +504,13 @@ export default function RelatoriosPage() {
                   <th style={styles.th}>Em execução</th>
                   <th style={styles.th}>Concluídas</th>
                   <th style={styles.th}>Encerradas</th>
+                  <th style={styles.th}>Fora SLA</th>
                 </tr>
               </thead>
               <tbody>
                 {resumoPorUnidade.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={styles.empty}>
+                    <td colSpan={8} style={styles.empty}>
                       Sem dados
                     </td>
                   </tr>
@@ -485,6 +524,7 @@ export default function RelatoriosPage() {
                       <td style={styles.td}>{item.emExecucao}</td>
                       <td style={styles.td}>{item.concluidas}</td>
                       <td style={styles.td}>{item.encerradas}</td>
+                      <td style={styles.td}>{item.foraSla}</td>
                     </tr>
                   ))
                 )}
@@ -513,12 +553,13 @@ export default function RelatoriosPage() {
                   <th style={styles.th}>Em execução</th>
                   <th style={styles.th}>Concluídas</th>
                   <th style={styles.th}>Encerradas</th>
+                  <th style={styles.th}>Fora SLA</th>
                 </tr>
               </thead>
               <tbody>
                 {resumoPorCategoria.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={styles.empty}>
+                    <td colSpan={8} style={styles.empty}>
                       Sem dados
                     </td>
                   </tr>
@@ -532,6 +573,7 @@ export default function RelatoriosPage() {
                       <td style={styles.td}>{item.emExecucao}</td>
                       <td style={styles.td}>{item.concluidas}</td>
                       <td style={styles.td}>{item.encerradas}</td>
+                      <td style={styles.td}>{item.foraSla}</td>
                     </tr>
                   ))
                 )}
