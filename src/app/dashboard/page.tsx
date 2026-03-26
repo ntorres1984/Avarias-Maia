@@ -51,6 +51,22 @@ function getUnitName(units: UnitRelation, fallback: string | null) {
   return units?.nome || fallback || '-'
 }
 
+function isForaSLA(item: Occurrence) {
+  if (!item.data_reporte || !item.sla_dias) return false
+
+  if (item.estado === 'Concluída' || item.estado === 'Encerrada') {
+    return false
+  }
+
+  const inicio = new Date(item.data_reporte).getTime()
+  if (Number.isNaN(inicio)) return false
+
+  const agora = Date.now()
+  const diasPassados = (agora - inicio) / (1000 * 60 * 60 * 24)
+
+  return diasPassados > item.sla_dias
+}
+
 function exportToCSV(lista: Occurrence[]) {
   const headers = [
     'Ocorrência',
@@ -78,7 +94,7 @@ function exportToCSV(lista: Occurrence[]) {
     formatDateTime(item.data_estado),
     formatDateTime(item.data_encerramento),
     item.sla_dias ?? '',
-    item.fora_sla ? 'Sim' : 'Não',
+    isForaSLA(item) ? 'Sim' : 'Não',
     item.observacoes || '',
   ])
 
@@ -394,7 +410,7 @@ function getPrioridadeBadgeStyle(prioridade: string | null) {
   return { ...styles.badgeBase, backgroundColor: '#f1f5f9', color: '#475569' }
 }
 
-function getSlaBadgeStyle(foraSla: boolean | null) {
+function getSlaBadgeStyle(foraSla: boolean) {
   if (foraSla) {
     return {
       ...styles.badgeBase,
@@ -476,7 +492,7 @@ export default function DashboardPage() {
     (o) => o.estado === 'Concluída' || o.estado === 'Encerrada'
   ).length
 
-  const foraSla = rows.filter((o) => o.fora_sla === true).length
+  const foraSla = rows.filter((o) => isForaSLA(o)).length
 
   const percentagemForaSla =
     total > 0 ? Math.round((foraSla / total) * 100) : 0
@@ -703,62 +719,66 @@ export default function DashboardPage() {
                   </td>
                 </tr>
               ) : (
-                listaFiltrada.map((item) => (
-                  <tr
-                    key={item.id}
-                    style={item.fora_sla ? { backgroundColor: '#fef2f2' } : undefined}
-                  >
-                    <td style={styles.td}>{item.ocorrencia || '-'}</td>
+                listaFiltrada.map((item) => {
+                  const foraSlaAtual = isForaSLA(item)
 
-                    <td style={styles.td}>
-                      {getUnitName(item.units, item.local_ocorrencia)}
-                    </td>
+                  return (
+                    <tr
+                      key={item.id}
+                      style={foraSlaAtual ? { backgroundColor: '#fef2f2' } : undefined}
+                    >
+                      <td style={styles.td}>{item.ocorrencia || '-'}</td>
 
-                    <td style={styles.td}>{item.categoria || 'Sem categoria'}</td>
+                      <td style={styles.td}>
+                        {getUnitName(item.units, item.local_ocorrencia)}
+                      </td>
 
-                    <td style={styles.td}>
-                      <span style={getPrioridadeBadgeStyle(item.prioridade)}>
-                        {item.prioridade || '-'}
-                      </span>
-                    </td>
+                      <td style={styles.td}>{item.categoria || 'Sem categoria'}</td>
 
-                    <td style={styles.td}>
-                      <span style={getImpactoBadgeStyle(item.impacto)}>
-                        {item.impacto || '-'}
-                      </span>
-                    </td>
-
-                    <td style={styles.td}>
-                      <span style={getEstadoBadgeStyle(item.estado)}>
-                        {item.estado || '-'}
-                      </span>
-                    </td>
-
-                    <td style={styles.td}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <span>{item.sla_dias ? `${item.sla_dias} dias` : '-'}</span>
-                        <span style={getSlaBadgeStyle(item.fora_sla)}>
-                          {item.fora_sla ? 'Fora SLA' : 'Dentro SLA'}
+                      <td style={styles.td}>
+                        <span style={getPrioridadeBadgeStyle(item.prioridade)}>
+                          {item.prioridade || '-'}
                         </span>
-                      </div>
-                    </td>
+                      </td>
 
-                    <td style={styles.td}>{formatDate(item.data_reporte)}</td>
+                      <td style={styles.td}>
+                        <span style={getImpactoBadgeStyle(item.impacto)}>
+                          {item.impacto || '-'}
+                        </span>
+                      </td>
 
-                    <td style={{ ...styles.td, ...styles.obsCell }}>
-                      {item.observacoes || '-'}
-                    </td>
+                      <td style={styles.td}>
+                        <span style={getEstadoBadgeStyle(item.estado)}>
+                          {item.estado || '-'}
+                        </span>
+                      </td>
 
-                    <td style={styles.td}>
-                      <Link
-                        href={`/dashboard/ocorrencia/${item.id}`}
-                        style={styles.editBtn}
-                      >
-                        Editar
-                      </Link>
-                    </td>
-                  </tr>
-                ))
+                      <td style={styles.td}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <span>{item.sla_dias ? `${item.sla_dias} dias` : '-'}</span>
+                          <span style={getSlaBadgeStyle(foraSlaAtual)}>
+                            {foraSlaAtual ? 'Fora SLA' : 'Dentro SLA'}
+                          </span>
+                        </div>
+                      </td>
+
+                      <td style={styles.td}>{formatDate(item.data_reporte)}</td>
+
+                      <td style={{ ...styles.td, ...styles.obsCell }}>
+                        {item.observacoes || '-'}
+                      </td>
+
+                      <td style={styles.td}>
+                        <Link
+                          href={`/dashboard/ocorrencia/${item.id}`}
+                          style={styles.editBtn}
+                        >
+                          Editar
+                        </Link>
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
