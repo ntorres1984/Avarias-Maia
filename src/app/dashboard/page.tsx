@@ -195,7 +195,7 @@ const styles = {
 
   statsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
     gap: '16px',
     marginBottom: '24px',
   } as const,
@@ -478,6 +478,35 @@ export default function DashboardPage() {
 
   const foraSla = rows.filter((o) => o.fora_sla === true).length
 
+  const percentagemForaSla =
+    total > 0 ? Math.round((foraSla / total) * 100) : 0
+
+  const ocorrenciasCriticasAbertas = rows.filter(
+    (o) =>
+      (o.impacto === 'Crítico' || o.prioridade === 'Alta') &&
+      o.estado !== 'Concluída' &&
+      o.estado !== 'Encerrada'
+  ).length
+
+  const tempoMedioResolucao = (() => {
+    const resolvidas = rows.filter(
+      (o) =>
+        o.data_reporte &&
+        o.data_encerramento &&
+        (o.estado === 'Concluída' || o.estado === 'Encerrada')
+    )
+
+    if (resolvidas.length === 0) return 0
+
+    const totalMs = resolvidas.reduce((acc, o) => {
+      const inicio = new Date(o.data_reporte as string).getTime()
+      const fim = new Date(o.data_encerramento as string).getTime()
+      return acc + (fim - inicio)
+    }, 0)
+
+    return Math.round(totalMs / resolvidas.length / (1000 * 60 * 60 * 24))
+  })()
+
   const listaDashboard = rows.filter(
     (o) => o.estado !== 'Concluída' && o.estado !== 'Encerrada'
   )
@@ -563,6 +592,21 @@ export default function DashboardPage() {
         <div style={styles.card}>
           <h3 style={styles.cardTitle}>Fora SLA</h3>
           <p style={styles.cardValue}>{foraSla}</p>
+        </div>
+
+        <div style={styles.card}>
+          <h3 style={styles.cardTitle}>% Fora SLA</h3>
+          <p style={styles.cardValue}>{percentagemForaSla}%</p>
+        </div>
+
+        <div style={styles.card}>
+          <h3 style={styles.cardTitle}>Críticas em aberto</h3>
+          <p style={styles.cardValue}>{ocorrenciasCriticasAbertas}</p>
+        </div>
+
+        <div style={styles.card}>
+          <h3 style={styles.cardTitle}>Tempo médio resolução</h3>
+          <p style={styles.cardValue}>{tempoMedioResolucao} dias</p>
         </div>
       </div>
 
