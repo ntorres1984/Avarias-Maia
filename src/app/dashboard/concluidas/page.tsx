@@ -30,90 +30,124 @@ type Occurrence = {
   units: UnitRelation
 }
 
-function formatDate(dateString: string | null) {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return '-'
-  return date.toLocaleDateString('pt-PT')
+type UnitSummary = {
+  unidade: string
+  total: number
+  emAberto: number
+  emAnalise: number
+  emExecucao: number
+  concluidas: number
+  encerradas: number
+  foraSla: number
 }
 
-function formatDateTime(dateString: string | null) {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return '-'
-  return date.toLocaleString('pt-PT')
+type CategorySummary = {
+  categoria: string
+  total: number
+  emAberto: number
+  emAnalise: number
+  emExecucao: number
+  concluidas: number
+  encerradas: number
+  foraSla: number
 }
 
 function getUnitName(units: UnitRelation, fallback: string | null) {
-  if (Array.isArray(units)) {
-    return units[0]?.nome || fallback || '-'
-  }
+  if (Array.isArray(units)) return units[0]?.nome || fallback || '-'
   return units?.nome || fallback || '-'
+}
+
+function normalizeCategoria(value: string | null) {
+  return value || 'Sem categoria'
 }
 
 function isForaSLA(item: Occurrence) {
   if (!item.data_reporte || !item.sla_dias) return false
 
+  if (item.estado === 'Concluída' || item.estado === 'Encerrada') {
+    return false
+  }
+
   const inicio = new Date(item.data_reporte).getTime()
   if (Number.isNaN(inicio)) return false
 
-  const referencia = item.data_encerramento
-    ? new Date(item.data_encerramento).getTime()
-    : Date.now()
-
-  if (Number.isNaN(referencia)) return false
-
-  const diasPassados = (referencia - inicio) / (1000 * 60 * 60 * 24)
-
+  const agora = Date.now()
+  const diasPassados = (agora - inicio) / (1000 * 60 * 60 * 24)
   return diasPassados > item.sla_dias
 }
 
-function exportToCSV(lista: Occurrence[]) {
+function exportUnitsCSV(lista: UnitSummary[]) {
   const headers = [
-    'Ocorrência',
     'Unidade',
-    'Categoria',
-    'Prioridade',
-    'Impacto',
-    'Estado',
-    'Data reporte',
-    'Data alteração estado',
-    'Data fim',
-    'SLA dias',
+    'Total',
+    'Em aberto',
+    'Em análise',
+    'Em execução',
+    'Concluídas',
+    'Encerradas',
     'Fora SLA',
-    'Observações',
   ]
 
   const rows = lista.map((item) => [
-    item.ocorrencia || '',
-    getUnitName(item.units, item.local_ocorrencia),
-    item.categoria || '',
-    item.prioridade || '',
-    item.impacto || '',
-    item.estado || '',
-    formatDate(item.data_reporte),
-    formatDateTime(item.data_estado),
-    formatDateTime(item.data_encerramento),
-    item.sla_dias ?? '',
-    isForaSLA(item) ? 'Sim' : 'Não',
-    item.observacoes || '',
+    item.unidade,
+    item.total,
+    item.emAberto,
+    item.emAnalise,
+    item.emExecucao,
+    item.concluidas,
+    item.encerradas,
+    item.foraSla,
   ])
 
   const csvContent = [headers, ...rows]
-    .map((row) =>
-      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(';')
-    )
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(';'))
     .join('\n')
 
   const bom = '\uFEFF'
-  const blob = new Blob([bom + csvContent], {
-    type: 'text/csv;charset=utf-8;',
-  })
-
+  const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.setAttribute('download', 'ocorrencias_concluidas.csv')
+  link.setAttribute('download', 'relatorio_unidades.csv')
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+function exportCategoriesCSV(lista: CategorySummary[]) {
+  const headers = [
+    'Categoria',
+    'Total',
+    'Em aberto',
+    'Em análise',
+    'Em execução',
+    'Concluídas',
+    'Encerradas',
+    'Fora SLA',
+  ]
+
+  const rows = lista.map((item) => [
+    item.categoria,
+    item.total,
+    item.emAberto,
+    item.emAnalise,
+    item.emExecucao,
+    item.concluidas,
+    item.encerradas,
+    item.foraSla,
+  ])
+
+  const csvContent = [headers, ...rows]
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(';'))
+    .join('\n')
+
+  const bom = '\uFEFF'
+  const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', 'relatorio_categorias.csv')
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
@@ -165,38 +199,49 @@ const styles = {
     fontSize: '14px',
   } as const,
 
-  filtersBox: {
+  statsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: '16px',
+    marginBottom: '24px',
+  } as const,
+
+  card: {
     backgroundColor: '#ffffff',
     border: '1px solid #e2e8f0',
     borderRadius: '16px',
-    padding: '16px',
-    marginBottom: '18px',
-    display: 'flex',
-    gap: '16px',
-    flexWrap: 'wrap',
-    alignItems: 'flex-end',
+    padding: '20px',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
   } as const,
 
-  filterGroup: {
-    minWidth: '220px',
-  } as const,
-
-  label: {
-    display: 'block',
-    marginBottom: '6px',
-    fontSize: '14px',
+  cardTitle: {
+    margin: '0 0 12px 0',
+    fontSize: '16px',
     fontWeight: 600,
     color: '#334155',
   } as const,
 
-  select: {
-    width: '100%',
-    minHeight: '40px',
-    borderRadius: '10px',
-    border: '1px solid #cbd5e1',
-    padding: '8px 12px',
-    backgroundColor: '#ffffff',
-    fontSize: '14px',
+  cardValue: {
+    margin: 0,
+    fontSize: '34px',
+    fontWeight: 700,
+    color: '#0f172a',
+  } as const,
+
+  sectionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '16px',
+    marginTop: '24px',
+    marginBottom: '12px',
+    flexWrap: 'wrap',
+  } as const,
+
+  sectionTitle: {
+    margin: 0,
+    fontSize: '28px',
+    fontWeight: 700,
   } as const,
 
   tableWrapper: {
@@ -205,12 +250,13 @@ const styles = {
     borderRadius: '16px',
     overflow: 'auto',
     boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+    marginBottom: '32px',
   } as const,
 
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
-    minWidth: '1300px',
+    minWidth: '1000px',
   },
 
   th: {
@@ -227,7 +273,6 @@ const styles = {
     borderBottom: '1px solid #f1f5f9',
     padding: '14px 12px',
     fontSize: '14px',
-    verticalAlign: 'top' as const,
   },
 
   empty: {
@@ -235,21 +280,6 @@ const styles = {
     textAlign: 'center' as const,
     color: '#64748b',
   } as const,
-
-  badgeBase: {
-    display: 'inline-block',
-    padding: '6px 10px',
-    borderRadius: '999px',
-    fontSize: '12px',
-    fontWeight: 700,
-    whiteSpace: 'nowrap' as const,
-  },
-
-  obsCell: {
-    maxWidth: '280px',
-    whiteSpace: 'normal' as const,
-    wordBreak: 'break-word' as const,
-  },
 
   error: {
     color: '#b91c1c',
@@ -259,80 +289,28 @@ const styles = {
     padding: '12px 14px',
     marginBottom: '16px',
   } as const,
+
+  barTrack: {
+    width: '160px',
+    height: '10px',
+    backgroundColor: '#e2e8f0',
+    borderRadius: '999px',
+    overflow: 'hidden',
+  } as const,
+
+  barFill: {
+    height: '100%',
+    backgroundColor: '#1d4ed8',
+    borderRadius: '999px',
+  } as const,
 }
 
-function getEstadoBadgeStyle(estado: string | null) {
-  if (estado === 'Concluída') {
-    return { ...styles.badgeBase, backgroundColor: '#dcfce7', color: '#166534' }
-  }
-
-  if (estado === 'Encerrada') {
-    return { ...styles.badgeBase, backgroundColor: '#e2e8f0', color: '#334155' }
-  }
-
-  return { ...styles.badgeBase, backgroundColor: '#f1f5f9', color: '#475569' }
-}
-
-function getImpactoBadgeStyle(impacto: string | null) {
-  if (impacto === 'Crítico') {
-    return { ...styles.badgeBase, backgroundColor: '#fee2e2', color: '#b91c1c' }
-  }
-
-  if (impacto === 'Alto') {
-    return { ...styles.badgeBase, backgroundColor: '#ffedd5', color: '#c2410c' }
-  }
-
-  if (impacto === 'Médio') {
-    return { ...styles.badgeBase, backgroundColor: '#fef3c7', color: '#a16207' }
-  }
-
-  if (impacto === 'Baixo') {
-    return { ...styles.badgeBase, backgroundColor: '#dcfce7', color: '#166534' }
-  }
-
-  return { ...styles.badgeBase, backgroundColor: '#f1f5f9', color: '#475569' }
-}
-
-function getPrioridadeBadgeStyle(prioridade: string | null) {
-  if (prioridade === 'Alta') {
-    return { ...styles.badgeBase, backgroundColor: '#fee2e2', color: '#b91c1c' }
-  }
-
-  if (prioridade === 'Média') {
-    return { ...styles.badgeBase, backgroundColor: '#fef3c7', color: '#92400e' }
-  }
-
-  if (prioridade === 'Baixa') {
-    return { ...styles.badgeBase, backgroundColor: '#dcfce7', color: '#166534' }
-  }
-
-  return { ...styles.badgeBase, backgroundColor: '#f1f5f9', color: '#475569' }
-}
-
-function getSlaBadgeStyle(foraSla: boolean) {
-  if (foraSla) {
-    return {
-      ...styles.badgeBase,
-      backgroundColor: '#dc2626',
-      color: '#ffffff',
-      fontWeight: 800,
-    }
-  }
-
-  return {
-    ...styles.badgeBase,
-    backgroundColor: '#16a34a',
-    color: '#ffffff',
-  }
-}
-
-export default function ConcluidasPage() {
+export default function RelatoriosPage() {
   const supabase = createClient()
 
   const [rows, setRows] = useState<Occurrence[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
-  const [filtroUnidade, setFiltroUnidade] = useState('')
 
   async function loadOccurrences() {
     setLoading(true)
@@ -358,9 +336,7 @@ export default function ConcluidasPage() {
           nome
         )
       `)
-      .in('estado', ['Concluída', 'Encerrada'])
-      .order('data_encerramento', { ascending: false })
-      .order('data_estado', { ascending: false })
+      .order('data_reporte', { ascending: false })
 
     if (error) {
       setErrorMessage(error.message)
@@ -377,139 +353,253 @@ export default function ConcluidasPage() {
     loadOccurrences()
   }, [])
 
-  const unidades = useMemo(() => {
-    const values = rows.map((item) => getUnitName(item.units, item.local_ocorrencia))
-    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b))
+  const resumoPorUnidade = useMemo(() => {
+    const map = new Map<string, UnitSummary>()
+
+    rows.forEach((item) => {
+      const unidade = getUnitName(item.units, item.local_ocorrencia)
+      const estado = item.estado || '-'
+      const foraSlaAtual = isForaSLA(item)
+
+      if (!map.has(unidade)) {
+        map.set(unidade, {
+          unidade,
+          total: 0,
+          emAberto: 0,
+          emAnalise: 0,
+          emExecucao: 0,
+          concluidas: 0,
+          encerradas: 0,
+          foraSla: 0,
+        })
+      }
+
+      const current = map.get(unidade)!
+      current.total += 1
+
+      if (estado === 'Em aberto') current.emAberto += 1
+      if (estado === 'Em análise') current.emAnalise += 1
+      if (estado === 'Em execução') current.emExecucao += 1
+      if (estado === 'Concluída') current.concluidas += 1
+      if (estado === 'Encerrada') current.encerradas += 1
+      if (foraSlaAtual) current.foraSla += 1
+    })
+
+    return Array.from(map.values()).sort((a, b) => b.total - a.total)
   }, [rows])
 
-  const listaFiltrada = useMemo(() => {
-    return rows.filter((item) => {
-      const unidade = getUnitName(item.units, item.local_ocorrencia)
-      return !filtroUnidade || unidade === filtroUnidade
+  const resumoPorCategoria = useMemo(() => {
+    const map = new Map<string, CategorySummary>()
+
+    rows.forEach((item) => {
+      const categoria = normalizeCategoria(item.categoria)
+      const estado = item.estado || '-'
+      const foraSlaAtual = isForaSLA(item)
+
+      if (!map.has(categoria)) {
+        map.set(categoria, {
+          categoria,
+          total: 0,
+          emAberto: 0,
+          emAnalise: 0,
+          emExecucao: 0,
+          concluidas: 0,
+          encerradas: 0,
+          foraSla: 0,
+        })
+      }
+
+      const current = map.get(categoria)!
+      current.total += 1
+
+      if (estado === 'Em aberto') current.emAberto += 1
+      if (estado === 'Em análise') current.emAnalise += 1
+      if (estado === 'Em execução') current.emExecucao += 1
+      if (estado === 'Concluída') current.concluidas += 1
+      if (estado === 'Encerrada') current.encerradas += 1
+      if (foraSlaAtual) current.foraSla += 1
     })
-  }, [rows, filtroUnidade])
+
+    return Array.from(map.values()).sort((a, b) => b.total - a.total)
+  }, [rows])
+
+  const total = rows.length
+  const totalConcluidas = rows.filter(
+    (o) => o.estado === 'Concluída' || o.estado === 'Encerrada'
+  ).length
+  const totalAbertas = rows.filter(
+    (o) =>
+      o.estado === 'Em aberto' ||
+      o.estado === 'Em análise' ||
+      o.estado === 'Em execução'
+  ).length
+  const totalForaSla = rows.filter((o) => isForaSLA(o)).length
+
+  const maxUnidade = Math.max(...resumoPorUnidade.map((i) => i.total), 1)
+  const maxCategoria = Math.max(...resumoPorCategoria.map((i) => i.total), 1)
 
   return (
     <div style={styles.page}>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>Ocorrências concluídas</h1>
+          <h1 style={styles.title}>Relatórios de gestão</h1>
           <div style={{ marginTop: 8 }}>
             <Link href="/dashboard" style={styles.subLink}>
               ← Voltar ao dashboard
             </Link>
           </div>
         </div>
-
-        <button style={styles.btn} onClick={() => exportToCSV(listaFiltrada)}>
-          Exportar CSV
-        </button>
       </div>
 
       {errorMessage && (
         <div style={styles.error}>
-          Erro ao carregar: {errorMessage}
+          Erro ao carregar relatórios: {errorMessage}
         </div>
       )}
 
-      <div style={styles.filtersBox}>
-        <div style={styles.filterGroup}>
-          <label style={styles.label}>Filtrar por unidade</label>
-          <select
-            style={styles.select}
-            value={filtroUnidade}
-            onChange={(e) => setFiltroUnidade(e.target.value)}
-          >
-            <option value="">Todas</option>
-            {unidades.map((unidade) => (
-              <option key={unidade} value={unidade}>
-                {unidade}
-              </option>
-            ))}
-          </select>
+      <div style={styles.statsGrid}>
+        <div style={styles.card}>
+          <h3 style={styles.cardTitle}>Total de ocorrências</h3>
+          <p style={styles.cardValue}>{total}</p>
         </div>
 
-        <div>
-          <button style={styles.btn} onClick={() => setFiltroUnidade('')}>
-            Limpar filtro
-          </button>
+        <div style={styles.card}>
+          <h3 style={styles.cardTitle}>Ocorrências abertas</h3>
+          <p style={styles.cardValue}>{totalAbertas}</p>
+        </div>
+
+        <div style={styles.card}>
+          <h3 style={styles.cardTitle}>Ocorrências concluídas</h3>
+          <p style={styles.cardValue}>{totalConcluidas}</p>
+        </div>
+
+        <div style={styles.card}>
+          <h3 style={styles.cardTitle}>Fora SLA</h3>
+          <p style={styles.cardValue}>{totalForaSla}</p>
         </div>
       </div>
 
       {loading ? (
-        <div style={{ ...styles.tableWrapper, padding: 20 }}>A carregar...</div>
+        <div style={styles.card}>A carregar...</div>
       ) : (
-        <div style={styles.tableWrapper}>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Ocorrência</th>
-                <th style={styles.th}>Unidade</th>
-                <th style={styles.th}>Categoria</th>
-                <th style={styles.th}>Prioridade</th>
-                <th style={styles.th}>Impacto</th>
-                <th style={styles.th}>Estado</th>
-                <th style={styles.th}>SLA</th>
-                <th style={styles.th}>Data reporte</th>
-                <th style={styles.th}>Data alteração estado</th>
-                <th style={styles.th}>Data fim</th>
-                <th style={styles.th}>Observações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {listaFiltrada.length === 0 ? (
-                <tr>
-                  <td colSpan={11} style={styles.empty}>
-                    Sem ocorrências concluídas
-                  </td>
-                </tr>
-              ) : (
-                listaFiltrada.map((item) => {
-                  const foraSlaAtual = isForaSLA(item)
+        <>
+          <div style={styles.sectionHeader}>
+            <h2 style={styles.sectionTitle}>Resumo por unidade</h2>
+            <button style={styles.btn} onClick={() => exportUnitsCSV(resumoPorUnidade)}>
+              Exportar unidades CSV
+            </button>
+          </div>
 
-                  return (
-                    <tr key={item.id}>
-                      <td style={styles.td}>{item.ocorrencia || '-'}</td>
+          <div style={styles.tableWrapper}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Unidade</th>
+                  <th style={styles.th}>Total</th>
+                  <th style={styles.th}>Gráfico</th>
+                  <th style={styles.th}>Em aberto</th>
+                  <th style={styles.th}>Em análise</th>
+                  <th style={styles.th}>Em execução</th>
+                  <th style={styles.th}>Concluídas</th>
+                  <th style={styles.th}>Encerradas</th>
+                  <th style={styles.th}>Fora SLA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resumoPorUnidade.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} style={styles.empty}>
+                      Sem dados
+                    </td>
+                  </tr>
+                ) : (
+                  resumoPorUnidade.map((item) => (
+                    <tr key={item.unidade}>
+                      <td style={styles.td}>{item.unidade}</td>
+                      <td style={styles.td}>{item.total}</td>
                       <td style={styles.td}>
-                        {getUnitName(item.units, item.local_ocorrencia)}
-                      </td>
-                      <td style={styles.td}>{item.categoria || 'Sem categoria'}</td>
-                      <td style={styles.td}>
-                        <span style={getPrioridadeBadgeStyle(item.prioridade)}>
-                          {item.prioridade || '-'}
-                        </span>
-                      </td>
-                      <td style={styles.td}>
-                        <span style={getImpactoBadgeStyle(item.impacto)}>
-                          {item.impacto || '-'}
-                        </span>
-                      </td>
-                      <td style={styles.td}>
-                        <span style={getEstadoBadgeStyle(item.estado)}>
-                          {item.estado || '-'}
-                        </span>
-                      </td>
-                      <td style={styles.td}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <span>{item.sla_dias ? `${item.sla_dias} dias` : '-'}</span>
-                          <span style={getSlaBadgeStyle(foraSlaAtual)}>
-                            {foraSlaAtual ? 'Fora SLA' : 'Dentro SLA'}
-                          </span>
+                        <div style={styles.barTrack}>
+                          <div
+                            style={{
+                              ...styles.barFill,
+                              width: `${(item.total / maxUnidade) * 100}%`,
+                            }}
+                          />
                         </div>
                       </td>
-                      <td style={styles.td}>{formatDate(item.data_reporte)}</td>
-                      <td style={styles.td}>{formatDateTime(item.data_estado)}</td>
-                      <td style={styles.td}>{formatDateTime(item.data_encerramento)}</td>
-                      <td style={{ ...styles.td, ...styles.obsCell }}>
-                        {item.observacoes || '-'}
-                      </td>
+                      <td style={styles.td}>{item.emAberto}</td>
+                      <td style={styles.td}>{item.emAnalise}</td>
+                      <td style={styles.td}>{item.emExecucao}</td>
+                      <td style={styles.td}>{item.concluidas}</td>
+                      <td style={styles.td}>{item.encerradas}</td>
+                      <td style={styles.td}>{item.foraSla}</td>
                     </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={styles.sectionHeader}>
+            <h2 style={styles.sectionTitle}>Resumo por categoria</h2>
+            <button
+              style={styles.btn}
+              onClick={() => exportCategoriesCSV(resumoPorCategoria)}
+            >
+              Exportar categorias CSV
+            </button>
+          </div>
+
+          <div style={styles.tableWrapper}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Categoria</th>
+                  <th style={styles.th}>Total</th>
+                  <th style={styles.th}>Gráfico</th>
+                  <th style={styles.th}>Em aberto</th>
+                  <th style={styles.th}>Em análise</th>
+                  <th style={styles.th}>Em execução</th>
+                  <th style={styles.th}>Concluídas</th>
+                  <th style={styles.th}>Encerradas</th>
+                  <th style={styles.th}>Fora SLA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resumoPorCategoria.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} style={styles.empty}>
+                      Sem dados
+                    </td>
+                  </tr>
+                ) : (
+                  resumoPorCategoria.map((item) => (
+                    <tr key={item.categoria}>
+                      <td style={styles.td}>{item.categoria}</td>
+                      <td style={styles.td}>{item.total}</td>
+                      <td style={styles.td}>
+                        <div style={styles.barTrack}>
+                          <div
+                            style={{
+                              ...styles.barFill,
+                              width: `${(item.total / maxCategoria) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </td>
+                      <td style={styles.td}>{item.emAberto}</td>
+                      <td style={styles.td}>{item.emAnalise}</td>
+                      <td style={styles.td}>{item.emExecucao}</td>
+                      <td style={styles.td}>{item.concluidas}</td>
+                      <td style={styles.td}>{item.encerradas}</td>
+                      <td style={styles.td}>{item.foraSla}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   )
