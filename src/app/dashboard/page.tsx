@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 type UnitRelation =
@@ -429,6 +430,8 @@ function getSlaBadgeStyle(foraSla: boolean) {
 
 export default function DashboardPage() {
   const supabase = createClient()
+  const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [rows, setRows] = useState<Occurrence[]>([])
   const [loading, setLoading] = useState(true)
@@ -437,6 +440,23 @@ export default function DashboardPage() {
   const [filtroUnidade, setFiltroUnidade] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
+
+  useEffect(() => {
+    setFiltroUnidade(searchParams.get('unidade') || '')
+    setFiltroCategoria(searchParams.get('categoria') || '')
+    setFiltroEstado(searchParams.get('estado') || '')
+  }, [searchParams])
+
+  useEffect(() => {
+    const params = new URLSearchParams()
+
+    if (filtroUnidade) params.set('unidade', filtroUnidade)
+    if (filtroCategoria) params.set('categoria', filtroCategoria)
+    if (filtroEstado) params.set('estado', filtroEstado)
+
+    const query = params.toString()
+    router.replace(query ? `/dashboard?${query}` : '/dashboard')
+  }, [filtroUnidade, filtroCategoria, filtroEstado, router])
 
   async function loadOccurrences() {
     setLoading(true)
