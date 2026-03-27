@@ -25,8 +25,8 @@ type Occurrence = {
   data_estado: string | null
   data_encerramento: string | null
   observacoes: string | null
-  sla_dias: number | null
   fora_sla: boolean | null
+  sla_dias: number | null
   units: UnitRelation
 }
 
@@ -53,7 +53,9 @@ type CategorySummary = {
 }
 
 function getUnitName(units: UnitRelation, fallback: string | null) {
-  if (Array.isArray(units)) return units[0]?.nome || fallback || '-'
+  if (Array.isArray(units)) {
+    return units[0]?.nome || fallback || '-'
+  }
   return units?.nome || fallback || '-'
 }
 
@@ -61,20 +63,8 @@ function normalizeCategoria(value: string | null) {
   return value || 'Sem categoria'
 }
 
-function isForaSLA(item: Occurrence) {
-  if (!item.data_reporte || !item.sla_dias) return false
-
-  if (item.estado === 'Concluída' || item.estado === 'Encerrada') {
-    return false
-  }
-
-  const inicio = new Date(item.data_reporte).getTime()
-  if (Number.isNaN(inicio)) return false
-
-  const agora = Date.now()
-  const diasPassados = (agora - inicio) / (1000 * 60 * 60 * 24)
-
-  return diasPassados > item.sla_dias
+function getForaSlaValue(item: Occurrence) {
+  return item.fora_sla === true
 }
 
 function exportUnitsCSV(lista: UnitSummary[]) {
@@ -356,7 +346,7 @@ export default function RelatoriosPage() {
     rows.forEach((item) => {
       const unidade = getUnitName(item.units, item.local_ocorrencia)
       const estado = item.estado || '-'
-      const foraSlaAtual = isForaSLA(item)
+      const foraSlaAtual = getForaSlaValue(item)
 
       if (!map.has(unidade)) {
         map.set(unidade, {
@@ -372,6 +362,7 @@ export default function RelatoriosPage() {
       }
 
       const current = map.get(unidade)!
+
       current.total += 1
 
       if (estado === 'Em aberto') current.emAberto += 1
@@ -393,7 +384,7 @@ export default function RelatoriosPage() {
     rows.forEach((item) => {
       const categoria = normalizeCategoria(item.categoria)
       const estado = item.estado || '-'
-      const foraSlaAtual = isForaSLA(item)
+      const foraSlaAtual = getForaSlaValue(item)
 
       if (!map.has(categoria)) {
         map.set(categoria, {
@@ -409,6 +400,7 @@ export default function RelatoriosPage() {
       }
 
       const current = map.get(categoria)!
+
       current.total += 1
 
       if (estado === 'Em aberto') current.emAberto += 1
@@ -425,16 +417,19 @@ export default function RelatoriosPage() {
   }, [rows])
 
   const total = rows.length
+
   const totalConcluidas = rows.filter(
     (o) => o.estado === 'Concluída' || o.estado === 'Encerrada'
   ).length
+
   const totalAbertas = rows.filter(
     (o) =>
       o.estado === 'Em aberto' ||
       o.estado === 'Em análise' ||
       o.estado === 'Em execução'
   ).length
-  const totalForaSla = rows.filter((o) => isForaSLA(o)).length
+
+  const totalForaSla = rows.filter((o) => getForaSlaValue(o)).length
 
   return (
     <div style={styles.page}>
