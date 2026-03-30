@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 type UnitRelation =
@@ -190,6 +191,36 @@ const styles = {
     borderRadius: '10px',
     border: '1px solid #475569',
     backgroundColor: '#475569',
+    color: '#ffffff',
+    textDecoration: 'none',
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontSize: '14px',
+  } as const,
+
+  btnGreen: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '10px 16px',
+    borderRadius: '10px',
+    border: '1px solid #15803d',
+    backgroundColor: '#15803d',
+    color: '#ffffff',
+    textDecoration: 'none',
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontSize: '14px',
+  } as const,
+
+  btnRed: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '10px 16px',
+    borderRadius: '10px',
+    border: '1px solid #b91c1c',
+    backgroundColor: '#b91c1c',
     color: '#ffffff',
     textDecoration: 'none',
     fontWeight: 600,
@@ -417,9 +448,11 @@ function getSlaBadgeStyle(foraSla: boolean) {
 
 export default function DashboardPage() {
   const supabase = createClient()
+  const router = useRouter()
 
   const [rows, setRows] = useState<Occurrence[]>([])
   const [loading, setLoading] = useState(true)
+  const [loggingOut, setLoggingOut] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
   const [filtroUnidade, setFiltroUnidade] = useState('')
@@ -463,6 +496,12 @@ export default function DashboardPage() {
     setLoading(false)
   }
 
+  async function handleLogout() {
+    setLoggingOut(true)
+    await supabase.auth.signOut()
+    router.replace('/login')
+  }
+
   useEffect(() => {
     loadOccurrences()
   }, [])
@@ -502,16 +541,21 @@ export default function DashboardPage() {
 
     if (resolvidas.length === 0) return 0
 
-    const totalMs = resolvidas.reduce((acc, o) => {
+    const resolvidasValidas = resolvidas.filter((o) => {
       const inicio = new Date(o.data_reporte as string).getTime()
       const fim = new Date(o.data_encerramento as string).getTime()
+      return !Number.isNaN(inicio) && !Number.isNaN(fim)
+    })
 
-      if (Number.isNaN(inicio) || Number.isNaN(fim)) return acc
+    if (resolvidasValidas.length === 0) return 0
 
+    const totalMs = resolvidasValidas.reduce((acc, o) => {
+      const inicio = new Date(o.data_reporte as string).getTime()
+      const fim = new Date(o.data_encerramento as string).getTime()
       return acc + (fim - inicio)
     }, 0)
 
-    return Math.round(totalMs / resolvidas.length / (1000 * 60 * 60 * 24))
+    return Math.round(totalMs / resolvidasValidas.length / (1000 * 60 * 60 * 24))
   })()
 
   const listaDashboard = rows.filter(
@@ -568,9 +612,17 @@ export default function DashboardPage() {
             Ver concluídas
           </Link>
 
+          <Link href="/dashboard/utilizadores" style={styles.btnGreen}>
+            Utilizadores
+          </Link>
+
           <Link href="/dashboard/nova-ocorrencia" style={styles.btnPrimary}>
             Nova Ocorrência
           </Link>
+
+          <button style={styles.btnRed} onClick={handleLogout} disabled={loggingOut}>
+            {loggingOut ? 'A sair...' : 'Logout'}
+          </button>
         </div>
       </div>
 
