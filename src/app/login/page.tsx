@@ -1,151 +1,204 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const styles = {
+  page: {
+    minHeight: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8fafc',
+    padding: '24px',
+    fontFamily: 'Arial, sans-serif',
+  } as const,
+
+  card: {
+    width: '100%',
+    maxWidth: '440px',
+    backgroundColor: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '18px',
+    padding: '28px',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+  } as const,
+
+  title: {
+    margin: '0 0 8px 0',
+    fontSize: '34px',
+    fontWeight: 700,
+    color: '#0f172a',
+  } as const,
+
+  subtitle: {
+    margin: '0 0 24px 0',
+    color: '#475569',
+    fontSize: '15px',
+  } as const,
+
+  field: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '6px',
+    marginBottom: '16px',
+  },
+
+  label: {
+    fontSize: '14px',
+    fontWeight: 600,
+    color: '#334155',
+  } as const,
+
+  input: {
+    minHeight: '44px',
+    borderRadius: '10px',
+    border: '1px solid #cbd5e1',
+    padding: '10px 12px',
+    backgroundColor: '#ffffff',
+    fontSize: '14px',
+    outline: 'none',
+  } as const,
+
+  btnPrimary: {
+    width: '100%',
+    minHeight: '46px',
+    borderRadius: '10px',
+    border: '1px solid #0f172a',
+    backgroundColor: '#0f172a',
+    color: '#ffffff',
+    fontWeight: 700,
+    fontSize: '14px',
+    cursor: 'pointer',
+    marginTop: '8px',
+  } as const,
+
+  messageError: {
+    color: '#b91c1c',
+    backgroundColor: '#fee2e2',
+    border: '1px solid #fecaca',
+    borderRadius: '10px',
+    padding: '12px 14px',
+    marginBottom: '16px',
+    fontSize: '14px',
+  } as const,
+
+  messageSuccess: {
+    color: '#166534',
+    backgroundColor: '#dcfce7',
+    border: '1px solid #bbf7d0',
+    borderRadius: '10px',
+    padding: '12px 14px',
+    marginBottom: '16px',
+    fontSize: '14px',
+  } as const,
+
+  footer: {
+    marginTop: '18px',
+    fontSize: '14px',
+    color: '#475569',
+    textAlign: 'center' as const,
+  } as const,
+
+  link: {
+    color: '#1d4ed8',
+    textDecoration: 'none',
+    fontWeight: 600,
+  } as const,
+}
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const supabase = createClient()
+  const router = useRouter()
+
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+
+  useEffect(() => {
+    async function checkSession() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        router.replace('/dashboard')
+      }
+    }
+
+    checkSession()
+  }, [router, supabase])
 
   async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+    e.preventDefault()
+    setLoading(true)
+    setErrorMessage('')
+    setSuccessMessage('')
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
-    });
-
-    setLoading(false);
+    })
 
     if (error) {
-      setError('Credenciais inválidas');
-      return;
+      setErrorMessage(error.message)
+      setLoading(false)
+      return
     }
 
-    router.push('/dashboard');
+    setSuccessMessage('Login efetuado com sucesso.')
+    setLoading(false)
+    router.replace('/dashboard')
   }
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        backgroundImage: "url('/parque-saude.jpg')",
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontFamily: 'Arial, sans-serif',
-        position: 'relative',
-      }}
-    >
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'rgba(0,0,0,0.4)',
-        }}
-      />
+    <div style={styles.page}>
+      <div style={styles.card}>
+        <h1 style={styles.title}>Login</h1>
+        <p style={styles.subtitle}>Acede à plataforma de registo de avarias.</p>
 
-      <div
-        style={{
-          position: 'relative',
-          background: 'rgba(255,255,255,0.95)',
-          padding: '40px',
-          borderRadius: '12px',
-          width: '100%',
-          maxWidth: '400px',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
-        }}
-      >
-        <h1 style={{ fontSize: '24px', marginBottom: '10px', color: '#0369a1' }}>
-          MAIA SAÚDE
-        </h1>
-
-        <p style={{ marginBottom: '20px', color: '#555' }}>
-          Plataforma de Registo de Avarias
-        </p>
+        {errorMessage && <div style={styles.messageError}>{errorMessage}</div>}
+        {successMessage && <div style={styles.messageSuccess}>{successMessage}</div>}
 
         <form onSubmit={handleLogin}>
-          <div style={{ marginBottom: '15px' }}>
-            <label>Email</label>
+          <div style={styles.field}>
+            <label style={styles.label}>Email</label>
             <input
               type="email"
+              style={styles.input}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              style={{
-                width: '100%',
-                padding: '10px',
-                marginTop: '5px',
-                borderRadius: '6px',
-                border: '1px solid #ccc',
-                boxSizing: 'border-box',
-              }}
             />
           </div>
 
-          <div style={{ marginBottom: '15px' }}>
-            <label>Palavra-passe</label>
+          <div style={styles.field}>
+            <label style={styles.label}>Password</label>
             <input
               type="password"
+              style={styles.input}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              style={{
-                width: '100%',
-                padding: '10px',
-                marginTop: '5px',
-                borderRadius: '6px',
-                border: '1px solid #ccc',
-                boxSizing: 'border-box',
-              }}
             />
           </div>
 
-          {error && (
-            <div
-              style={{
-                background: '#ffe5e5',
-                color: '#a00',
-                padding: '10px',
-                borderRadius: '6px',
-                marginBottom: '10px',
-              }}
-            >
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '12px',
-              background: '#0284c7',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-            }}
-          >
+          <button type="submit" style={styles.btnPrimary} disabled={loading}>
             {loading ? 'A entrar...' : 'Entrar'}
           </button>
         </form>
+
+        <div style={styles.footer}>
+          Ainda não tens conta?{' '}
+          <Link href="/registo" style={styles.link}>
+            Registar
+          </Link>
+        </div>
       </div>
     </div>
-  );
+  )
 }
