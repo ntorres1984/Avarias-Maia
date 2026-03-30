@@ -31,6 +31,13 @@ type Occurrence = {
   units: UnitRelation
 }
 
+type Profile = {
+  id: string
+  role: string | null
+  nome: string | null
+  email: string | null
+}
+
 function formatDate(dateString: string | null) {
   if (!dateString) return '-'
   const date = new Date(dateString)
@@ -130,6 +137,13 @@ const styles = {
     margin: 0,
     fontSize: '40px',
     fontWeight: 700,
+  } as const,
+
+  subtitle: {
+    marginTop: '8px',
+    color: '#475569',
+    fontSize: '14px',
+    fontWeight: 600,
   } as const,
 
   actions: {
@@ -454,6 +468,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [loggingOut, setLoggingOut] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   const [filtroUnidade, setFiltroUnidade] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('')
@@ -462,6 +478,28 @@ export default function DashboardPage() {
   async function loadOccurrences() {
     setLoading(true)
     setErrorMessage('')
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      setErrorMessage('Sessão inválida.')
+      setRows([])
+      setLoading(false)
+      return
+    }
+
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('id, role, nome, email')
+      .eq('id', user.id)
+      .single()
+
+    const currentProfile = (profileData || null) as Profile | null
+    setProfile(currentProfile)
+    setIsAdmin(currentProfile?.role === 'admin')
 
     const { data, error } = await supabase
       .from('occurrences')
@@ -597,7 +635,13 @@ export default function DashboardPage() {
   return (
     <div style={styles.page}>
       <div style={styles.header}>
-        <h1 style={styles.title}>Dashboard</h1>
+        <div>
+          <h1 style={styles.title}>Dashboard</h1>
+          <div style={styles.subtitle}>
+            {profile?.nome || profile?.email || 'Utilizador'}
+            {isAdmin ? ' • Administrador' : ' • Utilizador'}
+          </div>
+        </div>
 
         <div style={styles.actions}>
           <button style={styles.btn} onClick={() => exportToCSV(rows)}>
@@ -612,9 +656,11 @@ export default function DashboardPage() {
             Ver concluídas
           </Link>
 
-          <Link href="/dashboard/utilizadores" style={styles.btnGreen}>
-            Utilizadores
-          </Link>
+          {isAdmin && (
+            <Link href="/dashboard/utilizadores" style={styles.btnGreen}>
+              Utilizadores
+            </Link>
+          )}
 
           <Link href="/dashboard/nova-ocorrencia" style={styles.btnPrimary}>
             Nova Ocorrência
