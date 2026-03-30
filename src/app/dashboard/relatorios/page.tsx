@@ -54,7 +54,26 @@ type CategorySummary = {
 
 type MonthlySummary = {
   mes: string
+  chave: string
   total: number
+  abertas: number
+  concluidas: number
+}
+
+type AvgResolutionByUnit = {
+  unidade: string
+  mediaDias: number
+  totalResolvidas: number
+}
+
+type TopForaSlaItem = {
+  id: string
+  ocorrencia: string
+  unidade: string
+  categoria: string
+  prioridade: string
+  estado: string
+  diasAtraso: number
 }
 
 function getUnitName(units: UnitRelation, fallback: string | null) {
@@ -75,6 +94,48 @@ function getForaSlaValue(item: Occurrence) {
 function percent(value: number, total: number) {
   if (!total) return 0
   return Math.round((value / total) * 100)
+}
+
+function formatDate(dateString: string | null) {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) return '-'
+  return date.toLocaleDateString('pt-PT')
+}
+
+function calcResolutionDays(item: Occurrence) {
+  if (!item.data_reporte || !item.data_encerramento) return null
+
+  const inicio = new Date(item.data_reporte).getTime()
+  const fim = new Date(item.data_encerramento).getTime()
+
+  if (Number.isNaN(inicio) || Number.isNaN(fim) || fim < inicio) return null
+
+  return (fim - inicio) / (1000 * 60 * 60 * 24)
+}
+
+function calcDiasAtraso(item: Occurrence) {
+  if (!item.data_reporte || item.sla_dias == null) return 0
+
+  const inicio = new Date(item.data_reporte).getTime()
+  if (Number.isNaN(inicio)) return 0
+
+  const prazoMs = item.sla_dias * 24 * 60 * 60 * 1000
+  const limite = inicio + prazoMs
+
+  const referencia =
+    item.estado === 'Concluída' || item.estado === 'Encerrada'
+      ? item.data_encerramento
+        ? new Date(item.data_encerramento).getTime()
+        : Date.now()
+      : Date.now()
+
+  if (Number.isNaN(referencia)) return 0
+
+  const atrasoMs = referencia - limite
+  if (atrasoMs <= 0) return 0
+
+  return Math.round(atrasoMs / (1000 * 60 * 60 * 24))
 }
 
 function exportUnitsCSV(lista: UnitSummary[]) {
@@ -101,9 +162,7 @@ function exportUnitsCSV(lista: UnitSummary[]) {
   ])
 
   const csvContent = [headers, ...rows]
-    .map((row) =>
-      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(';')
-    )
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(';'))
     .join('\n')
 
   const bom = '\uFEFF'
@@ -145,9 +204,7 @@ function exportCategoriesCSV(lista: CategorySummary[]) {
   ])
 
   const csvContent = [headers, ...rows]
-    .map((row) =>
-      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(';')
-    )
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(';'))
     .join('\n')
 
   const bom = '\uFEFF'
@@ -305,6 +362,7 @@ const styles = {
     borderBottom: '1px solid #f1f5f9',
     padding: '14px 12px',
     fontSize: '14px',
+    verticalAlign: 'top' as const,
   },
 
   empty: {
@@ -456,6 +514,7 @@ const styles = {
     height: '190px',
     display: 'flex',
     alignItems: 'flex-end',
+    gap: '4px',
   } as const,
 
   monthlyBar: {
@@ -464,11 +523,53 @@ const styles = {
     minHeight: '8px',
   } as const,
 
+  monthlyBarNarrow: {
+    width: '20px',
+    borderRadius: '8px 8px 0 0',
+    minHeight: '8px',
+  } as const,
+
   monthlyLabel: {
     fontSize: '12px',
     color: '#64748b',
     textAlign: 'center' as const,
     lineHeight: 1.2,
+  } as const,
+
+  smallLegend: {
+    display: 'flex',
+    gap: '16px',
+    flexWrap: 'wrap' as const,
+    marginTop: '10px',
+  },
+
+  smallLegendItem: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '13px',
+    color: '#475569',
+  } as const,
+
+  topAlert: {
+    backgroundColor: '#fff7ed',
+    border: '1px solid #fdba74',
+    borderRadius: '12px',
+    padding: '12px 14px',
+    marginBottom: '10px',
+  } as const,
+
+  topAlertTitle: {
+    margin: '0 0 6px 0',
+    fontSize: '15px',
+    fontWeight: 700,
+    color: '#9a3412',
+  } as const,
+
+  topAlertText: {
+    margin: 0,
+    fontSize: '14px',
+    color: '#7c2d12',
   } as const,
 }
 
@@ -605,7 +706,7 @@ function MonthlyEvolutionCard({
             const height = maxValue > 0 ? `${(item.total / maxValue) * 100}%` : '0%'
 
             return (
-              <div key={item.mes} style={styles.monthlyColumn}>
+              <div key={item.chave} style={styles.monthlyColumn}>
                 <div style={styles.monthlyValue}>{item.total}</div>
 
                 <div style={styles.monthlyBarArea}>
@@ -623,6 +724,77 @@ function MonthlyEvolutionCard({
             )
           })}
         </div>
+      )}
+    </div>
+  )
+}
+
+function MonthlyOpenClosedCard({
+  title,
+  items,
+}: {
+  title: string
+  items: MonthlySummary[]
+}) {
+  const maxValue = Math.max(
+    ...items.flatMap((item) => [item.abertas, item.concluidas]),
+    0
+  )
+
+  return (
+    <div style={styles.chartCard}>
+      <h2 style={styles.chartTitle}>{title}</h2>
+
+      {items.length === 0 ? (
+        <div style={styles.empty}>Sem dados</div>
+      ) : (
+        <>
+          <div style={styles.monthlyChartWrap}>
+            {items.map((item) => {
+              const heightA = maxValue > 0 ? `${(item.abertas / maxValue) * 100}%` : '0%'
+              const heightB =
+                maxValue > 0 ? `${(item.concluidas / maxValue) * 100}%` : '0%'
+
+              return (
+                <div key={item.chave} style={styles.monthlyColumn}>
+                  <div style={styles.monthlyValue}>
+                    {item.abertas + item.concluidas}
+                  </div>
+
+                  <div style={{ ...styles.monthlyBarArea, justifyContent: 'center' }}>
+                    <div
+                      style={{
+                        ...styles.monthlyBarNarrow,
+                        height: heightA,
+                        backgroundColor: '#2563eb',
+                      }}
+                    />
+                    <div
+                      style={{
+                        ...styles.monthlyBarNarrow,
+                        height: heightB,
+                        backgroundColor: '#16a34a',
+                      }}
+                    />
+                  </div>
+
+                  <div style={styles.monthlyLabel}>{item.mes}</div>
+                </div>
+              )
+            })}
+          </div>
+
+          <div style={styles.smallLegend}>
+            <div style={styles.smallLegendItem}>
+              <span style={{ ...styles.legendDot, backgroundColor: '#2563eb' }} />
+              Abertas
+            </div>
+            <div style={styles.smallLegendItem}>
+              <span style={{ ...styles.legendDot, backgroundColor: '#16a34a' }} />
+              Concluídas
+            </div>
+          </div>
+        </>
       )}
     </div>
   )
@@ -788,6 +960,24 @@ export default function RelatoriosPage() {
       }))
   }, [resumoPorCategoria])
 
+  const graficoPrioridade = useMemo(() => {
+    const map = new Map<string, number>([
+      ['Alta', 0],
+      ['Média', 0],
+      ['Baixa', 0],
+      ['Sem prioridade', 0],
+    ])
+
+    rows.forEach((item) => {
+      const prioridade = item.prioridade || 'Sem prioridade'
+      map.set(prioridade, (map.get(prioridade) || 0) + 1)
+    })
+
+    return Array.from(map.entries())
+      .map(([prioridade, total]) => ({ prioridade, total }))
+      .filter((item) => item.total > 0)
+  }, [rows])
+
   const graficoMensal = useMemo(() => {
     const formatter = new Intl.DateTimeFormat('pt-PT', {
       month: 'short',
@@ -795,13 +985,13 @@ export default function RelatoriosPage() {
     })
 
     const agora = new Date()
-    const mesesBase: { chave: string; mes: string; total: number }[] = []
+    const mesesBase: MonthlySummary[] = []
 
     for (let i = 5; i >= 0; i -= 1) {
       const d = new Date(agora.getFullYear(), agora.getMonth() - i, 1)
       const chave = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
       const mes = formatter.format(d).replace('.', '')
-      mesesBase.push({ chave, mes, total: 0 })
+      mesesBase.push({ chave, mes, total: 0, abertas: 0, concluidas: 0 })
     }
 
     rows.forEach((item) => {
@@ -812,13 +1002,88 @@ export default function RelatoriosPage() {
 
       const chave = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`
       const target = mesesBase.find((m) => m.chave === chave)
-      if (target) target.total += 1
+      if (!target) return
+
+      target.total += 1
+
+      if (
+        item.estado === 'Em aberto' ||
+        item.estado === 'Em análise' ||
+        item.estado === 'Em execução'
+      ) {
+        target.abertas += 1
+      }
+
+      if (item.estado === 'Concluída' || item.estado === 'Encerrada') {
+        target.concluidas += 1
+      }
     })
 
-    return mesesBase.map((item) => ({
-      mes: item.mes,
-      total: item.total,
+    return mesesBase
+  }, [rows])
+
+  const mediaResolucaoPorUnidade = useMemo(() => {
+    const map = new Map<string, { soma: number; count: number }>()
+
+    rows.forEach((item) => {
+      if (item.estado !== 'Concluída' && item.estado !== 'Encerrada') return
+
+      const dias = calcResolutionDays(item)
+      if (dias == null) return
+
+      const unidade = getUnitName(item.units, item.local_ocorrencia)
+
+      if (!map.has(unidade)) {
+        map.set(unidade, { soma: 0, count: 0 })
+      }
+
+      const current = map.get(unidade)!
+      current.soma += dias
+      current.count += 1
+    })
+
+    return Array.from(map.entries())
+      .map(([unidade, value]) => ({
+        unidade,
+        mediaDias: Math.round((value.soma / value.count) * 10) / 10,
+        totalResolvidas: value.count,
+      }))
+      .sort((a, b) => b.mediaDias - a.mediaDias)
+  }, [rows])
+
+  const graficoTempoMedio = useMemo(() => {
+    return mediaResolucaoPorUnidade.slice(0, 10).map((item) => ({
+      unidade: item.unidade,
+      mediaDias: item.mediaDias,
     }))
+  }, [mediaResolucaoPorUnidade])
+
+  const topForaSla = useMemo(() => {
+    return rows
+      .filter((item) => getForaSlaValue(item))
+      .map((item) => ({
+        id: item.id,
+        ocorrencia: item.ocorrencia || '-',
+        unidade: getUnitName(item.units, item.local_ocorrencia),
+        categoria: normalizeCategoria(item.categoria),
+        prioridade: item.prioridade || '-',
+        estado: item.estado || '-',
+        diasAtraso: calcDiasAtraso(item),
+      }))
+      .sort((a, b) => b.diasAtraso - a.diasAtraso)
+      .slice(0, 10)
+  }, [rows])
+
+  const mediaResolucaoGlobal = useMemo(() => {
+    const validos = rows
+      .filter((item) => item.estado === 'Concluída' || item.estado === 'Encerrada')
+      .map((item) => calcResolutionDays(item))
+      .filter((value): value is number => value != null)
+
+    if (validos.length === 0) return 0
+
+    const soma = validos.reduce((acc, value) => acc + value, 0)
+    return Math.round((soma / validos.length) * 10) / 10
   }, [rows])
 
   return (
@@ -859,6 +1124,16 @@ export default function RelatoriosPage() {
         <div style={styles.card}>
           <h3 style={styles.cardTitle}>Fora SLA</h3>
           <p style={styles.cardValue}>{totalForaSla}</p>
+        </div>
+
+        <div style={styles.card}>
+          <h3 style={styles.cardTitle}>Dentro SLA</h3>
+          <p style={styles.cardValue}>{totalDentroSla}</p>
+        </div>
+
+        <div style={styles.card}>
+          <h3 style={styles.cardTitle}>Tempo médio resolução</h3>
+          <p style={styles.cardValue}>{mediaResolucaoGlobal} dias</p>
         </div>
       </div>
 
@@ -908,14 +1183,82 @@ export default function RelatoriosPage() {
               items={graficoMensal}
               color="#0f172a"
             />
+
+            <HorizontalBars
+              title="Distribuição por prioridade"
+              items={graficoPrioridade}
+              labelKey="prioridade"
+              valueKey="total"
+              color="#f59e0b"
+            />
+
+            <HorizontalBars
+              title="Tempo médio por unidade (dias)"
+              items={graficoTempoMedio}
+              labelKey="unidade"
+              valueKey="mediaDias"
+              color="#0f766e"
+            />
+
+            <MonthlyOpenClosedCard
+              title="Abertas vs concluídas por mês"
+              items={graficoMensal}
+            />
+          </div>
+
+          <div style={styles.sectionHeader}>
+            <h2 style={styles.sectionTitle}>Top ocorrências fora SLA</h2>
+          </div>
+
+          <div style={styles.chartCard}>
+            {topForaSla.length === 0 ? (
+              <div style={styles.empty}>Sem ocorrências fora SLA</div>
+            ) : (
+              <>
+                {topForaSla.slice(0, 3).map((item) => (
+                  <div key={item.id} style={styles.topAlert}>
+                    <h3 style={styles.topAlertTitle}>
+                      {item.ocorrencia} — {item.diasAtraso} dias de atraso
+                    </h3>
+                    <p style={styles.topAlertText}>
+                      {item.unidade} | {item.categoria} | {item.prioridade} | {item.estado}
+                    </p>
+                  </div>
+                ))}
+
+                <div style={styles.tableWrapper}>
+                  <table style={styles.table}>
+                    <thead>
+                      <tr>
+                        <th style={styles.th}>Ocorrência</th>
+                        <th style={styles.th}>Unidade</th>
+                        <th style={styles.th}>Categoria</th>
+                        <th style={styles.th}>Prioridade</th>
+                        <th style={styles.th}>Estado</th>
+                        <th style={styles.th}>Dias de atraso</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topForaSla.map((item) => (
+                        <tr key={item.id}>
+                          <td style={styles.td}>{item.ocorrencia}</td>
+                          <td style={styles.td}>{item.unidade}</td>
+                          <td style={styles.td}>{item.categoria}</td>
+                          <td style={styles.td}>{item.prioridade}</td>
+                          <td style={styles.td}>{item.estado}</td>
+                          <td style={styles.td}>{item.diasAtraso}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
 
           <div style={styles.sectionHeader}>
             <h2 style={styles.sectionTitle}>Resumo por unidade</h2>
-            <button
-              style={styles.btn}
-              onClick={() => exportUnitsCSV(resumoPorUnidade)}
-            >
+            <button style={styles.btn} onClick={() => exportUnitsCSV(resumoPorUnidade)}>
               Exportar unidades CSV
             </button>
           </div>
@@ -1003,6 +1346,86 @@ export default function RelatoriosPage() {
                       <td style={styles.td}>{item.foraSla}</td>
                     </tr>
                   ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={styles.sectionHeader}>
+            <h2 style={styles.sectionTitle}>Tempo médio por unidade</h2>
+          </div>
+
+          <div style={styles.tableWrapper}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Unidade</th>
+                  <th style={styles.th}>Tempo médio (dias)</th>
+                  <th style={styles.th}>Ocorrências resolvidas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mediaResolucaoPorUnidade.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} style={styles.empty}>
+                      Sem dados de resolução
+                    </td>
+                  </tr>
+                ) : (
+                  mediaResolucaoPorUnidade.map((item) => (
+                    <tr key={item.unidade}>
+                      <td style={styles.td}>{item.unidade}</td>
+                      <td style={styles.td}>{item.mediaDias}</td>
+                      <td style={styles.td}>{item.totalResolvidas}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={styles.sectionHeader}>
+            <h2 style={styles.sectionTitle}>Últimas ocorrências fora SLA</h2>
+          </div>
+
+          <div style={styles.tableWrapper}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Ocorrência</th>
+                  <th style={styles.th}>Unidade</th>
+                  <th style={styles.th}>Categoria</th>
+                  <th style={styles.th}>Prioridade</th>
+                  <th style={styles.th}>Estado</th>
+                  <th style={styles.th}>Data reporte</th>
+                  <th style={styles.th}>Dias de atraso</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topForaSla.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={styles.empty}>
+                      Sem dados
+                    </td>
+                  </tr>
+                ) : (
+                  topForaSla.map((item) => {
+                    const original = rows.find((row) => row.id === item.id)
+
+                    return (
+                      <tr key={item.id}>
+                        <td style={styles.td}>{item.ocorrencia}</td>
+                        <td style={styles.td}>{item.unidade}</td>
+                        <td style={styles.td}>{item.categoria}</td>
+                        <td style={styles.td}>{item.prioridade}</td>
+                        <td style={styles.td}>{item.estado}</td>
+                        <td style={styles.td}>
+                          {formatDate(original?.data_reporte || null)}
+                        </td>
+                        <td style={styles.td}>{item.diasAtraso}</td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>
