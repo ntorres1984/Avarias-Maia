@@ -28,6 +28,7 @@ type Occurrence = {
   observacoes: string | null
   sla_dias: number | null
   fora_sla: boolean | null
+  created_by: string | null
   units: UnitRelation
 }
 
@@ -317,6 +318,10 @@ export default function EditOccurrencePage() {
   const [originalEstado, setOriginalEstado] = useState<string | null>(null)
   const [originalDataEstado, setOriginalDataEstado] = useState<string | null>(null)
   const [originalDataReporte, setOriginalDataReporte] = useState<string | null>(null)
+  const [createdBy, setCreatedBy] = useState<string | null>(null)
+
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [currentRole, setCurrentRole] = useState<string>('user')
 
   async function loadHistory() {
     const { data } = await supabase
@@ -335,6 +340,27 @@ export default function EditOccurrencePage() {
     setErrorMessage('')
     setSuccessMessage('')
 
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      setErrorMessage('Sessão inválida.')
+      setLoading(false)
+      return
+    }
+
+    setCurrentUserId(user.id)
+
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    setCurrentRole(profileData?.role || 'user')
+
     const { data, error } = await supabase
       .from('occurrences')
       .select(`
@@ -351,6 +377,7 @@ export default function EditOccurrencePage() {
         observacoes,
         sla_dias,
         fora_sla,
+        created_by,
         units (
           nome
         )
@@ -365,6 +392,14 @@ export default function EditOccurrencePage() {
     }
 
     const item = data as Occurrence
+
+    setCreatedBy(item.created_by)
+
+    if ((profileData?.role || 'user') === 'user' && item.created_by !== user.id) {
+      setErrorMessage('Não tens permissão para editar esta ocorrência.')
+      setLoading(false)
+      return
+    }
 
     setOcorrencia(item.ocorrencia || '')
     setUnidade(getUnitName(item.units, item.local_ocorrencia))
@@ -390,6 +425,12 @@ export default function EditOccurrencePage() {
     if (id) loadOccurrence()
   }, [id])
 
+  const canEdit = useMemo(() => {
+    if (currentRole === 'admin' || currentRole === 'gestor') return true
+    if (currentRole === 'user' && currentUserId && createdBy === currentUserId) return true
+    return false
+  }, [currentRole, currentUserId, createdBy])
+
   const foraSlaAtual = useMemo(() => {
     return isForaSLA({
       data_reporte: originalDataReporte,
@@ -401,6 +442,11 @@ export default function EditOccurrencePage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
+
+    if (!canEdit) {
+      setErrorMessage('Não tens permissão para editar esta ocorrência.')
+      return
+    }
 
     setSaving(true)
     setErrorMessage('')
@@ -481,6 +527,8 @@ export default function EditOccurrencePage() {
 
       {loading ? (
         <div style={styles.card}>A carregar...</div>
+      ) : !canEdit ? (
+        <div style={styles.card}>Não tens permissão para editar esta ocorrência.</div>
       ) : (
         <>
           <form onSubmit={handleSave}>
