@@ -28,6 +28,7 @@ type Occurrence = {
   observacoes: string | null
   fora_sla: boolean | null
   sla_dias: number | null
+  created_by: string | null
   units: UnitRelation
 }
 
@@ -61,6 +62,12 @@ function getUnitName(units: UnitRelation, fallback: string | null) {
 
 function getForaSlaValue(item: Occurrence) {
   return item.fora_sla === true
+}
+
+function getRoleLabel(role: string | null) {
+  if (role === 'admin') return 'Administrador'
+  if (role === 'gestor') return 'Gestor'
+  return 'Utilizador'
 }
 
 function exportToCSV(lista: Occurrence[]) {
@@ -241,6 +248,27 @@ const styles = {
     cursor: 'pointer',
     fontSize: '14px',
   } as const,
+
+  deleteBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#dc2626',
+    color: '#fff',
+    padding: '8px 12px',
+    borderRadius: '8px',
+    border: 'none',
+    textDecoration: 'none',
+    fontWeight: 600,
+    fontSize: '13px',
+    cursor: 'pointer',
+  } as const,
+
+  rowActions: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap' as const,
+  },
 
   statsGrid: {
     display: 'grid',
@@ -467,9 +495,12 @@ export default function DashboardPage() {
   const [rows, setRows] = useState<Occurrence[]>([])
   const [loading, setLoading] = useState(true)
   const [loggingOut, setLoggingOut] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [role, setRole] = useState<string>('user')
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isGestor, setIsGestor] = useState(false)
 
   const [filtroUnidade, setFiltroUnidade] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('')
@@ -499,7 +530,11 @@ export default function DashboardPage() {
 
     const currentProfile = (profileData || null) as Profile | null
     setProfile(currentProfile)
-    setIsAdmin(currentProfile?.role === 'admin')
+
+    const currentRole = currentProfile?.role || 'user'
+    setRole(currentRole)
+    setIsAdmin(currentRole === 'admin')
+    setIsGestor(currentRole === 'gestor')
 
     const { data, error } = await supabase
       .from('occurrences')
@@ -517,6 +552,7 @@ export default function DashboardPage() {
         observacoes,
         fora_sla,
         sla_dias,
+        created_by,
         units (
           nome
         )
@@ -538,6 +574,29 @@ export default function DashboardPage() {
     setLoggingOut(true)
     await supabase.auth.signOut()
     router.replace('/login')
+  }
+
+  async function handleDelete(id: string) {
+    if (!isAdmin) return
+
+    const confirmDelete = window.confirm(
+      'Tens a certeza que queres apagar esta ocorrência? Esta ação não pode ser anulada.'
+    )
+
+    if (!confirmDelete) return
+
+    setDeletingId(id)
+
+    const { error } = await supabase.from('occurrences').delete().eq('id', id)
+
+    if (error) {
+      setErrorMessage(`Erro ao apagar ocorrência: ${error.message}`)
+      setDeletingId(null)
+      return
+    }
+
+    await loadOccurrences()
+    setDeletingId(null)
   }
 
   useEffect(() => {
@@ -639,7 +698,7 @@ export default function DashboardPage() {
           <h1 style={styles.title}>Dashboard</h1>
           <div style={styles.subtitle}>
             {profile?.nome || profile?.email || 'Utilizador'}
-            {isAdmin ? ' • Administrador' : ' • Utilizador'}
+            {` • ${getRoleLabel(role)}`}
           </div>
         </div>
 
@@ -674,7 +733,7 @@ export default function DashboardPage() {
 
       {errorMessage && (
         <div style={styles.error}>
-          Erro ao carregar dashboard: {errorMessage}
+          {errorMessage}
         </div>
       )}
 
@@ -858,12 +917,25 @@ export default function DashboardPage() {
                       </td>
 
                       <td style={styles.td}>
-                        <Link
-                          href={`/dashboard/ocorrencia/${item.id}`}
-                          style={styles.editBtn}
-                        >
-                          Editar
-                        </Link>
+                        <div style={styles.rowActions}>
+                          <Link
+                            href={`/dashboard/ocorrencia/${item.id}`}
+                            style={styles.editBtn}
+                          >
+                            Editar
+                          </Link>
+
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              style={styles.deleteBtn}
+                              onClick={() => handleDelete(item.id)}
+                              disabled={deletingId === item.id}
+                            >
+                              {deletingId === item.id ? 'A apagar...' : 'Apagar'}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )
