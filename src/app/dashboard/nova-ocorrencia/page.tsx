@@ -92,6 +92,17 @@ export default function NovaOcorrenciaPage() {
       return
     }
 
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      alert('Sessão inválida. Volta a iniciar sessão.')
+      setLoading(false)
+      return
+    }
+
     const unidadeSelecionada = units.find((u) => u.id === unidadeId)
 
     if (!unidadeSelecionada) {
@@ -115,6 +126,7 @@ export default function NovaOcorrenciaPage() {
       data_reporte: hoje,
       data_estado: agoraIso,
       observacoes: observacoes.trim() || null,
+      created_by: user.id,
     }
 
     const { error } = await supabase.from('occurrences').insert([payload])
