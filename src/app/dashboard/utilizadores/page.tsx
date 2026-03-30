@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 type Profile = {
@@ -65,21 +66,6 @@ const styles = {
     border: '1px solid #cbd5e1',
     backgroundColor: '#ffffff',
     color: '#0f172a',
-    textDecoration: 'none',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontSize: '14px',
-  } as const,
-
-  btnPrimary: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '10px 16px',
-    borderRadius: '10px',
-    border: '1px solid #0f172a',
-    backgroundColor: '#0f172a',
-    color: '#ffffff',
     textDecoration: 'none',
     fontWeight: 600,
     cursor: 'pointer',
@@ -226,20 +212,6 @@ const styles = {
     flexWrap: 'wrap' as const,
   },
 
-  smallBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '8px 12px',
-    borderRadius: '8px',
-    border: '1px solid #cbd5e1',
-    backgroundColor: '#ffffff',
-    color: '#0f172a',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontSize: '13px',
-  } as const,
-
   saveBtn: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -273,6 +245,7 @@ function getAtivoBadgeStyle(ativo: boolean | null) {
 
 export default function UtilizadoresPage() {
   const supabase = createClient()
+  const router = useRouter()
 
   const [rows, setRows] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
@@ -299,9 +272,7 @@ export default function UtilizadoresPage() {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      setErrorMessage('Sessão inválida. Volta a iniciar sessão.')
-      setRows([])
-      setLoading(false)
+      router.replace('/login')
       return
     }
 
@@ -316,6 +287,7 @@ export default function UtilizadoresPage() {
       setRows([])
       setErrorMessage('Acesso reservado a administradores.')
       setLoading(false)
+      router.replace('/dashboard')
       return
     }
 
@@ -425,8 +397,7 @@ export default function UtilizadoresPage() {
       </div>
 
       <div style={styles.infoBox}>
-        Os utilizadores são criados no Supabase Authentication. Aqui podes gerir perfil,
-        tipo de acesso e estado ativo.
+        Apenas administradores podem aceder e alterar utilizadores.
       </div>
 
       {errorMessage && <div style={styles.messageError}>{errorMessage}</div>}
@@ -488,109 +459,107 @@ export default function UtilizadoresPage() {
           {loading ? (
             <div style={styles.card}>A carregar...</div>
           ) : (
-            <>
-              <div style={styles.card}>
-                <h2 style={styles.sectionTitle}>Utilizadores</h2>
+            <div style={styles.card}>
+              <h2 style={styles.sectionTitle}>Utilizadores</h2>
 
-                <div style={styles.tableWrapper}>
-                  <table style={styles.table}>
-                    <thead>
+              <div style={styles.tableWrapper}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>Nome</th>
+                      <th style={styles.th}>Email</th>
+                      <th style={styles.th}>Role atual</th>
+                      <th style={styles.th}>Estado atual</th>
+                      <th style={styles.th}>Criado em</th>
+                      <th style={styles.th}>Editar role</th>
+                      <th style={styles.th}>Editar estado</th>
+                      <th style={styles.th}>Ações</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {listaFiltrada.length === 0 ? (
                       <tr>
-                        <th style={styles.th}>Nome</th>
-                        <th style={styles.th}>Email</th>
-                        <th style={styles.th}>Role atual</th>
-                        <th style={styles.th}>Estado atual</th>
-                        <th style={styles.th}>Criado em</th>
-                        <th style={styles.th}>Editar role</th>
-                        <th style={styles.th}>Editar estado</th>
-                        <th style={styles.th}>Ações</th>
+                        <td colSpan={8} style={styles.empty}>
+                          Sem utilizadores para os filtros escolhidos
+                        </td>
                       </tr>
-                    </thead>
+                    ) : (
+                      listaFiltrada.map((item) => {
+                        const editedRole = editedRoles[item.id] || 'user'
+                        const editedAtivo = editedAtivos[item.id] ?? true
+                        const isSaving = savingId === item.id
 
-                    <tbody>
-                      {listaFiltrada.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} style={styles.empty}>
-                            Sem utilizadores para os filtros escolhidos
-                          </td>
-                        </tr>
-                      ) : (
-                        listaFiltrada.map((item) => {
-                          const editedRole = editedRoles[item.id] || 'user'
-                          const editedAtivo = editedAtivos[item.id] ?? true
-                          const isSaving = savingId === item.id
+                        return (
+                          <tr key={item.id}>
+                            <td style={styles.td}>{item.nome || '-'}</td>
+                            <td style={styles.td}>{item.email || '-'}</td>
 
-                          return (
-                            <tr key={item.id}>
-                              <td style={styles.td}>{item.nome || '-'}</td>
-                              <td style={styles.td}>{item.email || '-'}</td>
+                            <td style={styles.td}>
+                              <span style={getRoleBadgeStyle(item.role)}>
+                                {item.role || 'user'}
+                              </span>
+                            </td>
 
-                              <td style={styles.td}>
-                                <span style={getRoleBadgeStyle(item.role)}>
-                                  {item.role || 'user'}
-                                </span>
-                              </td>
+                            <td style={styles.td}>
+                              <span style={getAtivoBadgeStyle(item.ativo)}>
+                                {item.ativo === false ? 'Inativo' : 'Ativo'}
+                              </span>
+                            </td>
 
-                              <td style={styles.td}>
-                                <span style={getAtivoBadgeStyle(item.ativo)}>
-                                  {item.ativo === false ? 'Inativo' : 'Ativo'}
-                                </span>
-                              </td>
+                            <td style={styles.td}>{formatDateTime(item.created_at)}</td>
 
-                              <td style={styles.td}>{formatDateTime(item.created_at)}</td>
+                            <td style={styles.td}>
+                              <select
+                                style={styles.select}
+                                value={editedRole}
+                                onChange={(e) =>
+                                  setEditedRoles((prev) => ({
+                                    ...prev,
+                                    [item.id]: e.target.value,
+                                  }))
+                                }
+                              >
+                                <option value="admin">Admin</option>
+                                <option value="user">User</option>
+                              </select>
+                            </td>
 
-                              <td style={styles.td}>
-                                <select
-                                  style={styles.select}
-                                  value={editedRole}
-                                  onChange={(e) =>
-                                    setEditedRoles((prev) => ({
-                                      ...prev,
-                                      [item.id]: e.target.value,
-                                    }))
-                                  }
+                            <td style={styles.td}>
+                              <select
+                                style={styles.select}
+                                value={editedAtivo ? 'ativo' : 'inativo'}
+                                onChange={(e) =>
+                                  setEditedAtivos((prev) => ({
+                                    ...prev,
+                                    [item.id]: e.target.value === 'ativo',
+                                  }))
+                                }
+                              >
+                                <option value="ativo">Ativo</option>
+                                <option value="inativo">Inativo</option>
+                              </select>
+                            </td>
+
+                            <td style={styles.td}>
+                              <div style={styles.rowActions}>
+                                <button
+                                  style={styles.saveBtn}
+                                  onClick={() => handleSaveUser(item.id)}
+                                  disabled={isSaving}
                                 >
-                                  <option value="admin">Admin</option>
-                                  <option value="user">User</option>
-                                </select>
-                              </td>
-
-                              <td style={styles.td}>
-                                <select
-                                  style={styles.select}
-                                  value={editedAtivo ? 'ativo' : 'inativo'}
-                                  onChange={(e) =>
-                                    setEditedAtivos((prev) => ({
-                                      ...prev,
-                                      [item.id]: e.target.value === 'ativo',
-                                    }))
-                                  }
-                                >
-                                  <option value="ativo">Ativo</option>
-                                  <option value="inativo">Inativo</option>
-                                </select>
-                              </td>
-
-                              <td style={styles.td}>
-                                <div style={styles.rowActions}>
-                                  <button
-                                    style={styles.saveBtn}
-                                    onClick={() => handleSaveUser(item.id)}
-                                    disabled={isSaving}
-                                  >
-                                    {isSaving ? 'A guardar...' : 'Guardar'}
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          )
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                                  {isSaving ? 'A guardar...' : 'Guardar'}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
-            </>
+            </div>
           )}
         </>
       )}
