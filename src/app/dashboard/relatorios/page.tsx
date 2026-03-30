@@ -52,6 +52,11 @@ type CategorySummary = {
   foraSla: number
 }
 
+type MonthlySummary = {
+  mes: string
+  total: number
+}
+
 function getUnitName(units: UnitRelation, fallback: string | null) {
   if (Array.isArray(units)) {
     return units[0]?.nome || fallback || '-'
@@ -65,6 +70,11 @@ function normalizeCategoria(value: string | null) {
 
 function getForaSlaValue(item: Occurrence) {
   return item.fora_sla === true
+}
+
+function percent(value: number, total: number) {
+  if (!total) return 0
+  return Math.round((value / total) * 100)
 }
 
 function exportUnitsCSV(lista: UnitSummary[]) {
@@ -153,11 +163,6 @@ function exportCategoriesCSV(lista: CategorySummary[]) {
   link.click()
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
-}
-
-function percent(value: number, total: number) {
-  if (!total) return 0
-  return Math.round((value / total) * 100)
 }
 
 const styles = {
@@ -421,6 +426,50 @@ const styles = {
     height: '14px',
     borderRadius: '999px',
   } as const,
+
+  monthlyChartWrap: {
+    display: 'flex',
+    alignItems: 'flex-end',
+    gap: '14px',
+    minHeight: '280px',
+    paddingTop: '10px',
+    overflowX: 'auto' as const,
+  },
+
+  monthlyColumn: {
+    minWidth: '72px',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: '8px',
+  },
+
+  monthlyValue: {
+    fontSize: '13px',
+    fontWeight: 700,
+    color: '#334155',
+  } as const,
+
+  monthlyBarArea: {
+    width: '44px',
+    height: '190px',
+    display: 'flex',
+    alignItems: 'flex-end',
+  } as const,
+
+  monthlyBar: {
+    width: '100%',
+    borderRadius: '10px 10px 0 0',
+    minHeight: '8px',
+  } as const,
+
+  monthlyLabel: {
+    fontSize: '12px',
+    color: '#64748b',
+    textAlign: 'center' as const,
+    lineHeight: 1.2,
+  } as const,
 }
 
 function HorizontalBars({
@@ -529,6 +578,52 @@ function DonutCard({
           </strong>
         </div>
       </div>
+    </div>
+  )
+}
+
+function MonthlyEvolutionCard({
+  title,
+  items,
+  color,
+}: {
+  title: string
+  items: MonthlySummary[]
+  color: string
+}) {
+  const maxValue = Math.max(...items.map((item) => item.total), 0)
+
+  return (
+    <div style={styles.chartCard}>
+      <h2 style={styles.chartTitle}>{title}</h2>
+
+      {items.length === 0 ? (
+        <div style={styles.empty}>Sem dados</div>
+      ) : (
+        <div style={styles.monthlyChartWrap}>
+          {items.map((item) => {
+            const height = maxValue > 0 ? `${(item.total / maxValue) * 100}%` : '0%'
+
+            return (
+              <div key={item.mes} style={styles.monthlyColumn}>
+                <div style={styles.monthlyValue}>{item.total}</div>
+
+                <div style={styles.monthlyBarArea}>
+                  <div
+                    style={{
+                      ...styles.monthlyBar,
+                      height,
+                      backgroundColor: color,
+                    }}
+                  />
+                </div>
+
+                <div style={styles.monthlyLabel}>{item.mes}</div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -693,6 +788,39 @@ export default function RelatoriosPage() {
       }))
   }, [resumoPorCategoria])
 
+  const graficoMensal = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat('pt-PT', {
+      month: 'short',
+      year: '2-digit',
+    })
+
+    const agora = new Date()
+    const mesesBase: { chave: string; mes: string; total: number }[] = []
+
+    for (let i = 5; i >= 0; i -= 1) {
+      const d = new Date(agora.getFullYear(), agora.getMonth() - i, 1)
+      const chave = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const mes = formatter.format(d).replace('.', '')
+      mesesBase.push({ chave, mes, total: 0 })
+    }
+
+    rows.forEach((item) => {
+      if (!item.data_reporte) return
+
+      const data = new Date(item.data_reporte)
+      if (Number.isNaN(data.getTime())) return
+
+      const chave = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`
+      const target = mesesBase.find((m) => m.chave === chave)
+      if (target) target.total += 1
+    })
+
+    return mesesBase.map((item) => ({
+      mes: item.mes,
+      total: item.total,
+    }))
+  }, [rows])
+
   return (
     <div style={styles.page}>
       <div style={styles.header}>
@@ -773,6 +901,12 @@ export default function RelatoriosPage() {
               labelB="Fora SLA"
               colorA="#16a34a"
               colorB="#dc2626"
+            />
+
+            <MonthlyEvolutionCard
+              title="Evolução mensal"
+              items={graficoMensal}
+              color="#0f172a"
             />
           </div>
 
