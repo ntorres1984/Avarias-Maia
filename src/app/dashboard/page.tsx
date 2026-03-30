@@ -500,7 +500,6 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [role, setRole] = useState<string>('user')
   const [isAdmin, setIsAdmin] = useState(false)
-  const [isGestor, setIsGestor] = useState(false)
 
   const [filtroUnidade, setFiltroUnidade] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('')
@@ -522,11 +521,20 @@ export default function DashboardPage() {
       return
     }
 
-    const { data: profileData } = await supabase
+    console.log('USER ID:', user.id)
+    console.log('USER EMAIL:', user.email)
+
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('id, role, nome, email')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
+
+    if (profileError) {
+      console.error('Erro a carregar perfil:', profileError)
+    }
+
+    console.log('PROFILE:', profileData)
 
     const currentProfile = (profileData || null) as Profile | null
     setProfile(currentProfile)
@@ -534,7 +542,6 @@ export default function DashboardPage() {
     const currentRole = currentProfile?.role || 'user'
     setRole(currentRole)
     setIsAdmin(currentRole === 'admin')
-    setIsGestor(currentRole === 'gestor')
 
     const { data, error } = await supabase
       .from('occurrences')
@@ -731,11 +738,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {errorMessage && (
-        <div style={styles.error}>
-          {errorMessage}
-        </div>
-      )}
+      {errorMessage && <div style={styles.error}>{errorMessage}</div>}
 
       <div style={styles.statsGrid}>
         <div style={styles.card}>
