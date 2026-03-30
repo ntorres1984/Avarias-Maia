@@ -155,6 +155,11 @@ function exportCategoriesCSV(lista: CategorySummary[]) {
   URL.revokeObjectURL(url)
 }
 
+function percent(value: number, total: number) {
+  if (!total) return 0
+  return Math.round((value / total) * 100)
+}
+
 const styles = {
   page: {
     padding: '24px',
@@ -229,6 +234,27 @@ const styles = {
     color: '#0f172a',
   } as const,
 
+  chartsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+    gap: '20px',
+    marginBottom: '28px',
+  } as const,
+
+  chartCard: {
+    backgroundColor: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '16px',
+    padding: '20px',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+  } as const,
+
+  chartTitle: {
+    margin: '0 0 16px 0',
+    fontSize: '20px',
+    fontWeight: 700,
+  } as const,
+
   sectionHeader: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -290,6 +316,221 @@ const styles = {
     padding: '12px 14px',
     marginBottom: '16px',
   } as const,
+
+  progressGroup: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '12px',
+  },
+
+  progressRow: {
+    display: 'grid',
+    gridTemplateColumns: '140px 1fr 60px',
+    gap: '12px',
+    alignItems: 'center',
+  } as const,
+
+  progressLabel: {
+    fontSize: '14px',
+    fontWeight: 600,
+    color: '#334155',
+    overflow: 'hidden',
+    whiteSpace: 'nowrap' as const,
+    textOverflow: 'ellipsis',
+  } as const,
+
+  progressTrack: {
+    width: '100%',
+    height: '16px',
+    backgroundColor: '#e2e8f0',
+    borderRadius: '999px',
+    overflow: 'hidden',
+  } as const,
+
+  progressValue: {
+    height: '100%',
+    borderRadius: '999px',
+  } as const,
+
+  progressNumber: {
+    fontSize: '13px',
+    fontWeight: 700,
+    color: '#475569',
+    textAlign: 'right' as const,
+  } as const,
+
+  donutWrap: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '10px 0 4px 0',
+  } as const,
+
+  donut: {
+    width: '220px',
+    height: '220px',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative' as const,
+  } as const,
+
+  donutInner: {
+    width: '126px',
+    height: '126px',
+    backgroundColor: '#ffffff',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'column' as const,
+    boxShadow: 'inset 0 0 0 1px #e2e8f0',
+  } as const,
+
+  donutBig: {
+    fontSize: '26px',
+    fontWeight: 700,
+    color: '#0f172a',
+    lineHeight: 1,
+  } as const,
+
+  donutSmall: {
+    fontSize: '13px',
+    color: '#64748b',
+    marginTop: '6px',
+  } as const,
+
+  legendList: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '10px',
+    marginTop: '18px',
+  },
+
+  legendRow: {
+    display: 'grid',
+    gridTemplateColumns: '18px 1fr auto',
+    gap: '10px',
+    alignItems: 'center',
+    fontSize: '14px',
+  } as const,
+
+  legendDot: {
+    width: '14px',
+    height: '14px',
+    borderRadius: '999px',
+  } as const,
+}
+
+function HorizontalBars({
+  title,
+  items,
+  labelKey,
+  valueKey,
+  color,
+}: {
+  title: string
+  items: Record<string, string | number>[]
+  labelKey: string
+  valueKey: string
+  color: string
+}) {
+  const maxValue = Math.max(...items.map((item) => Number(item[valueKey] || 0)), 0)
+
+  return (
+    <div style={styles.chartCard}>
+      <h2 style={styles.chartTitle}>{title}</h2>
+
+      {items.length === 0 ? (
+        <div style={styles.empty}>Sem dados</div>
+      ) : (
+        <div style={styles.progressGroup}>
+          {items.map((item, index) => {
+            const value = Number(item[valueKey] || 0)
+            const width = maxValue > 0 ? `${(value / maxValue) * 100}%` : '0%'
+            const label = String(item[labelKey] || '-')
+
+            return (
+              <div key={`${label}-${index}`} style={styles.progressRow}>
+                <div style={styles.progressLabel} title={label}>
+                  {label}
+                </div>
+
+                <div style={styles.progressTrack}>
+                  <div
+                    style={{
+                      ...styles.progressValue,
+                      width,
+                      backgroundColor: color,
+                    }}
+                  />
+                </div>
+
+                <div style={styles.progressNumber}>{value}</div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DonutCard({
+  title,
+  valueA,
+  valueB,
+  labelA,
+  labelB,
+  colorA,
+  colorB,
+}: {
+  title: string
+  valueA: number
+  valueB: number
+  labelA: string
+  labelB: string
+  colorA: string
+  colorB: string
+}) {
+  const total = valueA + valueB
+  const percentA = total ? Math.round((valueA / total) * 100) : 0
+  const angleA = `${percentA}%`
+  const background = `conic-gradient(${colorA} 0 ${angleA}, ${colorB} ${angleA} 100%)`
+
+  return (
+    <div style={styles.chartCard}>
+      <h2 style={styles.chartTitle}>{title}</h2>
+
+      <div style={styles.donutWrap}>
+        <div style={{ ...styles.donut, background }}>
+          <div style={styles.donutInner}>
+            <div style={styles.donutBig}>{total}</div>
+            <div style={styles.donutSmall}>total</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={styles.legendList}>
+        <div style={styles.legendRow}>
+          <div style={{ ...styles.legendDot, backgroundColor: colorA }} />
+          <div>{labelA}</div>
+          <strong>
+            {valueA} ({percent(valueA, total)}%)
+          </strong>
+        </div>
+
+        <div style={styles.legendRow}>
+          <div style={{ ...styles.legendDot, backgroundColor: colorB }} />
+          <div>{labelB}</div>
+          <strong>
+            {valueB} ({percent(valueB, total)}%)
+          </strong>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function RelatoriosPage() {
@@ -430,6 +671,27 @@ export default function RelatoriosPage() {
   ).length
 
   const totalForaSla = rows.filter((o) => getForaSlaValue(o)).length
+  const totalDentroSla = total - totalForaSla
+
+  const graficoUnidades = useMemo(() => {
+    return [...resumoPorUnidade]
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10)
+      .map((item) => ({
+        unidade: item.unidade,
+        total: item.total,
+      }))
+  }, [resumoPorUnidade])
+
+  const graficoCategorias = useMemo(() => {
+    return [...resumoPorCategoria]
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10)
+      .map((item) => ({
+        categoria: item.categoria,
+        total: item.total,
+      }))
+  }, [resumoPorCategoria])
 
   return (
     <div style={styles.page}>
@@ -476,6 +738,44 @@ export default function RelatoriosPage() {
         <div style={styles.card}>A carregar...</div>
       ) : (
         <>
+          <div style={styles.chartsGrid}>
+            <HorizontalBars
+              title="Ocorrências por unidade"
+              items={graficoUnidades}
+              labelKey="unidade"
+              valueKey="total"
+              color="#1d4ed8"
+            />
+
+            <HorizontalBars
+              title="Top categorias"
+              items={graficoCategorias}
+              labelKey="categoria"
+              valueKey="total"
+              color="#7c3aed"
+            />
+
+            <DonutCard
+              title="Estado global"
+              valueA={totalAbertas}
+              valueB={totalConcluidas}
+              labelA="Abertas"
+              labelB="Concluídas"
+              colorA="#2563eb"
+              colorB="#16a34a"
+            />
+
+            <DonutCard
+              title="SLA global"
+              valueA={totalDentroSla}
+              valueB={totalForaSla}
+              labelA="Dentro SLA"
+              labelB="Fora SLA"
+              colorA="#16a34a"
+              colorB="#dc2626"
+            />
+          </div>
+
           <div style={styles.sectionHeader}>
             <h2 style={styles.sectionTitle}>Resumo por unidade</h2>
             <button
