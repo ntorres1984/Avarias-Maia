@@ -42,6 +42,10 @@ type HistoryItem = {
   data_alteracao: string
 }
 
+type ProfileData = {
+  perfil: string | null
+}
+
 const estados = ['Em aberto', 'Em análise', 'Em execução', 'Concluída', 'Encerrada']
 
 function getUnitName(units: UnitRelation, fallback: string | null) {
@@ -321,7 +325,7 @@ export default function EditOccurrencePage() {
   const [createdBy, setCreatedBy] = useState<string | null>(null)
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-  const [currentRole, setCurrentRole] = useState<string>('user')
+  const [currentPerfil, setCurrentPerfil] = useState<string>('tecnico')
 
   async function loadHistory() {
     const { data } = await supabase
@@ -355,11 +359,12 @@ export default function EditOccurrencePage() {
 
     const { data: profileData } = await supabase
       .from('profiles')
-      .select('role')
+      .select('perfil')
       .eq('id', user.id)
       .single()
 
-    setCurrentRole(profileData?.role || 'user')
+    const perfilAtual = ((profileData as ProfileData | null)?.perfil || 'tecnico')
+    setCurrentPerfil(perfilAtual)
 
     const { data, error } = await supabase
       .from('occurrences')
@@ -395,7 +400,7 @@ export default function EditOccurrencePage() {
 
     setCreatedBy(item.created_by)
 
-    if ((profileData?.role || 'user') === 'user' && item.created_by !== user.id) {
+    if (perfilAtual === 'tecnico' && item.created_by !== user.id) {
       setErrorMessage('Não tens permissão para editar esta ocorrência.')
       setLoading(false)
       return
@@ -426,10 +431,10 @@ export default function EditOccurrencePage() {
   }, [id])
 
   const canEdit = useMemo(() => {
-    if (currentRole === 'admin' || currentRole === 'gestor') return true
-    if (currentRole === 'user' && currentUserId && createdBy === currentUserId) return true
+    if (currentPerfil === 'admin' || currentPerfil === 'gestor') return true
+    if (currentPerfil === 'tecnico' && currentUserId && createdBy === currentUserId) return true
     return false
-  }, [currentRole, currentUserId, createdBy])
+  }, [currentPerfil, currentUserId, createdBy])
 
   const foraSlaAtual = useMemo(() => {
     return isForaSLA({
