@@ -60,12 +60,6 @@ type MonthlySummary = {
   concluidas: number
 }
 
-type AvgResolutionByUnit = {
-  unidade: string
-  mediaDias: number
-  totalResolvidas: number
-}
-
 type TopForaSlaItem = {
   id: string
   ocorrencia: string
@@ -234,16 +228,23 @@ const styles = {
   header: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: '24px',
     gap: '16px',
-    flexWrap: 'wrap',
+    flexWrap: 'wrap' as const,
   } as const,
 
   title: {
     margin: 0,
     fontSize: '40px',
     fontWeight: 700,
+  } as const,
+
+  subtitle: {
+    marginTop: '8px',
+    color: '#475569',
+    fontSize: '14px',
+    fontWeight: 600,
   } as const,
 
   subLink: {
@@ -265,6 +266,7 @@ const styles = {
     fontWeight: 600,
     cursor: 'pointer',
     fontSize: '14px',
+    minHeight: '44px',
   } as const,
 
   statsGrid: {
@@ -324,13 +326,19 @@ const styles = {
     gap: '16px',
     marginTop: '24px',
     marginBottom: '12px',
-    flexWrap: 'wrap',
+    flexWrap: 'wrap' as const,
   } as const,
 
   sectionTitle: {
     margin: 0,
     fontSize: '28px',
     fontWeight: 700,
+  } as const,
+
+  sectionSubtitle: {
+    marginTop: '6px',
+    fontSize: '14px',
+    color: '#64748b',
   } as const,
 
   tableWrapper: {
@@ -384,7 +392,7 @@ const styles = {
     display: 'flex',
     flexDirection: 'column' as const,
     gap: '12px',
-  },
+  } as const,
 
   progressRow: {
     display: 'grid',
@@ -469,7 +477,7 @@ const styles = {
     flexDirection: 'column' as const,
     gap: '10px',
     marginTop: '18px',
-  },
+  } as const,
 
   legendRow: {
     display: 'grid',
@@ -492,7 +500,7 @@ const styles = {
     minHeight: '280px',
     paddingTop: '10px',
     overflowX: 'auto' as const,
-  },
+  } as const,
 
   monthlyColumn: {
     minWidth: '72px',
@@ -501,7 +509,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: '8px',
-  },
+  } as const,
 
   monthlyValue: {
     fontSize: '13px',
@@ -541,7 +549,7 @@ const styles = {
     gap: '16px',
     flexWrap: 'wrap' as const,
     marginTop: '10px',
-  },
+  } as const,
 
   smallLegendItem: {
     display: 'inline-flex',
@@ -1091,6 +1099,9 @@ export default function RelatoriosPage() {
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Relatórios de gestão</h1>
+          <div style={styles.subtitle}>
+            Visão global das ocorrências, SLA, tempos médios e distribuição por unidade e categoria.
+          </div>
           <div style={{ marginTop: 8 }}>
             <Link href="/dashboard" style={styles.subLink}>
               ← Voltar ao dashboard
@@ -1207,7 +1218,12 @@ export default function RelatoriosPage() {
           </div>
 
           <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>Top ocorrências fora SLA</h2>
+            <div>
+              <h2 style={styles.sectionTitle}>Top ocorrências fora SLA</h2>
+              <div style={styles.sectionSubtitle}>
+                Ocorrências com maior atraso face ao prazo definido.
+              </div>
+            </div>
           </div>
 
           <div style={styles.chartCard}>
@@ -1257,7 +1273,13 @@ export default function RelatoriosPage() {
           </div>
 
           <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>Resumo por unidade</h2>
+            <div>
+              <h2 style={styles.sectionTitle}>Resumo por unidade</h2>
+              <div style={styles.sectionSubtitle}>
+                Distribuição operacional agregada por unidade de saúde.
+              </div>
+            </div>
+
             <button style={styles.btn} onClick={() => exportUnitsCSV(resumoPorUnidade)}>
               Exportar unidades CSV
             </button>
@@ -1303,7 +1325,13 @@ export default function RelatoriosPage() {
           </div>
 
           <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>Resumo por categoria</h2>
+            <div>
+              <h2 style={styles.sectionTitle}>Resumo por categoria</h2>
+              <div style={styles.sectionSubtitle}>
+                Agrupamento das ocorrências por tipologia de intervenção.
+              </div>
+            </div>
+
             <button
               style={styles.btn}
               onClick={() => exportCategoriesCSV(resumoPorCategoria)}
@@ -1352,7 +1380,12 @@ export default function RelatoriosPage() {
           </div>
 
           <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>Tempo médio por unidade</h2>
+            <div>
+              <h2 style={styles.sectionTitle}>Tempo médio por unidade</h2>
+              <div style={styles.sectionSubtitle}>
+                Média de dias de resolução para ocorrências encerradas ou concluídas.
+              </div>
+            </div>
           </div>
 
           <div style={styles.tableWrapper}>
@@ -1385,7 +1418,12 @@ export default function RelatoriosPage() {
           </div>
 
           <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>Últimas ocorrências fora SLA</h2>
+            <div>
+              <h2 style={styles.sectionTitle}>Últimas ocorrências fora SLA</h2>
+              <div style={styles.sectionSubtitle}>
+                Lista das ocorrências atualmente mais críticas em atraso.
+              </div>
+            </div>
           </div>
 
           <div style={styles.tableWrapper}>
