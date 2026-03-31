@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -26,17 +27,24 @@ const styles = {
     boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
   } as const,
 
+  logoWrap: {
+    textAlign: 'center' as const,
+    marginBottom: '20px',
+  } as const,
+
   title: {
     margin: '0 0 8px 0',
     fontSize: '34px',
     fontWeight: 700,
     color: '#0f172a',
+    textAlign: 'center' as const,
   } as const,
 
   subtitle: {
     margin: '0 0 24px 0',
     color: '#475569',
     fontSize: '15px',
+    textAlign: 'center' as const,
   } as const,
 
   field: {
@@ -158,6 +166,17 @@ export default function LoginPage() {
   return (
     <div style={styles.page}>
       <div style={styles.card}>
+        <div style={styles.logoWrap}>
+          <Image
+            src="/logo-maia-saude.png"
+            alt="Maia Saúde"
+            width={220}
+            height={80}
+            style={{ objectFit: 'contain', height: 'auto' }}
+            priority
+          />
+        </div>
+
         <h1 style={styles.title}>Login</h1>
         <p style={styles.subtitle}>Acede à plataforma de registo de avarias.</p>
 
