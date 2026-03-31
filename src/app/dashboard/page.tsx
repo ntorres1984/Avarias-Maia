@@ -192,37 +192,41 @@ const styles = {
   filtersBox: {
     backgroundColor: '#ffffff',
     border: '1px solid #e2e8f0',
-    borderRadius: '16px',
-    padding: '16px',
-    marginBottom: '18px',
-    display: 'flex',
-    gap: '16px',
-    flexWrap: 'wrap',
-    alignItems: 'flex-end',
+    borderRadius: '18px',
+    padding: '22px',
+    marginBottom: '20px',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+    gap: '18px',
+    alignItems: 'end',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
   } as const,
 
   filterGroup: {
-    minWidth: '180px',
-    flex: '1 1 180px',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '8px',
+    minWidth: 0,
   } as const,
 
   label: {
     display: 'block',
-    marginBottom: '6px',
-    fontSize: '14px',
-    fontWeight: 600,
+    fontSize: '13px',
+    fontWeight: 700,
     color: '#334155',
+    paddingLeft: '2px',
   } as const,
 
   select: {
     width: '100%',
-    minHeight: '40px',
-    borderRadius: '10px',
+    minHeight: '46px',
+    borderRadius: '12px',
     border: '1px solid #cbd5e1',
-    padding: '8px 12px',
+    padding: '10px 14px',
     backgroundColor: '#ffffff',
     fontSize: '14px',
     outline: 'none',
+    boxSizing: 'border-box' as const,
   } as const,
 
   btn: {
@@ -230,7 +234,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: '10px 16px',
-    borderRadius: '10px',
+    borderRadius: '12px',
     border: '1px solid #cbd5e1',
     backgroundColor: '#ffffff',
     color: '#0f172a',
@@ -238,6 +242,12 @@ const styles = {
     fontWeight: 600,
     cursor: 'pointer',
     fontSize: '14px',
+    minHeight: '46px',
+  } as const,
+
+  filterButtonWrap: {
+    display: 'flex',
+    alignItems: 'flex-end',
   } as const,
 
   tableWrapper: {
@@ -812,7 +822,7 @@ export default function DashboardPage() {
           </select>
         </div>
 
-        <div>
+        <div style={styles.filterButtonWrap}>
           <button
             style={styles.btn}
             onClick={() => {
