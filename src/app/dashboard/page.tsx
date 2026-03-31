@@ -409,8 +409,7 @@ export default function DashboardPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [perfil, setPerfil] = useState<string>('tecnico')
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [perfil, setPerfil] = useState<string>('user')
 
   const [filtroUnidade, setFiltroUnidade] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('')
@@ -418,6 +417,11 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('')
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
+
+  const canExport = perfil === 'admin' || perfil === 'gestor'
+  const canSeeReports = perfil === 'admin' || perfil === 'gestor' || perfil === 'tecnico'
+  const canManageUsers = perfil === 'admin' || perfil === 'gestor'
+  const canDelete = perfil === 'admin' || perfil === 'gestor'
 
   async function loadOccurrences() {
     setLoading(true)
@@ -447,10 +451,7 @@ export default function DashboardPage() {
 
     const currentProfile = (profileData || null) as Profile | null
     setProfile(currentProfile)
-
-    const currentPerfil = currentProfile?.perfil || 'tecnico'
-    setPerfil(currentPerfil)
-    setIsAdmin(currentPerfil === 'admin')
+    setPerfil(currentProfile?.perfil || 'user')
 
     const { data, error } = await supabase
       .from('occurrences')
@@ -493,7 +494,7 @@ export default function DashboardPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!isAdmin) return
+    if (!canDelete) return
 
     const confirmDelete = window.confirm(
       'Tens a certeza que queres apagar esta ocorrência? Esta ação não pode ser anulada.'
@@ -656,22 +657,30 @@ export default function DashboardPage() {
   ])
 
   const topbarActions = [
-    {
-      label: 'Exportar CSV',
-      onClick: () => exportToCSV(rows),
-      variant: 'default' as const,
-    },
-    {
-      label: 'Relatórios',
-      href: '/dashboard/relatorios',
-      variant: 'blue' as const,
-    },
+    ...(canExport
+      ? [
+          {
+            label: 'Exportar CSV',
+            onClick: () => exportToCSV(rows),
+            variant: 'default' as const,
+          },
+        ]
+      : []),
+    ...(canSeeReports
+      ? [
+          {
+            label: 'Relatórios',
+            href: '/dashboard/relatorios',
+            variant: 'blue' as const,
+          },
+        ]
+      : []),
     {
       label: 'Ver concluídas',
       href: '/dashboard/concluidas',
       variant: 'gray' as const,
     },
-    ...(isAdmin
+    ...(canManageUsers
       ? [
           {
             label: 'Utilizadores',
@@ -925,7 +934,7 @@ export default function DashboardPage() {
                             Editar
                           </Link>
 
-                          {isAdmin && (
+                          {canDelete && (
                             <button
                               type="button"
                               style={styles.deleteBtn}
