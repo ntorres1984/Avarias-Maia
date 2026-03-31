@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -139,6 +140,18 @@ const styles = {
     marginBottom: '24px',
     gap: '16px',
     flexWrap: 'wrap',
+  } as const,
+
+  headerLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    flexWrap: 'wrap' as const,
+  },
+
+  logoBox: {
+    display: 'flex',
+    alignItems: 'center',
   } as const,
 
   title: {
@@ -697,11 +710,24 @@ export default function DashboardPage() {
   return (
     <div style={styles.page}>
       <div style={styles.header}>
-        <div>
-          <h1 style={styles.title}>Dashboard</h1>
-          <div style={styles.subtitle}>
-            {profile?.nome || profile?.email || 'Utilizador'}
-            {` • ${getRoleLabel(perfil)}`}
+        <div style={styles.headerLeft}>
+          <div style={styles.logoBox}>
+            <Image
+              src="/logo-maia-saude.png"
+              alt="Maia Saúde"
+              width={150}
+              height={60}
+              style={{ objectFit: 'contain', height: 'auto' }}
+              priority
+            />
+          </div>
+
+          <div>
+            <h1 style={styles.title}>Dashboard</h1>
+            <div style={styles.subtitle}>
+              {profile?.nome || profile?.email || 'Utilizador'}
+              {` • ${getRoleLabel(perfil)}`}
+            </div>
           </div>
         </div>
 
