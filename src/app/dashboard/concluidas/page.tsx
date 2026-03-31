@@ -1,8 +1,8 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import DashboardTopbar from '@/components/dashboard/DashboardTopbar'
 
 type UnitRelation =
   | {
@@ -116,50 +116,6 @@ const styles = {
     color: '#0f172a',
   } as const,
 
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '24px',
-    gap: '16px',
-    flexWrap: 'wrap' as const,
-  } as const,
-
-  title: {
-    margin: 0,
-    fontSize: '40px',
-    fontWeight: 700,
-  } as const,
-
-  subtitle: {
-    marginTop: '8px',
-    color: '#475569',
-    fontSize: '14px',
-    fontWeight: 600,
-  } as const,
-
-  subLink: {
-    color: '#475569',
-    textDecoration: 'none',
-    fontWeight: 600,
-  } as const,
-
-  btn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '10px 16px',
-    borderRadius: '10px',
-    border: '1px solid #cbd5e1',
-    backgroundColor: '#ffffff',
-    color: '#0f172a',
-    textDecoration: 'none',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontSize: '14px',
-    minHeight: '44px',
-  } as const,
-
   filtersBox: {
     backgroundColor: '#ffffff',
     border: '1px solid #e2e8f0',
@@ -194,6 +150,22 @@ const styles = {
     backgroundColor: '#ffffff',
     fontSize: '14px',
     outline: 'none',
+  } as const,
+
+  btn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '10px 16px',
+    borderRadius: '10px',
+    border: '1px solid #cbd5e1',
+    backgroundColor: '#ffffff',
+    color: '#0f172a',
+    textDecoration: 'none',
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontSize: '14px',
+    minHeight: '44px',
   } as const,
 
   tableWrapper: {
@@ -412,23 +384,22 @@ export default function ConcluidasPage() {
 
   return (
     <div style={styles.page}>
-      <div style={styles.header}>
-        <div>
-          <h1 style={styles.title}>Ocorrências concluídas</h1>
-          <div style={styles.subtitle}>
-            Consulta de ocorrências concluídas e encerradas, com histórico final e estado de SLA.
-          </div>
-          <div style={{ marginTop: 8 }}>
-            <Link href="/dashboard" style={styles.subLink}>
-              ← Voltar ao dashboard
-            </Link>
-          </div>
-        </div>
-
-        <button style={styles.btn} onClick={() => exportToCSV(listaFiltrada)}>
-          Exportar CSV
-        </button>
-      </div>
+      <DashboardTopbar
+        title="Ocorrências concluídas"
+        subtitle="Consulta de ocorrências concluídas e encerradas, com histórico final e estado de SLA."
+        actions={[
+          {
+            label: 'Voltar ao dashboard',
+            href: '/dashboard',
+            variant: 'default',
+          },
+          {
+            label: 'Exportar CSV',
+            onClick: () => exportToCSV(listaFiltrada),
+            variant: 'gray',
+          },
+        ]}
+      />
 
       {errorMessage && (
         <div style={styles.error}>
