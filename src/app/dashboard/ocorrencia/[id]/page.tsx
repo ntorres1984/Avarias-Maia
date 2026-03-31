@@ -1,10 +1,10 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ESTADOS } from '@/lib/constants'
+import DashboardTopbar from '@/components/dashboard/DashboardTopbar'
 
 type UnitRelation =
   | {
@@ -219,34 +219,6 @@ const styles = {
     minHeight: '100vh',
     fontFamily: 'Arial, sans-serif',
     color: '#0f172a',
-  } as const,
-
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: '16px',
-    flexWrap: 'wrap' as const,
-    marginBottom: '24px',
-  } as const,
-
-  title: {
-    margin: 0,
-    fontSize: '38px',
-    fontWeight: 700,
-  } as const,
-
-  subtitle: {
-    marginTop: '8px',
-    fontSize: '14px',
-    color: '#475569',
-    fontWeight: 600,
-  } as const,
-
-  backLink: {
-    color: '#475569',
-    textDecoration: 'none',
-    fontWeight: 600,
   } as const,
 
   card: {
@@ -686,19 +658,17 @@ export default function EditOccurrencePage() {
 
   return (
     <div style={styles.page}>
-      <div style={styles.header}>
-        <div>
-          <h1 style={styles.title}>Editar Ocorrência</h1>
-          <div style={styles.subtitle}>
-            Consulta os dados, atualiza o estado e regista observações da intervenção.
-          </div>
-          <div style={{ marginTop: 8 }}>
-            <Link href="/dashboard" style={styles.backLink}>
-              ← Voltar ao dashboard
-            </Link>
-          </div>
-        </div>
-      </div>
+      <DashboardTopbar
+        title="Editar Ocorrência"
+        subtitle="Consulta os dados, atualiza o estado e regista observações da intervenção."
+        actions={[
+          {
+            label: 'Voltar ao dashboard',
+            href: '/dashboard',
+            variant: 'default',
+          },
+        ]}
+      />
 
       {errorMessage && <div style={styles.messageError}>{errorMessage}</div>}
       {successMessage && <div style={styles.messageSuccess}>{successMessage}</div>}
