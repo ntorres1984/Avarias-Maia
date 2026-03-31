@@ -119,16 +119,23 @@ const styles = {
   header: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: '24px',
     gap: '16px',
-    flexWrap: 'wrap',
+    flexWrap: 'wrap' as const,
   } as const,
 
   title: {
     margin: 0,
     fontSize: '40px',
     fontWeight: 700,
+  } as const,
+
+  subtitle: {
+    marginTop: '8px',
+    color: '#475569',
+    fontSize: '14px',
+    fontWeight: 600,
   } as const,
 
   subLink: {
@@ -150,6 +157,7 @@ const styles = {
     fontWeight: 600,
     cursor: 'pointer',
     fontSize: '14px',
+    minHeight: '44px',
   } as const,
 
   filtersBox: {
@@ -166,6 +174,7 @@ const styles = {
 
   filterGroup: {
     minWidth: '220px',
+    flex: '1 1 220px',
   } as const,
 
   label: {
@@ -184,6 +193,7 @@ const styles = {
     padding: '8px 12px',
     backgroundColor: '#ffffff',
     fontSize: '14px',
+    outline: 'none',
   } as const,
 
   tableWrapper: {
@@ -245,6 +255,27 @@ const styles = {
     borderRadius: '10px',
     padding: '12px 14px',
     marginBottom: '16px',
+  } as const,
+
+  infoCard: {
+    backgroundColor: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '16px',
+    padding: '18px',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+    marginBottom: '18px',
+  } as const,
+
+  infoTitle: {
+    margin: '0 0 8px 0',
+    fontSize: '16px',
+    fontWeight: 700,
+  } as const,
+
+  infoText: {
+    margin: 0,
+    fontSize: '14px',
+    color: '#64748b',
   } as const,
 }
 
@@ -384,6 +415,9 @@ export default function ConcluidasPage() {
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Ocorrências concluídas</h1>
+          <div style={styles.subtitle}>
+            Consulta de ocorrências concluídas e encerradas, com histórico final e estado de SLA.
+          </div>
           <div style={{ marginTop: 8 }}>
             <Link href="/dashboard" style={styles.subLink}>
               ← Voltar ao dashboard
@@ -401,6 +435,14 @@ export default function ConcluidasPage() {
           Erro ao carregar: {errorMessage}
         </div>
       )}
+
+      <div style={styles.infoCard}>
+        <h2 style={styles.infoTitle}>Arquivo de ocorrências resolvidas</h2>
+        <p style={styles.infoText}>
+          Aqui aparecem apenas ocorrências com estado <strong>Concluída</strong> ou <strong>Encerrada</strong>.
+          Podes filtrar por unidade e exportar os resultados para CSV.
+        </p>
+      </div>
 
       <div style={styles.filtersBox}>
         <div style={styles.filterGroup}>
