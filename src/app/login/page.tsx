@@ -12,28 +12,32 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f8fafc',
+    background: 'linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)',
     padding: '24px',
     fontFamily: 'Arial, sans-serif',
   } as const,
 
+  wrapper: {
+    width: '100%',
+    maxWidth: '460px',
+  } as const,
+
   card: {
     width: '100%',
-    maxWidth: '440px',
     backgroundColor: '#ffffff',
     border: '1px solid #e2e8f0',
-    borderRadius: '18px',
-    padding: '28px',
-    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+    borderRadius: '20px',
+    padding: '32px',
+    boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
   } as const,
 
   logoWrap: {
     textAlign: 'center' as const,
-    marginBottom: '20px',
+    marginBottom: '18px',
   } as const,
 
   title: {
-    margin: '0 0 8px 0',
+    margin: '0 0 10px 0',
     fontSize: '34px',
     fontWeight: 700,
     color: '#0f172a',
@@ -41,9 +45,10 @@ const styles = {
   } as const,
 
   subtitle: {
-    margin: '0 0 24px 0',
+    margin: '0 0 26px 0',
     color: '#475569',
     fontSize: '15px',
+    lineHeight: 1.5,
     textAlign: 'center' as const,
   } as const,
 
@@ -61,7 +66,7 @@ const styles = {
   } as const,
 
   input: {
-    minHeight: '44px',
+    minHeight: '46px',
     borderRadius: '10px',
     border: '1px solid #cbd5e1',
     padding: '10px 12px',
@@ -72,7 +77,7 @@ const styles = {
 
   btnPrimary: {
     width: '100%',
-    minHeight: '46px',
+    minHeight: '48px',
     borderRadius: '10px',
     border: '1px solid #0f172a',
     backgroundColor: '#0f172a',
@@ -104,7 +109,7 @@ const styles = {
   } as const,
 
   footer: {
-    marginTop: '18px',
+    marginTop: '20px',
     fontSize: '14px',
     color: '#475569',
     textAlign: 'center' as const,
@@ -114,6 +119,14 @@ const styles = {
     color: '#1d4ed8',
     textDecoration: 'none',
     fontWeight: 600,
+  } as const,
+
+  helper: {
+    marginTop: '18px',
+    fontSize: '13px',
+    color: '#64748b',
+    textAlign: 'center' as const,
+    lineHeight: 1.5,
   } as const,
 }
 
@@ -165,57 +178,67 @@ export default function LoginPage() {
 
   return (
     <div style={styles.page}>
-      <div style={styles.card}>
-        <div style={styles.logoWrap}>
-          <Image
-            src="/logo-maia-saude.png"
-            alt="Maia Saúde"
-            width={220}
-            height={80}
-            style={{ objectFit: 'contain', height: 'auto' }}
-            priority
-          />
-        </div>
-
-        <h1 style={styles.title}>Login</h1>
-        <p style={styles.subtitle}>Acede à plataforma de registo de avarias.</p>
-
-        {errorMessage && <div style={styles.messageError}>{errorMessage}</div>}
-        {successMessage && <div style={styles.messageSuccess}>{successMessage}</div>}
-
-        <form onSubmit={handleLogin}>
-          <div style={styles.field}>
-            <label style={styles.label}>Email</label>
-            <input
-              type="email"
-              style={styles.input}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+      <div style={styles.wrapper}>
+        <div style={styles.card}>
+          <div style={styles.logoWrap}>
+            <Image
+              src="/logo-maia-saude.png"
+              alt="Maia Saúde"
+              width={230}
+              height={90}
+              style={{ objectFit: 'contain', height: 'auto' }}
+              priority
             />
           </div>
 
-          <div style={styles.field}>
-            <label style={styles.label}>Password</label>
-            <input
-              type="password"
-              style={styles.input}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+          <h1 style={styles.title}>Login</h1>
+          <p style={styles.subtitle}>
+            Acede à plataforma de gestão de avarias e acompanha o estado das ocorrências.
+          </p>
+
+          {errorMessage && <div style={styles.messageError}>{errorMessage}</div>}
+          {successMessage && <div style={styles.messageSuccess}>{successMessage}</div>}
+
+          <form onSubmit={handleLogin}>
+            <div style={styles.field}>
+              <label style={styles.label}>Email</label>
+              <input
+                type="email"
+                style={styles.input}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>Password</label>
+              <input
+                type="password"
+                style={styles.input}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
+            </div>
+
+            <button type="submit" style={styles.btnPrimary} disabled={loading}>
+              {loading ? 'A entrar...' : 'Entrar'}
+            </button>
+          </form>
+
+          <div style={styles.footer}>
+            Ainda não tens conta?{' '}
+            <Link href="/registo" style={styles.link}>
+              Registar
+            </Link>
           </div>
 
-          <button type="submit" style={styles.btnPrimary} disabled={loading}>
-            {loading ? 'A entrar...' : 'Entrar'}
-          </button>
-        </form>
-
-        <div style={styles.footer}>
-          Ainda não tens conta?{' '}
-          <Link href="/registo" style={styles.link}>
-            Registar
-          </Link>
+          <div style={styles.helper}>
+            Plataforma interna de registo e acompanhamento de ocorrências técnicas.
+          </div>
         </div>
       </div>
     </div>
