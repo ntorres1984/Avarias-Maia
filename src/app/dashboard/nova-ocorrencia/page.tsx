@@ -1,9 +1,9 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { CATEGORIAS, PRIORIDADES, IMPACTOS } from '@/lib/constants'
+import DashboardTopbar from '@/components/dashboard/DashboardTopbar'
 
 type Unit = {
   id: string
@@ -17,34 +17,6 @@ const styles = {
     minHeight: '100vh',
     fontFamily: 'Arial, sans-serif',
     color: '#0f172a',
-  } as const,
-
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '16px',
-    flexWrap: 'wrap' as const,
-    marginBottom: '24px',
-  } as const,
-
-  title: {
-    margin: 0,
-    fontSize: '38px',
-    fontWeight: 700,
-  } as const,
-
-  subTitle: {
-    marginTop: '8px',
-    color: '#475569',
-    fontSize: '14px',
-    fontWeight: 600,
-  } as const,
-
-  backLink: {
-    color: '#475569',
-    textDecoration: 'none',
-    fontWeight: 600,
   } as const,
 
   card: {
@@ -310,19 +282,17 @@ export default function NovaOcorrenciaPage() {
 
   return (
     <div style={styles.page}>
-      <div style={styles.header}>
-        <div>
-          <h1 style={styles.title}>Nova Ocorrência</h1>
-          <div style={styles.subTitle}>
-            Registo de nova avaria ou necessidade de intervenção.
-          </div>
-          <div style={{ marginTop: 8 }}>
-            <Link href="/dashboard" style={styles.backLink}>
-              ← Voltar ao dashboard
-            </Link>
-          </div>
-        </div>
-      </div>
+      <DashboardTopbar
+        title="Nova Ocorrência"
+        subtitle="Registo de nova avaria ou necessidade de intervenção."
+        actions={[
+          {
+            label: 'Voltar ao dashboard',
+            href: '/dashboard',
+            variant: 'default',
+          },
+        ]}
+      />
 
       <div style={styles.card}>
         <h2 style={styles.sectionTitle}>Dados da ocorrência</h2>
@@ -442,9 +412,15 @@ export default function NovaOcorrenciaPage() {
               {loading ? 'A guardar...' : 'Guardar ocorrência'}
             </button>
 
-            <Link href="/dashboard" style={styles.btnSecondary}>
+            <button
+              type="button"
+              style={styles.btnSecondary}
+              onClick={() => {
+                window.location.href = '/dashboard'
+              }}
+            >
               Cancelar
-            </Link>
+            </button>
           </div>
         </form>
       </div>
