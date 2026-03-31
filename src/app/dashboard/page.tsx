@@ -1,10 +1,10 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import DashboardTopbar from '@/components/dashboard/DashboardTopbar'
 
 type UnitRelation =
   | {
@@ -133,136 +133,6 @@ const styles = {
     color: '#0f172a',
   } as const,
 
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '24px',
-    gap: '16px',
-    flexWrap: 'wrap',
-  } as const,
-
-  headerLeft: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-    flexWrap: 'wrap' as const,
-  },
-
-  logoBox: {
-    display: 'flex',
-    alignItems: 'center',
-  } as const,
-
-  title: {
-    margin: 0,
-    fontSize: '40px',
-    fontWeight: 700,
-  } as const,
-
-  subtitle: {
-    marginTop: '8px',
-    color: '#475569',
-    fontSize: '14px',
-    fontWeight: 600,
-  } as const,
-
-  actions: {
-    display: 'flex',
-    gap: '12px',
-    flexWrap: 'wrap',
-  } as const,
-
-  btn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '10px 16px',
-    borderRadius: '10px',
-    border: '1px solid #cbd5e1',
-    backgroundColor: '#ffffff',
-    color: '#0f172a',
-    textDecoration: 'none',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontSize: '14px',
-  } as const,
-
-  btnPrimary: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '10px 16px',
-    borderRadius: '10px',
-    border: '1px solid #0f172a',
-    backgroundColor: '#0f172a',
-    color: '#ffffff',
-    textDecoration: 'none',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontSize: '14px',
-  } as const,
-
-  btnBlue: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '10px 16px',
-    borderRadius: '10px',
-    border: '1px solid #1d4ed8',
-    backgroundColor: '#1d4ed8',
-    color: '#ffffff',
-    textDecoration: 'none',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontSize: '14px',
-  } as const,
-
-  btnGray: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '10px 16px',
-    borderRadius: '10px',
-    border: '1px solid #475569',
-    backgroundColor: '#475569',
-    color: '#ffffff',
-    textDecoration: 'none',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontSize: '14px',
-  } as const,
-
-  btnGreen: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '10px 16px',
-    borderRadius: '10px',
-    border: '1px solid #15803d',
-    backgroundColor: '#15803d',
-    color: '#ffffff',
-    textDecoration: 'none',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontSize: '14px',
-  } as const,
-
-  btnRed: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '10px 16px',
-    borderRadius: '10px',
-    border: '1px solid #b91c1c',
-    backgroundColor: '#b91c1c',
-    color: '#ffffff',
-    textDecoration: 'none',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontSize: '14px',
-  } as const,
-
   deleteBtn: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -353,6 +223,21 @@ const styles = {
     backgroundColor: '#ffffff',
     fontSize: '14px',
     outline: 'none',
+  } as const,
+
+  btn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '10px 16px',
+    borderRadius: '10px',
+    border: '1px solid #cbd5e1',
+    backgroundColor: '#ffffff',
+    color: '#0f172a',
+    textDecoration: 'none',
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontSize: '14px',
   } as const,
 
   tableWrapper: {
@@ -760,58 +645,51 @@ export default function DashboardPage() {
     dataFim,
   ])
 
+  const topbarActions = [
+    {
+      label: 'Exportar CSV',
+      onClick: () => exportToCSV(rows),
+      variant: 'default' as const,
+    },
+    {
+      label: 'Relatórios',
+      href: '/dashboard/relatorios',
+      variant: 'blue' as const,
+    },
+    {
+      label: 'Ver concluídas',
+      href: '/dashboard/concluidas',
+      variant: 'gray' as const,
+    },
+    ...(isAdmin
+      ? [
+          {
+            label: 'Utilizadores',
+            href: '/dashboard/utilizadores',
+            variant: 'green' as const,
+          },
+        ]
+      : []),
+    {
+      label: 'Nova Ocorrência',
+      href: '/dashboard/nova-ocorrencia',
+      variant: 'primary' as const,
+    },
+    {
+      label: loggingOut ? 'A sair...' : 'Logout',
+      onClick: handleLogout,
+      variant: 'red' as const,
+      disabled: loggingOut,
+    },
+  ]
+
   return (
     <div style={styles.page}>
-      <div style={styles.header}>
-        <div style={styles.headerLeft}>
-          <div style={styles.logoBox}>
-            <Image
-              src="/logo-maia-saude.png"
-              alt="Maia Saúde"
-              width={150}
-              height={60}
-              style={{ objectFit: 'contain', height: 'auto' }}
-              priority
-            />
-          </div>
-
-          <div>
-            <h1 style={styles.title}>Dashboard</h1>
-            <div style={styles.subtitle}>
-              {profile?.nome || profile?.email || 'Utilizador'}
-              {` • ${getRoleLabel(perfil)}`}
-            </div>
-          </div>
-        </div>
-
-        <div style={styles.actions}>
-          <button style={styles.btn} onClick={() => exportToCSV(rows)}>
-            Exportar CSV
-          </button>
-
-          <Link href="/dashboard/relatorios" style={styles.btnBlue}>
-            Relatórios
-          </Link>
-
-          <Link href="/dashboard/concluidas" style={styles.btnGray}>
-            Ver concluídas
-          </Link>
-
-          {isAdmin && (
-            <Link href="/dashboard/utilizadores" style={styles.btnGreen}>
-              Utilizadores
-            </Link>
-          )}
-
-          <Link href="/dashboard/nova-ocorrencia" style={styles.btnPrimary}>
-            Nova Ocorrência
-          </Link>
-
-          <button style={styles.btnRed} onClick={handleLogout} disabled={loggingOut}>
-            {loggingOut ? 'A sair...' : 'Logout'}
-          </button>
-        </div>
-      </div>
+      <DashboardTopbar
+        title="Dashboard"
+        subtitle={`${profile?.nome || profile?.email || 'Utilizador'} • ${getRoleLabel(perfil)}`}
+        actions={topbarActions}
+      />
 
       {errorMessage && <div style={styles.error}>{errorMessage}</div>}
 
