@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import DashboardTopbar from '@/components/dashboard/DashboardTopbar'
 
 type UnitRelation =
   | {
@@ -58,16 +59,6 @@ type MonthlySummary = {
   total: number
   abertas: number
   concluidas: number
-}
-
-type TopForaSlaItem = {
-  id: string
-  ocorrencia: string
-  unidade: string
-  categoria: string
-  prioridade: string
-  estado: string
-  diasAtraso: number
 }
 
 function getUnitName(units: UnitRelation, fallback: string | null) {
@@ -225,34 +216,6 @@ const styles = {
     color: '#0f172a',
   } as const,
 
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '24px',
-    gap: '16px',
-    flexWrap: 'wrap' as const,
-  } as const,
-
-  title: {
-    margin: 0,
-    fontSize: '40px',
-    fontWeight: 700,
-  } as const,
-
-  subtitle: {
-    marginTop: '8px',
-    color: '#475569',
-    fontSize: '14px',
-    fontWeight: 600,
-  } as const,
-
-  subLink: {
-    color: '#475569',
-    textDecoration: 'none',
-    fontWeight: 600,
-  } as const,
-
   btn: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -392,7 +355,7 @@ const styles = {
     display: 'flex',
     flexDirection: 'column' as const,
     gap: '12px',
-  } as const,
+  },
 
   progressRow: {
     display: 'grid',
@@ -477,7 +440,7 @@ const styles = {
     flexDirection: 'column' as const,
     gap: '10px',
     marginTop: '18px',
-  } as const,
+  },
 
   legendRow: {
     display: 'grid',
@@ -500,7 +463,7 @@ const styles = {
     minHeight: '280px',
     paddingTop: '10px',
     overflowX: 'auto' as const,
-  } as const,
+  },
 
   monthlyColumn: {
     minWidth: '72px',
@@ -509,7 +472,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: '8px',
-  } as const,
+  },
 
   monthlyValue: {
     fontSize: '13px',
@@ -549,7 +512,7 @@ const styles = {
     gap: '16px',
     flexWrap: 'wrap' as const,
     marginTop: '10px',
-  } as const,
+  },
 
   smallLegendItem: {
     display: 'inline-flex',
@@ -1096,19 +1059,17 @@ export default function RelatoriosPage() {
 
   return (
     <div style={styles.page}>
-      <div style={styles.header}>
-        <div>
-          <h1 style={styles.title}>Relatórios de gestão</h1>
-          <div style={styles.subtitle}>
-            Visão global das ocorrências, SLA, tempos médios e distribuição por unidade e categoria.
-          </div>
-          <div style={{ marginTop: 8 }}>
-            <Link href="/dashboard" style={styles.subLink}>
-              ← Voltar ao dashboard
-            </Link>
-          </div>
-        </div>
-      </div>
+      <DashboardTopbar
+        title="Relatórios de gestão"
+        subtitle="Visão global das ocorrências, SLA, tempos médios e distribuição por unidade e categoria."
+        actions={[
+          {
+            label: 'Voltar ao dashboard',
+            href: '/dashboard',
+            variant: 'default',
+          },
+        ]}
+      />
 
       {errorMessage && (
         <div style={styles.error}>
