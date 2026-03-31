@@ -333,6 +333,7 @@ const styles = {
 
   filterGroup: {
     minWidth: '180px',
+    flex: '1 1 180px',
   } as const,
 
   label: {
@@ -351,6 +352,7 @@ const styles = {
     padding: '8px 12px',
     backgroundColor: '#ffffff',
     fontSize: '14px',
+    outline: 'none',
   } as const,
 
   tableWrapper: {
@@ -518,6 +520,9 @@ export default function DashboardPage() {
   const [filtroUnidade, setFiltroUnidade] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
+  const [search, setSearch] = useState('')
+  const [dataInicio, setDataInicio] = useState('')
+  const [dataFim, setDataFim] = useState('')
 
   async function loadOccurrences() {
     setLoading(true)
@@ -703,9 +708,57 @@ export default function DashboardPage() {
       const matchCategoria = !filtroCategoria || categoria === filtroCategoria
       const matchEstado = !filtroEstado || estado === filtroEstado
 
-      return matchUnidade && matchCategoria && matchEstado
+      const textoPesquisa = [
+        item.ocorrencia || '',
+        unidade,
+        item.categoria || '',
+        item.prioridade || '',
+        item.impacto || '',
+        item.estado || '',
+        item.observacoes || '',
+      ]
+        .join(' ')
+        .toLowerCase()
+
+      const matchSearch =
+        !search.trim() || textoPesquisa.includes(search.trim().toLowerCase())
+
+      const dataItem = item.data_reporte ? new Date(item.data_reporte) : null
+      const dataItemTime =
+        dataItem && !Number.isNaN(dataItem.getTime()) ? dataItem.getTime() : null
+
+      const inicioTime = dataInicio
+        ? new Date(`${dataInicio}T00:00:00`).getTime()
+        : null
+
+      const fimTime = dataFim
+        ? new Date(`${dataFim}T23:59:59`).getTime()
+        : null
+
+      const matchDataInicio =
+        !inicioTime || (dataItemTime !== null && dataItemTime >= inicioTime)
+
+      const matchDataFim =
+        !fimTime || (dataItemTime !== null && dataItemTime <= fimTime)
+
+      return (
+        matchUnidade &&
+        matchCategoria &&
+        matchEstado &&
+        matchSearch &&
+        matchDataInicio &&
+        matchDataFim
+      )
     })
-  }, [listaDashboard, filtroUnidade, filtroCategoria, filtroEstado])
+  }, [
+    listaDashboard,
+    filtroUnidade,
+    filtroCategoria,
+    filtroEstado,
+    search,
+    dataInicio,
+    dataFim,
+  ])
 
   return (
     <div style={styles.page}>
@@ -803,6 +856,37 @@ export default function DashboardPage() {
 
       <div style={styles.filtersBox}>
         <div style={styles.filterGroup}>
+          <label style={styles.label}>Pesquisar</label>
+          <input
+            type="text"
+            style={styles.select}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Pesquisar ocorrência, unidade, observações..."
+          />
+        </div>
+
+        <div style={styles.filterGroup}>
+          <label style={styles.label}>Data início</label>
+          <input
+            type="date"
+            style={styles.select}
+            value={dataInicio}
+            onChange={(e) => setDataInicio(e.target.value)}
+          />
+        </div>
+
+        <div style={styles.filterGroup}>
+          <label style={styles.label}>Data fim</label>
+          <input
+            type="date"
+            style={styles.select}
+            value={dataFim}
+            onChange={(e) => setDataFim(e.target.value)}
+          />
+        </div>
+
+        <div style={styles.filterGroup}>
           <label style={styles.label}>Unidade</label>
           <select
             style={styles.select}
@@ -857,6 +941,9 @@ export default function DashboardPage() {
               setFiltroUnidade('')
               setFiltroCategoria('')
               setFiltroEstado('')
+              setSearch('')
+              setDataInicio('')
+              setDataFim('')
             }}
           >
             Limpar filtros
