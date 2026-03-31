@@ -1,19 +1,37 @@
 'use client'
 
-import { ReactNode, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 const styles = {
+  page: {
+    minHeight: '100vh',
+    backgroundColor: '#f8fafc',
+  } as const,
+
+  content: {
+    width: '100%',
+  } as const,
+
   loadingWrap: {
     minHeight: '100vh',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#f8fafc',
+    padding: '24px',
     fontFamily: 'Arial, sans-serif',
+  } as const,
+
+  loadingCard: {
+    backgroundColor: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '16px',
+    padding: '24px 28px',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
     color: '#0f172a',
-    fontSize: '18px',
+    fontSize: '15px',
     fontWeight: 600,
   } as const,
 }
@@ -21,49 +39,42 @@ const styles = {
 export default function DashboardLayout({
   children,
 }: {
-  children: ReactNode
+  children: React.ReactNode
 }) {
   const supabase = createClient()
   const router = useRouter()
-  const [checking, setChecking] = useState(true)
+
+  const [checkingSession, setCheckingSession] = useState(true)
 
   useEffect(() => {
-    let mounted = true
-
-    async function checkUser() {
+    async function validateSession() {
       const {
         data: { user },
+        error,
       } = await supabase.auth.getUser()
 
-      if (!mounted) return
-
-      if (!user) {
+      if (error || !user) {
         router.replace('/login')
         return
       }
 
-      setChecking(false)
+      setCheckingSession(false)
     }
 
-    checkUser()
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session?.user) {
-        router.replace('/login')
-      }
-    })
-
-    return () => {
-      mounted = false
-      subscription.unsubscribe()
-    }
+    validateSession()
   }, [router, supabase])
 
-  if (checking) {
-    return <div style={styles.loadingWrap}>A validar sessão...</div>
+  if (checkingSession) {
+    return (
+      <div style={styles.loadingWrap}>
+        <div style={styles.loadingCard}>A validar sessão...</div>
+      </div>
+    )
   }
 
-  return <>{children}</>
+  return (
+    <div style={styles.page}>
+      <main style={styles.content}>{children}</main>
+    </div>
+  )
 }
