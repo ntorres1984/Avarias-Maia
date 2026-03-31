@@ -54,6 +54,13 @@ function getUnitName(units: UnitRelation, fallback: string | null) {
   return units?.nome || fallback || '-'
 }
 
+function formatDate(dateString: string | null) {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) return '-'
+  return date.toLocaleDateString('pt-PT')
+}
+
 function formatDateTime(dateString: string | null) {
   if (!dateString) return '-'
   const date = new Date(dateString)
@@ -89,7 +96,7 @@ function isForaSLA(item: {
   sla_dias: number | null
   estado: string | null
 }) {
-  if (!item.data_reporte || !item.sla_dias) return false
+  if (!item.data_reporte || item.sla_dias == null) return false
 
   const inicio = new Date(item.data_reporte).getTime()
   if (Number.isNaN(inicio)) return false
@@ -107,6 +114,104 @@ function isForaSLA(item: {
   return diasPassados > item.sla_dias
 }
 
+function getEstadoBadgeStyle(estado: string | null) {
+  if (estado === 'Concluída') {
+    return {
+      backgroundColor: '#dcfce7',
+      color: '#166534',
+    }
+  }
+
+  if (estado === 'Encerrada') {
+    return {
+      backgroundColor: '#e2e8f0',
+      color: '#334155',
+    }
+  }
+
+  if (estado === 'Em execução') {
+    return {
+      backgroundColor: '#dbeafe',
+      color: '#1d4ed8',
+    }
+  }
+
+  if (estado === 'Em análise') {
+    return {
+      backgroundColor: '#fef3c7',
+      color: '#92400e',
+    }
+  }
+
+  return {
+    backgroundColor: '#ede9fe',
+    color: '#6d28d9',
+  }
+}
+
+function getPrioridadeBadgeStyle(prioridade: string | null) {
+  if (prioridade === 'Alta') {
+    return {
+      backgroundColor: '#fee2e2',
+      color: '#b91c1c',
+    }
+  }
+
+  if (prioridade === 'Média') {
+    return {
+      backgroundColor: '#fef3c7',
+      color: '#92400e',
+    }
+  }
+
+  if (prioridade === 'Baixa') {
+    return {
+      backgroundColor: '#dcfce7',
+      color: '#166534',
+    }
+  }
+
+  return {
+    backgroundColor: '#f1f5f9',
+    color: '#475569',
+  }
+}
+
+function getImpactoBadgeStyle(impacto: string | null) {
+  if (impacto === 'Crítico') {
+    return {
+      backgroundColor: '#fee2e2',
+      color: '#b91c1c',
+    }
+  }
+
+  if (impacto === 'Alto') {
+    return {
+      backgroundColor: '#ffedd5',
+      color: '#c2410c',
+    }
+  }
+
+  if (impacto === 'Médio') {
+    return {
+      backgroundColor: '#fef3c7',
+      color: '#a16207',
+    }
+  }
+
+  if (impacto === 'Baixo') {
+    return {
+      backgroundColor: '#dcfce7',
+      color: '#166534',
+    }
+  }
+
+  return {
+    backgroundColor: '#f1f5f9',
+    color: '#475569',
+  }
+}
+
 const styles = {
   page: {
     padding: '24px',
@@ -119,9 +224,9 @@ const styles = {
   header: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: '16px',
-    flexWrap: 'wrap',
+    flexWrap: 'wrap' as const,
     marginBottom: '24px',
   } as const,
 
@@ -129,6 +234,13 @@ const styles = {
     margin: 0,
     fontSize: '38px',
     fontWeight: 700,
+  } as const,
+
+  subtitle: {
+    marginTop: '8px',
+    fontSize: '14px',
+    color: '#475569',
+    fontWeight: 600,
   } as const,
 
   backLink: {
@@ -146,6 +258,35 @@ const styles = {
     marginBottom: '20px',
   } as const,
 
+  topSummaryGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: '16px',
+    marginBottom: '20px',
+  } as const,
+
+  summaryCard: {
+    backgroundColor: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '16px',
+    padding: '18px',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+  } as const,
+
+  summaryLabel: {
+    fontSize: '13px',
+    color: '#64748b',
+    fontWeight: 600,
+    marginBottom: '10px',
+  } as const,
+
+  summaryValue: {
+    fontSize: '20px',
+    fontWeight: 700,
+    color: '#0f172a',
+    lineHeight: 1.3,
+  } as const,
+
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
@@ -157,6 +298,13 @@ const styles = {
     flexDirection: 'column' as const,
     gap: '6px',
   },
+
+  fieldFull: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '6px',
+    gridColumn: '1 / -1',
+  } as const,
 
   label: {
     fontSize: '14px',
@@ -171,16 +319,18 @@ const styles = {
     padding: '10px 12px',
     backgroundColor: '#ffffff',
     fontSize: '14px',
+    outline: 'none',
   } as const,
 
   textarea: {
-    minHeight: '110px',
+    minHeight: '130px',
     borderRadius: '10px',
     border: '1px solid #cbd5e1',
     padding: '10px 12px',
     backgroundColor: '#ffffff',
     fontSize: '14px',
     resize: 'vertical' as const,
+    outline: 'none',
   } as const,
 
   readOnly: {
@@ -192,7 +342,7 @@ const styles = {
     gap: '12px',
     flexWrap: 'wrap' as const,
     marginTop: '20px',
-  },
+  } as const,
 
   btnPrimary: {
     display: 'inline-flex',
@@ -207,6 +357,7 @@ const styles = {
     fontWeight: 600,
     cursor: 'pointer',
     fontSize: '14px',
+    minHeight: '44px',
   } as const,
 
   btnSecondary: {
@@ -222,6 +373,7 @@ const styles = {
     fontWeight: 600,
     cursor: 'pointer',
     fontSize: '14px',
+    minHeight: '44px',
   } as const,
 
   messageSuccess: {
@@ -231,6 +383,7 @@ const styles = {
     borderRadius: '10px',
     padding: '12px 14px',
     marginBottom: '16px',
+    fontSize: '14px',
   } as const,
 
   messageError: {
@@ -240,6 +393,7 @@ const styles = {
     borderRadius: '10px',
     padding: '12px 14px',
     marginBottom: '16px',
+    fontSize: '14px',
   } as const,
 
   smallInfo: {
@@ -251,6 +405,12 @@ const styles = {
     margin: '0 0 16px 0',
     fontSize: '26px',
     fontWeight: 700,
+  } as const,
+
+  sectionSubTitle: {
+    margin: '0 0 18px 0',
+    fontSize: '14px',
+    color: '#64748b',
   } as const,
 
   tableWrapper: {
@@ -284,12 +444,19 @@ const styles = {
     verticalAlign: 'top' as const,
   },
 
+  empty: {
+    padding: '24px',
+    textAlign: 'center' as const,
+    color: '#64748b',
+  } as const,
+
   badge: {
     display: 'inline-block',
     padding: '6px 10px',
     borderRadius: '999px',
     fontSize: '12px',
     fontWeight: 700,
+    width: 'fit-content',
   } as const,
 }
 
@@ -426,12 +593,16 @@ export default function EditOccurrencePage() {
   }
 
   useEffect(() => {
-    if (id) loadOccurrence()
+    if (id) {
+      loadOccurrence()
+    }
   }, [id])
 
   const canEdit = useMemo(() => {
     if (currentPerfil === 'admin' || currentPerfil === 'gestor') return true
-    if (currentPerfil === 'tecnico' && currentUserId && createdBy === currentUserId) return true
+    if (currentPerfil === 'tecnico' && currentUserId && createdBy === currentUserId) {
+      return true
+    }
     return false
   }, [currentPerfil, currentUserId, createdBy])
 
@@ -476,7 +647,7 @@ export default function EditOccurrencePage() {
         estado,
         data_estado: dataEstadoIso,
         data_encerramento: dataEncerramentoIso,
-        observacoes: observacoes || null,
+        observacoes: observacoes.trim() || null,
       })
       .eq('id', id)
 
@@ -495,7 +666,7 @@ export default function EditOccurrencePage() {
         occurrence_id: id,
         estado_anterior: originalEstado,
         estado_novo: estado,
-        observacoes: observacoes || null,
+        observacoes: observacoes.trim() || null,
         user_email: user?.email || null,
         data_alteracao: dataEstadoIso || new Date().toISOString(),
       })
@@ -518,6 +689,9 @@ export default function EditOccurrencePage() {
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Editar Ocorrência</h1>
+          <div style={styles.subtitle}>
+            Consulta os dados, atualiza o estado e regista observações da intervenção.
+          </div>
           <div style={{ marginTop: 8 }}>
             <Link href="/dashboard" style={styles.backLink}>
               ← Voltar ao dashboard
@@ -535,37 +709,117 @@ export default function EditOccurrencePage() {
         <div style={styles.card}>Não tens permissão para editar esta ocorrência.</div>
       ) : (
         <>
+          <div style={styles.topSummaryGrid}>
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryLabel}>Estado atual</div>
+              <div style={styles.summaryValue}>
+                <span
+                  style={{
+                    ...styles.badge,
+                    ...getEstadoBadgeStyle(estado),
+                  }}
+                >
+                  {estado || '-'}
+                </span>
+              </div>
+            </div>
+
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryLabel}>SLA</div>
+              <div style={styles.summaryValue}>
+                <span
+                  style={{
+                    ...styles.badge,
+                    backgroundColor: foraSlaAtual ? '#dc2626' : '#16a34a',
+                    color: '#ffffff',
+                  }}
+                >
+                  {foraSlaAtual ? 'Fora SLA' : 'Dentro SLA'}
+                </span>
+              </div>
+            </div>
+
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryLabel}>Data reporte</div>
+              <div style={styles.summaryValue}>{formatDate(originalDataReporte)}</div>
+            </div>
+
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryLabel}>Prazo SLA</div>
+              <div style={styles.summaryValue}>
+                {slaDias == null ? '-' : `${slaDias} dias`}
+              </div>
+            </div>
+          </div>
+
           <form onSubmit={handleSave}>
             <div style={styles.card}>
+              <h2 style={styles.sectionTitle}>Dados da ocorrência</h2>
+              <div style={styles.sectionSubTitle}>
+                Os dados base ficam visíveis e o estado pode ser atualizado conforme a evolução.
+              </div>
+
               <div style={styles.grid}>
                 <div style={styles.field}>
                   <label style={styles.label}>Ocorrência</label>
-                  <input style={{ ...styles.input, ...styles.readOnly }} value={ocorrencia} readOnly />
+                  <input
+                    style={{ ...styles.input, ...styles.readOnly }}
+                    value={ocorrencia}
+                    readOnly
+                  />
                 </div>
 
                 <div style={styles.field}>
                   <label style={styles.label}>Unidade</label>
-                  <input style={{ ...styles.input, ...styles.readOnly }} value={unidade} readOnly />
+                  <input
+                    style={{ ...styles.input, ...styles.readOnly }}
+                    value={unidade}
+                    readOnly
+                  />
                 </div>
 
                 <div style={styles.field}>
                   <label style={styles.label}>Categoria</label>
-                  <input style={{ ...styles.input, ...styles.readOnly }} value={categoria} readOnly />
+                  <input
+                    style={{ ...styles.input, ...styles.readOnly }}
+                    value={categoria}
+                    readOnly
+                  />
                 </div>
 
                 <div style={styles.field}>
                   <label style={styles.label}>Prioridade</label>
-                  <input style={{ ...styles.input, ...styles.readOnly }} value={prioridade} readOnly />
+                  <div
+                    style={{
+                      ...styles.badge,
+                      ...getPrioridadeBadgeStyle(prioridade),
+                      marginTop: '8px',
+                    }}
+                  >
+                    {prioridade || '-'}
+                  </div>
                 </div>
 
                 <div style={styles.field}>
                   <label style={styles.label}>Impacto</label>
-                  <input style={{ ...styles.input, ...styles.readOnly }} value={impacto} readOnly />
+                  <div
+                    style={{
+                      ...styles.badge,
+                      ...getImpactoBadgeStyle(impacto),
+                      marginTop: '8px',
+                    }}
+                  >
+                    {impacto || '-'}
+                  </div>
                 </div>
 
                 <div style={styles.field}>
                   <label style={styles.label}>Estado</label>
-                  <select style={styles.input} value={estado} onChange={(e) => setEstado(e.target.value)}>
+                  <select
+                    style={styles.input}
+                    value={estado}
+                    onChange={(e) => setEstado(e.target.value)}
+                  >
                     {ESTADOS.map((item) => (
                       <option key={item} value={item}>
                         {item}
@@ -576,7 +830,12 @@ export default function EditOccurrencePage() {
 
                 <div style={styles.field}>
                   <label style={styles.label}>Data reporte</label>
-                  <input type="date" style={{ ...styles.input, ...styles.readOnly }} value={dataReporte} readOnly />
+                  <input
+                    type="date"
+                    style={{ ...styles.input, ...styles.readOnly }}
+                    value={dataReporte}
+                    readOnly
+                  />
                 </div>
 
                 <div style={styles.field}>
@@ -603,7 +862,7 @@ export default function EditOccurrencePage() {
                   <label style={styles.label}>SLA</label>
                   <input
                     style={{ ...styles.input, ...styles.readOnly }}
-                    value={slaDias ? `${slaDias} dias` : '-'}
+                    value={slaDias == null ? '-' : `${slaDias} dias`}
                     readOnly
                   />
                 </div>
@@ -615,24 +874,23 @@ export default function EditOccurrencePage() {
                       ...styles.badge,
                       backgroundColor: foraSlaAtual ? '#dc2626' : '#16a34a',
                       color: '#ffffff',
-                      width: 'fit-content',
                       marginTop: '8px',
                     }}
                   >
                     {foraSlaAtual ? 'Fora SLA' : 'Dentro SLA'}
                   </div>
                 </div>
-              </div>
 
-              <div style={{ ...styles.field, marginTop: 16 }}>
-                <label style={styles.label}>Observações</label>
-                <textarea
-                  style={styles.textarea}
-                  value={observacoes}
-                  onChange={(e) => setObservacoes(e.target.value)}
-                />
-                <div style={styles.smallInfo}>
-                  Ao mudar o estado e guardar, a alteração ficará registada no histórico.
+                <div style={styles.fieldFull}>
+                  <label style={styles.label}>Observações</label>
+                  <textarea
+                    style={styles.textarea}
+                    value={observacoes}
+                    onChange={(e) => setObservacoes(e.target.value)}
+                  />
+                  <div style={styles.smallInfo}>
+                    Sempre que mudares o estado e guardares, a alteração ficará registada no histórico.
+                  </div>
                 </div>
               </div>
 
@@ -654,6 +912,9 @@ export default function EditOccurrencePage() {
 
           <div style={styles.card}>
             <h2 style={styles.sectionTitle}>Histórico de estados</h2>
+            <div style={styles.sectionSubTitle}>
+              Registo das alterações efetuadas nesta ocorrência.
+            </div>
 
             <div style={styles.tableWrapper}>
               <table style={styles.table}>
@@ -670,7 +931,7 @@ export default function EditOccurrencePage() {
                 <tbody>
                   {history.length === 0 ? (
                     <tr>
-                      <td colSpan={5} style={styles.td}>
+                      <td colSpan={5} style={styles.empty}>
                         Sem histórico registado.
                       </td>
                     </tr>
@@ -679,7 +940,16 @@ export default function EditOccurrencePage() {
                       <tr key={item.id}>
                         <td style={styles.td}>{formatDateTime(item.data_alteracao)}</td>
                         <td style={styles.td}>{item.estado_anterior || '-'}</td>
-                        <td style={styles.td}>{item.estado_novo}</td>
+                        <td style={styles.td}>
+                          <span
+                            style={{
+                              ...styles.badge,
+                              ...getEstadoBadgeStyle(item.estado_novo),
+                            }}
+                          >
+                            {item.estado_novo}
+                          </span>
+                        </td>
                         <td style={styles.td}>{item.user_email || '-'}</td>
                         <td style={styles.td}>{item.observacoes || '-'}</td>
                       </tr>
