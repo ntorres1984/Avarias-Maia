@@ -34,7 +34,7 @@ type Occurrence = {
 
 type Profile = {
   id: string
-  role: string | null
+  perfil: string | null
   nome: string | null
   email: string | null
 }
@@ -64,9 +64,10 @@ function getForaSlaValue(item: Occurrence) {
   return item.fora_sla === true
 }
 
-function getRoleLabel(role: string | null) {
-  if (role === 'admin') return 'Administrador'
-  if (role === 'gestor') return 'Gestor'
+function getRoleLabel(perfil: string | null) {
+  if (perfil === 'admin') return 'Administrador'
+  if (perfil === 'gestor') return 'Gestor'
+  if (perfil === 'tecnico') return 'Técnico'
   return 'Utilizador'
 }
 
@@ -498,7 +499,7 @@ export default function DashboardPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [role, setRole] = useState<string>('user')
+  const [perfil, setPerfil] = useState<string>('tecnico')
   const [isAdmin, setIsAdmin] = useState(false)
 
   const [filtroUnidade, setFiltroUnidade] = useState('')
@@ -521,12 +522,9 @@ export default function DashboardPage() {
       return
     }
 
-    console.log('USER ID:', user.id)
-    console.log('USER EMAIL:', user.email)
-
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
-      .select('id, role, nome, email')
+      .select('id, perfil, nome, email')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -534,14 +532,12 @@ export default function DashboardPage() {
       console.error('Erro a carregar perfil:', profileError)
     }
 
-    console.log('PROFILE:', profileData)
-
     const currentProfile = (profileData || null) as Profile | null
     setProfile(currentProfile)
 
-    const currentRole = currentProfile?.role || 'user'
-    setRole(currentRole)
-    setIsAdmin(currentRole === 'admin')
+    const currentPerfil = currentProfile?.perfil || 'tecnico'
+    setPerfil(currentPerfil)
+    setIsAdmin(currentPerfil === 'admin')
 
     const { data, error } = await supabase
       .from('occurrences')
@@ -705,7 +701,7 @@ export default function DashboardPage() {
           <h1 style={styles.title}>Dashboard</h1>
           <div style={styles.subtitle}>
             {profile?.nome || profile?.email || 'Utilizador'}
-            {` • ${getRoleLabel(role)}`}
+            {` • ${getRoleLabel(perfil)}`}
           </div>
         </div>
 
