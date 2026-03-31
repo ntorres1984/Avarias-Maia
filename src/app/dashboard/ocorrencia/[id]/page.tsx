@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { ESTADOS } from '@/lib/constants'
 
 type UnitRelation =
   | {
@@ -45,8 +46,6 @@ type HistoryItem = {
 type ProfileData = {
   perfil: string | null
 }
-
-const estados = ['Em aberto', 'Em análise', 'Em execução', 'Concluída', 'Encerrada']
 
 function getUnitName(units: UnitRelation, fallback: string | null) {
   if (Array.isArray(units)) {
@@ -567,7 +566,7 @@ export default function EditOccurrencePage() {
                 <div style={styles.field}>
                   <label style={styles.label}>Estado</label>
                   <select style={styles.input} value={estado} onChange={(e) => setEstado(e.target.value)}>
-                    {estados.map((item) => (
+                    {ESTADOS.map((item) => (
                       <option key={item} value={item}>
                         {item}
                       </option>
