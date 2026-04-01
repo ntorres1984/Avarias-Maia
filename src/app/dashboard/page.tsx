@@ -30,6 +30,8 @@ type Occurrence = {
   fora_sla: boolean | null
   sla_dias: number | null
   created_by: string | null
+  created_by_email: string | null
+  updated_by_email: string | null
   foto_url: string | null
   units: UnitRelation
 }
@@ -263,7 +265,7 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
-    minWidth: '1350px',
+    minWidth: '1500px',
   },
 
   th: {
@@ -443,6 +445,7 @@ export default function DashboardPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [profile, setProfile] = useState<Profile | null>(null)
   const [role, setRole] = useState<string>('user')
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   const [filtroUnidade, setFiltroUnidade] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('')
@@ -453,8 +456,9 @@ export default function DashboardPage() {
 
   const canExport = role === 'admin' || role === 'gestor'
   const canSeeReports = role === 'admin' || role === 'gestor' || role === 'tecnico'
-  const canManageUsers = role === 'admin'
+  const canManageUsers = role === 'admin' || role === 'gestor'
   const canDelete = role === 'admin' || role === 'gestor'
+  const canSeeAudit = role === 'admin' || role === 'gestor'
 
   async function loadOccurrences() {
     setLoading(true)
@@ -471,6 +475,8 @@ export default function DashboardPage() {
       setLoading(false)
       return
     }
+
+    setCurrentUserId(user.id)
 
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
@@ -509,6 +515,8 @@ export default function DashboardPage() {
         fora_sla,
         sla_dias,
         created_by,
+        created_by_email,
+        updated_by_email,
         foto_url,
         units (
           nome
@@ -582,6 +590,11 @@ export default function DashboardPage() {
 
     await loadOccurrences()
     setDeletingId(null)
+  }
+
+  function canEditOccurrence(item: Occurrence) {
+    if (role === 'admin' || role === 'gestor' || role === 'tecnico') return true
+    return role === 'user' && currentUserId === item.created_by
   }
 
   useEffect(() => {
@@ -932,6 +945,8 @@ export default function DashboardPage() {
                 <th style={styles.th}>Estado</th>
                 <th style={styles.th}>SLA</th>
                 <th style={styles.th}>Data reporte</th>
+                {canSeeAudit && <th style={styles.th}>Criado por</th>}
+                {canSeeAudit && <th style={styles.th}>Última edição por</th>}
                 <th style={styles.th}>Observações</th>
                 <th style={styles.th}>Ações</th>
               </tr>
@@ -940,7 +955,7 @@ export default function DashboardPage() {
             <tbody>
               {listaFiltrada.length === 0 ? (
                 <tr>
-                  <td colSpan={11} style={styles.empty}>
+                  <td colSpan={canSeeAudit ? 13 : 11} style={styles.empty}>
                     Sem ocorrências em aberto para os filtros escolhidos
                   </td>
                 </tr>
@@ -1013,18 +1028,28 @@ export default function DashboardPage() {
 
                       <td style={styles.td}>{formatDate(item.data_reporte)}</td>
 
+                      {canSeeAudit && (
+                        <td style={styles.td}>{item.created_by_email || '-'}</td>
+                      )}
+
+                      {canSeeAudit && (
+                        <td style={styles.td}>{item.updated_by_email || '-'}</td>
+                      )}
+
                       <td style={{ ...styles.td, ...styles.obsCell }}>
                         {item.observacoes || '-'}
                       </td>
 
                       <td style={styles.td}>
                         <div style={styles.rowActions}>
-                          <Link
-                            href={`/dashboard/ocorrencia/${item.id}`}
-                            style={styles.editBtn}
-                          >
-                            Editar
-                          </Link>
+                          {canEditOccurrence(item) && (
+                            <Link
+                              href={`/dashboard/ocorrencia/${item.id}`}
+                              style={styles.editBtn}
+                            >
+                              Editar
+                            </Link>
+                          )}
 
                           {canDelete && (
                             <button
