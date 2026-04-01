@@ -30,6 +30,8 @@ type Occurrence = {
   sla_dias: number | null
   fora_sla: boolean | null
   created_by: string | null
+  created_by_email: string | null
+  updated_by_email: string | null
   foto_url: string | null
   units: UnitRelation
 }
@@ -492,6 +494,9 @@ export default function EditOccurrencePage() {
   const [fotoUrl, setFotoUrl] = useState<string | null>(null)
   const [fotoSignedUrl, setFotoSignedUrl] = useState<string>('')
 
+  const [createdByEmail, setCreatedByEmail] = useState<string | null>(null)
+  const [updatedByEmail, setUpdatedByEmail] = useState<string | null>(null)
+
   const [originalEstado, setOriginalEstado] = useState<string | null>(null)
   const [originalDataEstado, setOriginalDataEstado] = useState<string | null>(null)
   const [originalDataReporte, setOriginalDataReporte] = useState<string | null>(null)
@@ -557,6 +562,8 @@ export default function EditOccurrencePage() {
         sla_dias,
         fora_sla,
         created_by,
+        created_by_email,
+        updated_by_email,
         foto_url,
         units (
           nome
@@ -599,6 +606,8 @@ export default function EditOccurrencePage() {
     setObservacoes(item.observacoes || '')
     setSlaDias(item.sla_dias)
     setFotoUrl(item.foto_url || null)
+    setCreatedByEmail(item.created_by_email || null)
+    setUpdatedByEmail(item.updated_by_email || null)
 
     setOriginalEstado(item.estado)
     setOriginalDataEstado(item.data_estado)
@@ -638,6 +647,8 @@ export default function EditOccurrencePage() {
     return false
   }, [currentRole, currentUserId, createdBy])
 
+  const canSeeAudit = currentRole === 'admin' || currentRole === 'gestor'
+
   const foraSlaAtual = useMemo(() => {
     return isForaSLA({
       data_reporte: originalDataReporte,
@@ -646,6 +657,14 @@ export default function EditOccurrencePage() {
       estado,
     })
   }, [originalDataReporte, dataEncerramento, slaDias, estado])
+
+  const estadosDisponiveis = useMemo(() => {
+    const base = ESTADOS.filter((item) => item !== 'Encerrada')
+    if (estado && !base.includes(estado)) {
+      return [estado, ...base]
+    }
+    return base
+  }, [estado])
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -659,17 +678,21 @@ export default function EditOccurrencePage() {
     setErrorMessage('')
     setSuccessMessage('')
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
     const dataEstadoIso =
       fromInputDateTime(dataEstado) ||
       (estado !== originalEstado ? new Date().toISOString() : originalDataEstado)
 
     let dataEncerramentoIso = fromInputDateTime(dataEncerramento)
 
-    if ((estado === 'Concluída' || estado === 'Encerrada') && !dataEncerramentoIso) {
+    if (estado === 'Concluída' && !dataEncerramentoIso) {
       dataEncerramentoIso = dataEstadoIso || new Date().toISOString()
     }
 
-    if (estado !== 'Concluída' && estado !== 'Encerrada') {
+    if (estado !== 'Concluída') {
       dataEncerramentoIso = null
     }
 
@@ -680,6 +703,7 @@ export default function EditOccurrencePage() {
         data_estado: dataEstadoIso,
         data_encerramento: dataEncerramentoIso,
         observacoes: observacoes.trim() || null,
+        updated_by_email: user?.email || updatedByEmail || null,
       })
       .eq('id', id)
 
@@ -690,10 +714,6 @@ export default function EditOccurrencePage() {
     }
 
     if (originalEstado !== estado) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
       const { error: historyError } = await supabase.from('occurrence_history').insert({
         occurrence_id: id,
         estado_anterior: originalEstado,
@@ -850,7 +870,7 @@ export default function EditOccurrencePage() {
                     value={estado}
                     onChange={(e) => setEstado(e.target.value)}
                   >
-                    {ESTADOS.map((item) => (
+                    {estadosDisponiveis.map((item) => (
                       <option key={item} value={item}>
                         {item}
                       </option>
@@ -910,6 +930,28 @@ export default function EditOccurrencePage() {
                     {foraSlaAtual ? 'Fora SLA' : 'Dentro SLA'}
                   </div>
                 </div>
+
+                {canSeeAudit && (
+                  <>
+                    <div style={styles.field}>
+                      <label style={styles.label}>Criado por</label>
+                      <input
+                        style={{ ...styles.input, ...styles.readOnly }}
+                        value={createdByEmail || '-'}
+                        readOnly
+                      />
+                    </div>
+
+                    <div style={styles.field}>
+                      <label style={styles.label}>Última edição por</label>
+                      <input
+                        style={{ ...styles.input, ...styles.readOnly }}
+                        value={updatedByEmail || '-'}
+                        readOnly
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div style={styles.fieldFull}>
                   <label style={styles.label}>Observações</label>
