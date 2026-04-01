@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { ChangeEvent, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { CATEGORIAS, PRIORIDADES, IMPACTOS } from '@/lib/constants'
 import DashboardTopbar from '@/components/dashboard/DashboardTopbar'
@@ -143,6 +143,26 @@ const styles = {
     fontSize: '24px',
     fontWeight: 700,
   } as const,
+
+  previewWrap: {
+    marginTop: '8px',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '10px',
+  } as const,
+
+  previewImage: {
+    maxWidth: '320px',
+    maxHeight: '240px',
+    borderRadius: '12px',
+    border: '1px solid #cbd5e1',
+    objectFit: 'cover' as const,
+  } as const,
+
+  fileInfo: {
+    fontSize: '13px',
+    color: '#475569',
+  } as const,
 }
 
 export default function NovaOcorrenciaPage() {
@@ -155,6 +175,9 @@ export default function NovaOcorrenciaPage() {
   const [prioridade, setPrioridade] = useState('')
   const [impacto, setImpacto] = useState('')
   const [observacoes, setObservacoes] = useState('')
+
+  const [fotoFile, setFotoFile] = useState<File | null>(null)
+  const [fotoPreview, setFotoPreview] = useState('')
 
   const [loadingUnits, setLoadingUnits] = useState(true)
   const [loading, setLoading] = useState(false)
@@ -183,6 +206,60 @@ export default function NovaOcorrenciaPage() {
 
     loadUnits()
   }, [supabase])
+
+  function handleFotoChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] || null
+
+    if (!file) {
+      setFotoFile(null)
+      setFotoPreview('')
+      return
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg']
+    if (!allowedTypes.includes(file.type)) {
+      setErrorMessage('A fotografia tem de ser JPG, JPEG, PNG ou WEBP.')
+      setFotoFile(null)
+      setFotoPreview('')
+      return
+    }
+
+    const maxSizeMb = 5
+    if (file.size > maxSizeMb * 1024 * 1024) {
+      setErrorMessage(`A fotografia não pode ultrapassar ${maxSizeMb} MB.`)
+      setFotoFile(null)
+      setFotoPreview('')
+      return
+    }
+
+    setErrorMessage('')
+    setFotoFile(file)
+    setFotoPreview(URL.createObjectURL(file))
+  }
+
+  async function uploadFoto(userId: string) {
+    if (!fotoFile) return null
+
+    const extension = fotoFile.name.split('.').pop()?.toLowerCase() || 'jpg'
+    const safeExtension = ['jpg', 'jpeg', 'png', 'webp'].includes(extension)
+      ? extension
+      : 'jpg'
+
+    const fileName = `${userId}/${Date.now()}-${crypto.randomUUID()}.${safeExtension}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('ocorrencias')
+      .upload(fileName, fotoFile, {
+        cacheControl: '3600',
+        upsert: false,
+      })
+
+    if (uploadError) {
+      throw new Error(`Erro ao enviar fotografia: ${uploadError.message}`)
+    }
+
+    return fileName
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -244,6 +321,16 @@ export default function NovaOcorrenciaPage() {
     const agoraIso = agora.toISOString()
     const hoje = agoraIso.slice(0, 10)
 
+    let fotoUrl: string | null = null
+
+    try {
+      fotoUrl = await uploadFoto(user.id)
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Erro ao enviar fotografia.')
+      setLoading(false)
+      return
+    }
+
     const payload = {
       unidade_id: unidadeSelecionada.id,
       local_ocorrencia: unidadeSelecionada.nome,
@@ -256,6 +343,7 @@ export default function NovaOcorrenciaPage() {
       data_estado: agoraIso,
       observacoes: observacoes.trim() || null,
       created_by: user.id,
+      foto_url: fotoUrl,
     }
 
     const { error } = await supabase.from('occurrences').insert([payload])
@@ -274,6 +362,8 @@ export default function NovaOcorrenciaPage() {
     setPrioridade('')
     setImpacto('')
     setObservacoes('')
+    setFotoFile(null)
+    setFotoPreview('')
 
     setLoading(false)
 
@@ -404,6 +494,38 @@ export default function NovaOcorrenciaPage() {
               <div style={styles.helper}>
                 Campo opcional. Podes acrescentar detalhes úteis para a análise.
               </div>
+            </div>
+
+            <div style={styles.fieldFull}>
+              <label style={styles.label}>Fotografia</label>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp"
+                style={styles.input}
+                onChange={handleFotoChange}
+                disabled={loading}
+              />
+              <div style={styles.helper}>
+                Campo opcional. Formatos permitidos: JPG, JPEG, PNG ou WEBP. Máximo recomendado: 5 MB.
+              </div>
+
+              {(fotoFile || fotoPreview) && (
+                <div style={styles.previewWrap}>
+                  {fotoFile && (
+                    <div style={styles.fileInfo}>
+                      Ficheiro selecionado: <strong>{fotoFile.name}</strong>
+                    </div>
+                  )}
+
+                  {fotoPreview && (
+                    <img
+                      src={fotoPreview}
+                      alt="Pré-visualização da fotografia"
+                      style={styles.previewImage}
+                    />
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
