@@ -490,6 +490,7 @@ export default function EditOccurrencePage() {
   const [observacoes, setObservacoes] = useState('')
   const [slaDias, setSlaDias] = useState<number | null>(null)
   const [fotoUrl, setFotoUrl] = useState<string | null>(null)
+  const [fotoSignedUrl, setFotoSignedUrl] = useState<string>('')
 
   const [originalEstado, setOriginalEstado] = useState<string | null>(null)
   const [originalDataEstado, setOriginalDataEstado] = useState<string | null>(null)
@@ -515,6 +516,7 @@ export default function EditOccurrencePage() {
     setLoading(true)
     setErrorMessage('')
     setSuccessMessage('')
+    setFotoSignedUrl('')
 
     const {
       data: { user },
@@ -602,6 +604,18 @@ export default function EditOccurrencePage() {
     setOriginalDataEstado(item.data_estado)
     setOriginalDataReporte(item.data_reporte)
 
+    if (item.foto_url) {
+      const { data: signedData, error: signedError } = await supabase.storage
+        .from('ocorrencias')
+        .createSignedUrl(item.foto_url, 3600)
+
+      if (signedError) {
+        console.error('Erro ao gerar signed URL da foto:', signedError)
+      } else {
+        setFotoSignedUrl(signedData.signedUrl)
+      }
+    }
+
     await loadHistory()
     setLoading(false)
   }
@@ -632,12 +646,6 @@ export default function EditOccurrencePage() {
       estado,
     })
   }, [originalDataReporte, dataEncerramento, slaDias, estado])
-
-  const fotoPublicaUrl = useMemo(() => {
-    if (!fotoUrl) return ''
-    const { data } = supabase.storage.from('ocorrencias').getPublicUrl(fotoUrl)
-    return data.publicUrl
-  }, [supabase, fotoUrl])
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -915,23 +923,31 @@ export default function EditOccurrencePage() {
                   </div>
                 </div>
 
-                {fotoUrl && fotoPublicaUrl && (
+                {fotoUrl && (
                   <div style={styles.fieldFull}>
                     <label style={styles.label}>Fotografia anexada</label>
                     <div style={styles.imageWrap}>
-                      <img
-                        src={fotoPublicaUrl}
-                        alt="Fotografia da ocorrência"
-                        style={styles.imagePreview}
-                      />
-                      <a
-                        href={fotoPublicaUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={styles.btnLink}
-                      >
-                        Abrir imagem
-                      </a>
+                      {fotoSignedUrl ? (
+                        <>
+                          <img
+                            src={fotoSignedUrl}
+                            alt="Fotografia da ocorrência"
+                            style={styles.imagePreview}
+                          />
+                          <a
+                            href={fotoSignedUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={styles.btnLink}
+                          >
+                            Abrir imagem
+                          </a>
+                        </>
+                      ) : (
+                        <div style={styles.smallInfo}>
+                          Não foi possível gerar acesso temporário à imagem.
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
