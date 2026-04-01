@@ -30,6 +30,7 @@ type Occurrence = {
   fora_sla: boolean | null
   sla_dias: number | null
   created_by: string | null
+  foto_url: string | null
   units: UnitRelation
 }
 
@@ -262,7 +263,7 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
-    minWidth: '1200px',
+    minWidth: '1350px',
   },
 
   th: {
@@ -315,6 +316,36 @@ const styles = {
     textDecoration: 'none',
     fontWeight: 600,
     fontSize: '13px',
+  } as const,
+
+  photoBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    color: '#0f172a',
+    padding: '8px 12px',
+    borderRadius: '8px',
+    border: '1px solid #cbd5e1',
+    textDecoration: 'none',
+    fontWeight: 600,
+    fontSize: '13px',
+  } as const,
+
+  photoThumb: {
+    width: '56px',
+    height: '56px',
+    objectFit: 'cover' as const,
+    borderRadius: '10px',
+    border: '1px solid #cbd5e1',
+    display: 'block',
+  } as const,
+
+  photoCellWrap: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '8px',
+    alignItems: 'flex-start',
   } as const,
 
   error: {
@@ -405,6 +436,7 @@ export default function DashboardPage() {
   const router = useRouter()
 
   const [rows, setRows] = useState<Occurrence[]>([])
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [loggingOut, setLoggingOut] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -477,6 +509,7 @@ export default function DashboardPage() {
         fora_sla,
         sla_dias,
         created_by,
+        foto_url,
         units (
           nome
         )
@@ -490,7 +523,35 @@ export default function DashboardPage() {
       return
     }
 
-    setRows((data || []) as Occurrence[])
+    const occurrences = (data || []) as Occurrence[]
+    setRows(occurrences)
+
+    const fotos = occurrences.filter((item) => item.foto_url)
+    if (fotos.length > 0) {
+      const paths = fotos
+        .map((item) => item.foto_url)
+        .filter((value): value is string => Boolean(value))
+
+      const { data: signedData, error: signedError } = await supabase.storage
+        .from('ocorrencias')
+        .createSignedUrls(paths, 3600)
+
+      if (signedError) {
+        console.error('Erro ao gerar signed URLs das fotos:', signedError)
+      } else {
+        const mapping: Record<string, string> = {}
+        signedData.forEach((item, index) => {
+          const path = paths[index]
+          if (path && item.signedUrl) {
+            mapping[path] = item.signedUrl
+          }
+        })
+        setPhotoUrls(mapping)
+      }
+    } else {
+      setPhotoUrls({})
+    }
+
     setLoading(false)
   }
 
@@ -862,6 +923,7 @@ export default function DashboardPage() {
           <table style={styles.table}>
             <thead>
               <tr>
+                <th style={styles.th}>Foto</th>
                 <th style={styles.th}>Ocorrência</th>
                 <th style={styles.th}>Unidade</th>
                 <th style={styles.th}>Categoria</th>
@@ -878,19 +940,42 @@ export default function DashboardPage() {
             <tbody>
               {listaFiltrada.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={styles.empty}>
+                  <td colSpan={11} style={styles.empty}>
                     Sem ocorrências em aberto para os filtros escolhidos
                   </td>
                 </tr>
               ) : (
                 listaFiltrada.map((item) => {
                   const foraSlaAtual = getForaSlaValue(item)
+                  const signedPhotoUrl = item.foto_url ? photoUrls[item.foto_url] : ''
 
                   return (
                     <tr
                       key={item.id}
                       style={foraSlaAtual ? { backgroundColor: '#fef2f2' } : undefined}
                     >
+                      <td style={styles.td}>
+                        {signedPhotoUrl ? (
+                          <div style={styles.photoCellWrap}>
+                            <img
+                              src={signedPhotoUrl}
+                              alt="Foto da ocorrência"
+                              style={styles.photoThumb}
+                            />
+                            <a
+                              href={signedPhotoUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={styles.photoBtn}
+                            >
+                              Ver foto
+                            </a>
+                          </div>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
+
                       <td style={styles.td}>{item.ocorrencia || '-'}</td>
 
                       <td style={styles.td}>
