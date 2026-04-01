@@ -29,6 +29,8 @@ type Occurrence = {
   fora_sla: boolean | null
   sla_dias: number | null
   created_by: string | null
+  created_by_email: string | null
+  updated_by_email: string | null
   units: UnitRelation
 }
 
@@ -222,7 +224,7 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
-    minWidth: '1450px',
+    minWidth: '1600px',
   },
 
   th: {
@@ -374,6 +376,7 @@ export default function ConcluidasPage() {
 
   const canExport = currentRole === 'admin' || currentRole === 'gestor'
   const canDelete = currentRole === 'admin' || currentRole === 'gestor'
+  const canSeeAudit = currentRole === 'admin' || currentRole === 'gestor'
 
   async function loadOccurrences() {
     setLoading(true)
@@ -424,6 +427,8 @@ export default function ConcluidasPage() {
         fora_sla,
         sla_dias,
         created_by,
+        created_by_email,
+        updated_by_email,
         units (
           nome
         )
@@ -498,7 +503,7 @@ export default function ConcluidasPage() {
     <div style={styles.page}>
       <DashboardTopbar
         title="Ocorrências concluídas"
-        subtitle="Consulta de ocorrências concluídas e encerradas, com histórico final e estado de SLA."
+        subtitle="Consulta de ocorrências concluídas, com histórico final e estado de SLA."
         actions={[
           {
             label: 'Voltar ao dashboard',
@@ -526,8 +531,8 @@ export default function ConcluidasPage() {
       <div style={styles.infoCard}>
         <h2 style={styles.infoTitle}>Arquivo de ocorrências resolvidas</h2>
         <p style={styles.infoText}>
-          Aqui aparecem apenas ocorrências com estado <strong>Concluída</strong> ou <strong>Encerrada</strong>.
-          Podes filtrar por unidade{canExport ? ' e exportar os resultados para CSV' : ''}.
+          Aqui aparecem apenas ocorrências com estado <strong>Concluída</strong>
+          {canExport ? ' e podes exportar os resultados para CSV.' : '.'}
         </p>
       </div>
 
@@ -572,6 +577,8 @@ export default function ConcluidasPage() {
                 <th style={styles.th}>Data reporte</th>
                 <th style={styles.th}>Data alteração estado</th>
                 <th style={styles.th}>Data fim</th>
+                {canSeeAudit && <th style={styles.th}>Criado por</th>}
+                {canSeeAudit && <th style={styles.th}>Última edição por</th>}
                 <th style={styles.th}>Observações</th>
                 <th style={styles.th}>Ações</th>
               </tr>
@@ -579,7 +586,7 @@ export default function ConcluidasPage() {
             <tbody>
               {listaFiltrada.length === 0 ? (
                 <tr>
-                  <td colSpan={12} style={styles.empty}>
+                  <td colSpan={canSeeAudit ? 13 : 11} style={styles.empty}>
                     Sem ocorrências concluídas
                   </td>
                 </tr>
@@ -620,6 +627,12 @@ export default function ConcluidasPage() {
                       <td style={styles.td}>{formatDate(item.data_reporte)}</td>
                       <td style={styles.td}>{formatDateTime(item.data_estado)}</td>
                       <td style={styles.td}>{formatDateTime(item.data_encerramento)}</td>
+                      {canSeeAudit && (
+                        <td style={styles.td}>{item.created_by_email || '-'}</td>
+                      )}
+                      {canSeeAudit && (
+                        <td style={styles.td}>{item.updated_by_email || '-'}</td>
+                      )}
                       <td style={{ ...styles.td, ...styles.obsCell }}>
                         {item.observacoes || '-'}
                       </td>
