@@ -30,6 +30,7 @@ type Occurrence = {
   sla_dias: number | null
   fora_sla: boolean | null
   created_by: string | null
+  foto_url: string | null
   units: UnitRelation
 }
 
@@ -348,6 +349,23 @@ const styles = {
     minHeight: '44px',
   } as const,
 
+  btnLink: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '10px 16px',
+    borderRadius: '10px',
+    border: '1px solid #cbd5e1',
+    backgroundColor: '#ffffff',
+    color: '#0f172a',
+    textDecoration: 'none',
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontSize: '14px',
+    minHeight: '44px',
+    width: 'fit-content',
+  } as const,
+
   messageSuccess: {
     color: '#166534',
     backgroundColor: '#dcfce7',
@@ -430,6 +448,21 @@ const styles = {
     fontWeight: 700,
     width: 'fit-content',
   } as const,
+
+  imageWrap: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '10px',
+    marginTop: '8px',
+  } as const,
+
+  imagePreview: {
+    maxWidth: '420px',
+    maxHeight: '300px',
+    borderRadius: '12px',
+    border: '1px solid #cbd5e1',
+    objectFit: 'cover' as const,
+  } as const,
 }
 
 export default function EditOccurrencePage() {
@@ -456,6 +489,7 @@ export default function EditOccurrencePage() {
   const [dataEncerramento, setDataEncerramento] = useState('')
   const [observacoes, setObservacoes] = useState('')
   const [slaDias, setSlaDias] = useState<number | null>(null)
+  const [fotoUrl, setFotoUrl] = useState<string | null>(null)
 
   const [originalEstado, setOriginalEstado] = useState<string | null>(null)
   const [originalDataEstado, setOriginalDataEstado] = useState<string | null>(null)
@@ -521,6 +555,7 @@ export default function EditOccurrencePage() {
         sla_dias,
         fora_sla,
         created_by,
+        foto_url,
         units (
           nome
         )
@@ -561,6 +596,7 @@ export default function EditOccurrencePage() {
     setDataEncerramento(toInputDateTime(item.data_encerramento))
     setObservacoes(item.observacoes || '')
     setSlaDias(item.sla_dias)
+    setFotoUrl(item.foto_url || null)
 
     setOriginalEstado(item.estado)
     setOriginalDataEstado(item.data_estado)
@@ -596,6 +632,12 @@ export default function EditOccurrencePage() {
       estado,
     })
   }, [originalDataReporte, dataEncerramento, slaDias, estado])
+
+  const fotoPublicaUrl = useMemo(() => {
+    if (!fotoUrl) return ''
+    const { data } = supabase.storage.from('ocorrencias').getPublicUrl(fotoUrl)
+    return data.publicUrl
+  }, [supabase, fotoUrl])
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -872,6 +914,27 @@ export default function EditOccurrencePage() {
                     Sempre que mudares o estado e guardares, a alteração ficará registada no histórico.
                   </div>
                 </div>
+
+                {fotoUrl && fotoPublicaUrl && (
+                  <div style={styles.fieldFull}>
+                    <label style={styles.label}>Fotografia anexada</label>
+                    <div style={styles.imageWrap}>
+                      <img
+                        src={fotoPublicaUrl}
+                        alt="Fotografia da ocorrência"
+                        style={styles.imagePreview}
+                      />
+                      <a
+                        href={fotoPublicaUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={styles.btnLink}
+                      >
+                        Abrir imagem
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div style={styles.actions}>
