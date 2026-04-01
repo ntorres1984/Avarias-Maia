@@ -343,6 +343,8 @@ export default function NovaOcorrenciaPage() {
       data_estado: agoraIso,
       observacoes: observacoes.trim() || null,
       created_by: user.id,
+      created_by_email: user.email || null,
+      updated_by_email: user.email || null,
       foto_url: fotoUrl,
     }
 
