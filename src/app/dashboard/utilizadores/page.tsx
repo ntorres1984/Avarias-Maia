@@ -205,8 +205,44 @@ export default function UtilizadoresPage() {
     loadUsers()
   }, [])
 
-  async function updateRole(id: string, role: string) {
+  function canManagerEditTarget(targetUser: Profile) {
+    if (!currentUser?.role) return false
+
+    if (currentUser.role === 'admin') {
+      return true
+    }
+
+    if (currentUser.role === 'gestor') {
+      return targetUser.role !== 'admin'
+    }
+
+    return false
+  }
+
+  async function updateRole(id: string, newRole: string) {
     if (!canManageUsers) return
+
+    const targetUser = profiles.find((u) => u.id === id)
+
+    if (!targetUser) {
+      setError('Utilizador não encontrado.')
+      return
+    }
+
+    if (currentUser?.id === id && newRole !== 'admin') {
+      setError('Não podes retirar a ti próprio o perfil de administrador.')
+      return
+    }
+
+    if (currentUser?.role === 'gestor' && targetUser.role === 'admin') {
+      setError('O gestor não pode alterar o perfil de um administrador.')
+      return
+    }
+
+    if (currentUser?.role === 'gestor' && newRole === 'admin') {
+      setError('O gestor não pode promover utilizadores a administrador.')
+      return
+    }
 
     setSavingId(id)
     setError('')
@@ -214,7 +250,7 @@ export default function UtilizadoresPage() {
 
     const { error } = await supabase
       .from('profiles')
-      .update({ role })
+      .update({ role: newRole })
       .eq('id', id)
 
     if (error) {
@@ -224,8 +260,12 @@ export default function UtilizadoresPage() {
     }
 
     setProfiles((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, role } : u))
+      prev.map((u) => (u.id === id ? { ...u, role: newRole } : u))
     )
+
+    if (currentUser?.id === id) {
+      setCurrentUser((prev) => (prev ? { ...prev, role: newRole } : prev))
+    }
 
     setSuccess('Perfil atualizado com sucesso.')
     setSavingId(null)
@@ -234,8 +274,20 @@ export default function UtilizadoresPage() {
   async function updateAtivo(id: string, ativo: boolean) {
     if (!canManageUsers) return
 
+    const targetUser = profiles.find((u) => u.id === id)
+
+    if (!targetUser) {
+      setError('Utilizador não encontrado.')
+      return
+    }
+
     if (currentUser?.id === id && ativo === false) {
       setError('Não podes desativar o teu próprio utilizador.')
+      return
+    }
+
+    if (currentUser?.role === 'gestor' && targetUser.role === 'admin') {
+      setError('O gestor não pode desativar um administrador.')
       return
     }
 
@@ -307,6 +359,7 @@ export default function UtilizadoresPage() {
                 profiles.map((u) => {
                   const isSelf = currentUser?.id === u.id
                   const isSaving = savingId === u.id
+                  const canEditTarget = canManagerEditTarget(u)
 
                   return (
                     <tr key={u.id}>
@@ -323,7 +376,7 @@ export default function UtilizadoresPage() {
                         <select
                           style={styles.select}
                           value={u.role || 'user'}
-                          disabled={!canManageUsers || isSaving}
+                          disabled={!canManageUsers || !canEditTarget || isSaving}
                           onChange={(e) => updateRole(u.id, e.target.value)}
                         >
                           <option value="admin">admin</option>
@@ -344,11 +397,17 @@ export default function UtilizadoresPage() {
                               type="button"
                               style={{
                                 ...styles.btnDanger,
-                                ...(isSaving || isSelf ? styles.btnDisabled : {}),
+                                ...(isSaving || isSelf || !canEditTarget ? styles.btnDisabled : {}),
                               }}
-                              disabled={isSaving || isSelf}
+                              disabled={isSaving || isSelf || !canEditTarget}
                               onClick={() => updateAtivo(u.id, false)}
-                              title={isSelf ? 'Não podes desativar o teu próprio utilizador.' : ''}
+                              title={
+                                isSelf
+                                  ? 'Não podes desativar o teu próprio utilizador.'
+                                  : !canEditTarget
+                                  ? 'Não tens permissão para alterar este utilizador.'
+                                  : ''
+                              }
                             >
                               {isSaving ? 'A guardar...' : 'Desativar'}
                             </button>
@@ -357,10 +416,11 @@ export default function UtilizadoresPage() {
                               type="button"
                               style={{
                                 ...styles.btnSuccess,
-                                ...(isSaving ? styles.btnDisabled : {}),
+                                ...(isSaving || !canEditTarget ? styles.btnDisabled : {}),
                               }}
-                              disabled={isSaving}
+                              disabled={isSaving || !canEditTarget}
                               onClick={() => updateAtivo(u.id, true)}
+                              title={!canEditTarget ? 'Não tens permissão para alterar este utilizador.' : ''}
                             >
                               {isSaving ? 'A guardar...' : 'Reativar'}
                             </button>
