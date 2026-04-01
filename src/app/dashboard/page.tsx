@@ -35,9 +35,10 @@ type Occurrence = {
 
 type Profile = {
   id: string
-  perfil: string | null
+  role: string | null
   nome: string | null
   email: string | null
+  ativo?: boolean | null
 }
 
 function formatDate(dateString: string | null) {
@@ -65,10 +66,10 @@ function getForaSlaValue(item: Occurrence) {
   return item.fora_sla === true
 }
 
-function getRoleLabel(perfil: string | null) {
-  if (perfil === 'admin') return 'Administrador'
-  if (perfil === 'gestor') return 'Gestor'
-  if (perfil === 'tecnico') return 'Técnico'
+function getRoleLabel(role: string | null) {
+  if (role === 'admin') return 'Administrador'
+  if (role === 'gestor') return 'Gestor'
+  if (role === 'tecnico') return 'Técnico'
   return 'Utilizador'
 }
 
@@ -441,7 +442,7 @@ export default function DashboardPage() {
 
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
-      .select('id, perfil, nome, email')
+      .select('id, role, nome, email, ativo')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -451,7 +452,16 @@ export default function DashboardPage() {
 
     const currentProfile = (profileData || null) as Profile | null
     setProfile(currentProfile)
-    setPerfil(currentProfile?.perfil || 'user')
+    setPerfil(currentProfile?.role || 'user')
+
+    if (currentProfile?.ativo === false) {
+      setErrorMessage('Conta inativa.')
+      setRows([])
+      setLoading(false)
+      await supabase.auth.signOut()
+      router.replace('/login')
+      return
+    }
 
     const { data, error } = await supabase
       .from('occurrences')
