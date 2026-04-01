@@ -37,6 +37,7 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
+    minWidth: '1200px',
   },
 
   th: {
@@ -44,30 +45,91 @@ const styles = {
     borderBottom: '1px solid #e2e8f0',
     backgroundColor: '#f8fafc',
     textAlign: 'left' as const,
+    fontSize: '14px',
+    color: '#334155',
   },
 
   td: {
     padding: '12px',
     borderBottom: '1px solid #f1f5f9',
+    fontSize: '14px',
+    verticalAlign: 'middle' as const,
   },
 
   select: {
-    padding: '6px',
-    borderRadius: '6px',
+    padding: '8px 10px',
+    borderRadius: '8px',
     border: '1px solid #cbd5e1',
+    backgroundColor: '#fff',
+    minWidth: '150px',
   } as const,
 
   error: {
     color: '#b91c1c',
-    marginBottom: '10px',
-  },
+    backgroundColor: '#fee2e2',
+    border: '1px solid #fecaca',
+    borderRadius: '10px',
+    padding: '12px 14px',
+    marginBottom: '12px',
+    fontSize: '14px',
+  } as const,
+
+  success: {
+    color: '#166534',
+    backgroundColor: '#dcfce7',
+    border: '1px solid #bbf7d0',
+    borderRadius: '10px',
+    padding: '12px 14px',
+    marginBottom: '12px',
+    fontSize: '14px',
+  } as const,
 
   badge: {
     padding: '4px 8px',
     borderRadius: '999px',
     fontSize: '12px',
     fontWeight: 700,
+    display: 'inline-block',
+  } as const,
+
+  actionsWrap: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap' as const,
   },
+
+  btnDanger: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#dc2626',
+    color: '#fff',
+    padding: '8px 12px',
+    borderRadius: '8px',
+    border: 'none',
+    fontWeight: 600,
+    fontSize: '13px',
+    cursor: 'pointer',
+  } as const,
+
+  btnSuccess: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#16a34a',
+    color: '#fff',
+    padding: '8px 12px',
+    borderRadius: '8px',
+    border: 'none',
+    fontWeight: 600,
+    fontSize: '13px',
+    cursor: 'pointer',
+  } as const,
+
+  btnDisabled: {
+    opacity: 0.6,
+    cursor: 'not-allowed',
+  } as const,
 }
 
 function getBadge(role: string | null) {
@@ -84,10 +146,17 @@ export default function UtilizadoresPage() {
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [currentUser, setCurrentUser] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [savingId, setSavingId] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  const canManageUsers =
+    currentUser?.role === 'admin' || currentUser?.role === 'gestor'
 
   async function loadUsers() {
     setLoading(true)
+    setError('')
+    setSuccess('')
 
     const {
       data: { user },
@@ -98,16 +167,21 @@ export default function UtilizadoresPage() {
       return
     }
 
-    const { data: me } = await supabase
+    const { data: me, error: meError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
       .single()
 
-    setCurrentUser(me)
+    if (meError || !me) {
+      setError(meError?.message || 'Não foi possível carregar o perfil atual.')
+      setLoading(false)
+      return
+    }
 
-    // 🔒 BLOQUEIO TOTAL
-    if (!['admin', 'gestor'].includes(me?.role)) {
+    setCurrentUser(me as Profile)
+
+    if (!['admin', 'gestor'].includes(me.role || '')) {
       router.replace('/dashboard')
       return
     }
@@ -115,13 +189,13 @@ export default function UtilizadoresPage() {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .order('nome')
+      .order('nome', { ascending: true })
 
     if (error) {
       setError(error.message)
       setProfiles([])
     } else {
-      setProfiles(data as Profile[])
+      setProfiles((data || []) as Profile[])
     }
 
     setLoading(false)
@@ -132,13 +206,65 @@ export default function UtilizadoresPage() {
   }, [])
 
   async function updateRole(id: string, role: string) {
-    if (!['admin', 'gestor'].includes(currentUser?.role || '')) return
+    if (!canManageUsers) return
 
-    await supabase.from('profiles').update({ role }).eq('id', id)
+    setSavingId(id)
+    setError('')
+    setSuccess('')
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ role })
+      .eq('id', id)
+
+    if (error) {
+      setError(`Erro ao alterar perfil: ${error.message}`)
+      setSavingId(null)
+      return
+    }
 
     setProfiles((prev) =>
       prev.map((u) => (u.id === id ? { ...u, role } : u))
     )
+
+    setSuccess('Perfil atualizado com sucesso.')
+    setSavingId(null)
+  }
+
+  async function updateAtivo(id: string, ativo: boolean) {
+    if (!canManageUsers) return
+
+    if (currentUser?.id === id && ativo === false) {
+      setError('Não podes desativar o teu próprio utilizador.')
+      return
+    }
+
+    setSavingId(id)
+    setError('')
+    setSuccess('')
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ ativo })
+      .eq('id', id)
+
+    if (error) {
+      setError(`Erro ao atualizar estado do utilizador: ${error.message}`)
+      setSavingId(null)
+      return
+    }
+
+    setProfiles((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, ativo } : u))
+    )
+
+    setSuccess(
+      ativo
+        ? 'Utilizador reativado com sucesso.'
+        : 'Utilizador desativado com sucesso.'
+    )
+
+    setSavingId(null)
   }
 
   return (
@@ -152,6 +278,7 @@ export default function UtilizadoresPage() {
       />
 
       {error && <div style={styles.error}>{error}</div>}
+      {success && <div style={styles.success}>{success}</div>}
 
       {loading ? (
         <div>A carregar...</div>
@@ -163,42 +290,87 @@ export default function UtilizadoresPage() {
                 <th style={styles.th}>Email</th>
                 <th style={styles.th}>Nome</th>
                 <th style={styles.th}>Perfil</th>
-                <th style={styles.th}>Alterar</th>
+                <th style={styles.th}>Alterar perfil</th>
                 <th style={styles.th}>Estado</th>
+                <th style={styles.th}>Ações</th>
               </tr>
             </thead>
 
             <tbody>
-              {profiles.map((u) => (
-                <tr key={u.id}>
-                  <td style={styles.td}>{u.email}</td>
-                  <td style={styles.td}>{u.nome}</td>
-
-                  <td style={styles.td}>
-                    <span style={getBadge(u.role)}>
-                      {getRoleLabel(u.role)}
-                    </span>
-                  </td>
-
-                  <td style={styles.td}>
-                    <select
-                      style={styles.select}
-                      value={u.role || 'user'}
-                      disabled={!['admin', 'gestor'].includes(currentUser?.role || '')}
-                      onChange={(e) => updateRole(u.id, e.target.value)}
-                    >
-                      <option value="admin">admin</option>
-                      <option value="gestor">gestor</option>
-                      <option value="tecnico">tecnico</option>
-                      <option value="user">user</option>
-                    </select>
-                  </td>
-
-                  <td style={styles.td}>
-                    {u.ativo ? 'OK' : 'Inativo'}
+              {profiles.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={styles.td}>
+                    Sem utilizadores para mostrar.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                profiles.map((u) => {
+                  const isSelf = currentUser?.id === u.id
+                  const isSaving = savingId === u.id
+
+                  return (
+                    <tr key={u.id}>
+                      <td style={styles.td}>{u.email || '-'}</td>
+                      <td style={styles.td}>{u.nome || '-'}</td>
+
+                      <td style={styles.td}>
+                        <span style={getBadge(u.role)}>
+                          {getRoleLabel(u.role)}
+                        </span>
+                      </td>
+
+                      <td style={styles.td}>
+                        <select
+                          style={styles.select}
+                          value={u.role || 'user'}
+                          disabled={!canManageUsers || isSaving}
+                          onChange={(e) => updateRole(u.id, e.target.value)}
+                        >
+                          <option value="admin">admin</option>
+                          <option value="gestor">gestor</option>
+                          <option value="tecnico">tecnico</option>
+                          <option value="user">user</option>
+                        </select>
+                      </td>
+
+                      <td style={styles.td}>
+                        {u.ativo ? 'OK' : 'Inativo'}
+                      </td>
+
+                      <td style={styles.td}>
+                        <div style={styles.actionsWrap}>
+                          {u.ativo ? (
+                            <button
+                              type="button"
+                              style={{
+                                ...styles.btnDanger,
+                                ...(isSaving || isSelf ? styles.btnDisabled : {}),
+                              }}
+                              disabled={isSaving || isSelf}
+                              onClick={() => updateAtivo(u.id, false)}
+                              title={isSelf ? 'Não podes desativar o teu próprio utilizador.' : ''}
+                            >
+                              {isSaving ? 'A guardar...' : 'Desativar'}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              style={{
+                                ...styles.btnSuccess,
+                                ...(isSaving ? styles.btnDisabled : {}),
+                              }}
+                              disabled={isSaving}
+                              onClick={() => updateAtivo(u.id, true)}
+                            >
+                              {isSaving ? 'A guardar...' : 'Reativar'}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
             </tbody>
           </table>
         </div>
