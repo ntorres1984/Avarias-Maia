@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import DashboardTopbar from '@/components/dashboard/DashboardTopbar'
@@ -27,7 +28,15 @@ type Occurrence = {
   observacoes: string | null
   fora_sla: boolean | null
   sla_dias: number | null
+  created_by: string | null
   units: UnitRelation
+}
+
+type Profile = {
+  id: string
+  nome: string | null
+  email: string | null
+  role: string | null
 }
 
 function formatDate(dateString: string | null) {
@@ -124,7 +133,7 @@ const styles = {
     marginBottom: '18px',
     display: 'flex',
     gap: '16px',
-    flexWrap: 'wrap',
+    flexWrap: 'wrap' as const,
     alignItems: 'flex-end',
   } as const,
 
@@ -168,6 +177,40 @@ const styles = {
     minHeight: '44px',
   } as const,
 
+  editBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0f172a',
+    color: '#fff',
+    padding: '8px 12px',
+    borderRadius: '8px',
+    textDecoration: 'none',
+    fontWeight: 600,
+    fontSize: '13px',
+  } as const,
+
+  deleteBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#dc2626',
+    color: '#fff',
+    padding: '8px 12px',
+    borderRadius: '8px',
+    border: 'none',
+    textDecoration: 'none',
+    fontWeight: 600,
+    fontSize: '13px',
+    cursor: 'pointer',
+  } as const,
+
+  rowActions: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap' as const,
+  },
+
   tableWrapper: {
     backgroundColor: '#ffffff',
     border: '1px solid #e2e8f0',
@@ -179,7 +222,7 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
-    minWidth: '1300px',
+    minWidth: '1450px',
   },
 
   th: {
@@ -324,9 +367,45 @@ export default function ConcluidasPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [filtroUnidade, setFiltroUnidade] = useState('')
 
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [currentRole, setCurrentRole] = useState<string>('user')
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const canExport = currentRole === 'admin' || currentRole === 'gestor'
+  const canDelete = currentRole === 'admin' || currentRole === 'gestor'
+
   async function loadOccurrences() {
     setLoading(true)
     setErrorMessage('')
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      setErrorMessage('Sessão inválida.')
+      setRows([])
+      setLoading(false)
+      return
+    }
+
+    setCurrentUserId(user.id)
+
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, nome, email, role')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (profileError) {
+      console.error('Erro a carregar perfil:', profileError)
+    }
+
+    const currentProfile = (profileData || null) as Profile | null
+    setProfile(currentProfile)
+    setCurrentRole(currentProfile?.role || 'user')
 
     const { data, error } = await supabase
       .from('occurrences')
@@ -344,6 +423,7 @@ export default function ConcluidasPage() {
         observacoes,
         fora_sla,
         sla_dias,
+        created_by,
         units (
           nome
         )
@@ -382,6 +462,38 @@ export default function ConcluidasPage() {
     })
   }, [rows, filtroUnidade])
 
+  function canEditOccurrence(item: Occurrence) {
+    if (currentRole === 'admin' || currentRole === 'gestor' || currentRole === 'tecnico') {
+      return true
+    }
+
+    return currentRole === 'user' && currentUserId === item.created_by
+  }
+
+  async function handleDelete(id: string) {
+    if (!canDelete) return
+
+    const confirmDelete = window.confirm(
+      'Tens a certeza que queres apagar esta ocorrência? Esta ação não pode ser anulada.'
+    )
+
+    if (!confirmDelete) return
+
+    setDeletingId(id)
+    setErrorMessage('')
+
+    const { error } = await supabase.from('occurrences').delete().eq('id', id)
+
+    if (error) {
+      setErrorMessage(`Erro ao apagar ocorrência: ${error.message}`)
+      setDeletingId(null)
+      return
+    }
+
+    await loadOccurrences()
+    setDeletingId(null)
+  }
+
   return (
     <div style={styles.page}>
       <DashboardTopbar
@@ -393,11 +505,15 @@ export default function ConcluidasPage() {
             href: '/dashboard',
             variant: 'default',
           },
-          {
-            label: 'Exportar CSV',
-            onClick: () => exportToCSV(listaFiltrada),
-            variant: 'gray',
-          },
+          ...(canExport
+            ? [
+                {
+                  label: 'Exportar CSV',
+                  onClick: () => exportToCSV(listaFiltrada),
+                  variant: 'gray' as const,
+                },
+              ]
+            : []),
         ]}
       />
 
@@ -411,7 +527,7 @@ export default function ConcluidasPage() {
         <h2 style={styles.infoTitle}>Arquivo de ocorrências resolvidas</h2>
         <p style={styles.infoText}>
           Aqui aparecem apenas ocorrências com estado <strong>Concluída</strong> ou <strong>Encerrada</strong>.
-          Podes filtrar por unidade e exportar os resultados para CSV.
+          Podes filtrar por unidade{canExport ? ' e exportar os resultados para CSV' : ''}.
         </p>
       </div>
 
@@ -457,12 +573,13 @@ export default function ConcluidasPage() {
                 <th style={styles.th}>Data alteração estado</th>
                 <th style={styles.th}>Data fim</th>
                 <th style={styles.th}>Observações</th>
+                <th style={styles.th}>Ações</th>
               </tr>
             </thead>
             <tbody>
               {listaFiltrada.length === 0 ? (
                 <tr>
-                  <td colSpan={11} style={styles.empty}>
+                  <td colSpan={12} style={styles.empty}>
                     Sem ocorrências concluídas
                   </td>
                 </tr>
@@ -505,6 +622,29 @@ export default function ConcluidasPage() {
                       <td style={styles.td}>{formatDateTime(item.data_encerramento)}</td>
                       <td style={{ ...styles.td, ...styles.obsCell }}>
                         {item.observacoes || '-'}
+                      </td>
+                      <td style={styles.td}>
+                        <div style={styles.rowActions}>
+                          {canEditOccurrence(item) && (
+                            <Link
+                              href={`/dashboard/ocorrencia/${item.id}`}
+                              style={styles.editBtn}
+                            >
+                              Editar
+                            </Link>
+                          )}
+
+                          {canDelete && (
+                            <button
+                              type="button"
+                              style={styles.deleteBtn}
+                              onClick={() => handleDelete(item.id)}
+                              disabled={deletingId === item.id}
+                            >
+                              {deletingId === item.id ? 'A apagar...' : 'Apagar'}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )
