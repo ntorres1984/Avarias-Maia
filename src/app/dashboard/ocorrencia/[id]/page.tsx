@@ -652,7 +652,11 @@ export default function EditOccurrencePage() {
   }, [id])
 
   const canEdit = useMemo(() => {
-    if (currentRole === 'admin' || currentRole === 'gestor' || currentRole === 'tecnico') {
+    if (
+      currentRole === 'admin' ||
+      currentRole === 'gestor' ||
+      currentRole === 'tecnico'
+    ) {
       return true
     }
 
@@ -664,7 +668,9 @@ export default function EditOccurrencePage() {
   }, [currentRole, currentUserId, createdBy])
 
   const canSeeAudit =
-    currentRole === 'admin' || currentRole === 'gestor' || currentRole === 'tecnico'
+    currentRole === 'admin' ||
+    currentRole === 'gestor' ||
+    currentRole === 'tecnico'
 
   const foraPrazoAtual = useMemo(() => {
     return isForaPrazo({
@@ -676,10 +682,19 @@ export default function EditOccurrencePage() {
   }, [originalDataReporte, dataEncerramento, slaDias, estado])
 
   const estadosDisponiveis = useMemo(() => {
-    const base = ESTADOS.filter((item) => item !== 'Encerrada')
-    if (estado && !base.includes(estado as (typeof ESTADOS)[number])) {
+    const base = ESTADOS.filter(
+      (item): item is Exclude<(typeof ESTADOS)[number], 'Encerrada'> =>
+        item !== 'Encerrada'
+    )
+
+    if (estado === 'Encerrada') {
       return [estado, ...base]
     }
+
+    if (estado && !base.includes(estado)) {
+      return [estado, ...base]
+    }
+
     return base
   }, [estado])
 
@@ -751,17 +766,21 @@ export default function EditOccurrencePage() {
     }
 
     if (originalEstado !== estado) {
-      const { error: historyError } = await supabase.from('occurrence_history').insert({
-        occurrence_id: id,
-        estado_anterior: originalEstado,
-        estado_novo: estado,
-        observacoes: observacoes.trim() || null,
-        user_email: user?.email || null,
-        data_alteracao: dataEstadoIso || new Date().toISOString(),
-      })
+      const { error: historyError } = await supabase
+        .from('occurrence_history')
+        .insert({
+          occurrence_id: id,
+          estado_anterior: originalEstado,
+          estado_novo: estado,
+          observacoes: observacoes.trim() || null,
+          user_email: user?.email || null,
+          data_alteracao: dataEstadoIso || new Date().toISOString(),
+        })
 
       if (historyError) {
-        setErrorMessage(`Ocorrência guardada, mas sem histórico: ${historyError.message}`)
+        setErrorMessage(
+          `Ocorrência guardada, mas sem histórico: ${historyError.message}`
+        )
         setSaving(false)
         await loadOccurrence()
         return
@@ -804,8 +823,10 @@ export default function EditOccurrencePage() {
         ]}
       />
 
-      {errorMessage && <div style={styles.messageError}>{errorMessage}</div>}
-      {successMessage && <div style={styles.messageSuccess}>{successMessage}</div>}
+      {errorMessage ? <div style={styles.messageError}>{errorMessage}</div> : null}
+      {successMessage ? (
+        <div style={styles.messageSuccess}>{successMessage}</div>
+      ) : null}
 
       {loading ? (
         <div style={styles.card}>A carregar...</div>
@@ -860,7 +881,8 @@ export default function EditOccurrencePage() {
             <div style={styles.card}>
               <h2 style={styles.sectionTitle}>Dados da ocorrência</h2>
               <div style={styles.sectionSubTitle}>
-                Os dados base ficam visíveis e o estado pode ser atualizado conforme a evolução.
+                Os dados base ficam visíveis e o estado pode ser atualizado conforme a
+                evolução.
               </div>
 
               <div style={styles.grid}>
@@ -1015,7 +1037,8 @@ export default function EditOccurrencePage() {
                     onChange={(e) => setObservacoes(e.target.value)}
                   />
                   <div style={styles.smallInfo}>
-                    Sempre que mudares o estado e guardares, a alteração ficará registada no histórico.
+                    Sempre que mudares o estado e guardares, a alteração ficará
+                    registada no histórico.
                   </div>
                 </div>
 
@@ -1023,26 +1046,26 @@ export default function EditOccurrencePage() {
                   <div style={styles.fieldFull}>
                     <label style={styles.label}>Avaliação de satisfação</label>
 
-                    {!satisfactionRequestedAt && (
+                    {!satisfactionRequestedAt ? (
                       <div style={styles.smallInfo}>
                         Ainda não foi enviado pedido de avaliação.
                       </div>
-                    )}
+                    ) : null}
 
-                    {satisfactionRequestedAt && !satisfactionSubmittedAt && (
+                    {satisfactionRequestedAt && !satisfactionSubmittedAt ? (
                       <div style={styles.smallInfo}>
-                        Pedido enviado em {formatDateTime(satisfactionRequestedAt)}. Ainda sem
-                        resposta.
+                        Pedido enviado em {formatDateTime(satisfactionRequestedAt)}. Ainda
+                        sem resposta.
                       </div>
-                    )}
+                    ) : null}
 
-                    {satisfactionSubmittedAt && (
+                    {satisfactionSubmittedAt ? (
                       <div style={styles.smallInfo}>
                         Avaliação recebida em {formatDateTime(satisfactionSubmittedAt)}.
                       </div>
-                    )}
+                    ) : null}
 
-                    {satisfactionScore != null && (
+                    {satisfactionScore != null ? (
                       <div
                         style={{
                           ...styles.badge,
@@ -1053,19 +1076,19 @@ export default function EditOccurrencePage() {
                       >
                         Pontuação: {satisfactionScore}/5
                       </div>
-                    )}
+                    ) : null}
 
-                    {satisfactionComment && (
+                    {satisfactionComment ? (
                       <textarea
                         style={{ ...styles.textarea, ...styles.readOnly, marginTop: '10px' }}
                         value={satisfactionComment}
                         readOnly
                       />
-                    )}
+                    ) : null}
                   </div>
                 )}
 
-                {fotoUrl && (
+                {fotoUrl ? (
                   <div style={styles.fieldFull}>
                     <label style={styles.label}>Fotografia anexada</label>
                     <div style={styles.imageWrap}>
@@ -1092,7 +1115,7 @@ export default function EditOccurrencePage() {
                       )}
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
 
               <div style={styles.actions}>
