@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import DashboardTopbar from '@/components/dashboard/DashboardTopbar'
@@ -28,6 +27,9 @@ type Occurrence = {
   observacoes: string | null
   fora_sla: boolean | null
   sla_dias: number | null
+  satisfaction_score?: number | null
+  satisfaction_comment?: string | null
+  satisfaction_submitted_at?: string | null
   units: UnitRelation
 }
 
@@ -798,6 +800,9 @@ export default function RelatoriosPage() {
         observacoes,
         fora_sla,
         sla_dias,
+        satisfaction_score,
+        satisfaction_comment,
+        satisfaction_submitted_at,
         units (
           nome
         )
@@ -910,6 +915,19 @@ export default function RelatoriosPage() {
 
   const totalForaPrazo = rows.filter((o) => getForaPrazoValue(o)).length
   const totalDentroPrazo = total - totalForaPrazo
+
+  const avaliacoes = rows.filter(
+    (item) => item.satisfaction_score != null && item.satisfaction_submitted_at
+  )
+
+  const mediaSatisfacao =
+    avaliacoes.length > 0
+      ? Math.round(
+          (avaliacoes.reduce((acc, item) => acc + Number(item.satisfaction_score || 0), 0) /
+            avaliacoes.length) *
+            10
+        ) / 10
+      : 0
 
   const graficoUnidades = useMemo(() => {
     return [...resumoPorUnidade]
@@ -1061,7 +1079,7 @@ export default function RelatoriosPage() {
     <div style={styles.page}>
       <DashboardTopbar
         title="Relatórios de gestão"
-        subtitle="Visão global das ocorrências, prazos de resolução, tempos médios e distribuição por unidade e categoria."
+        subtitle="Visão global das ocorrências, prazos de resolução, tempos médios, satisfação e distribuição por unidade e categoria."
         actions={[
           {
             label: 'Voltar ao dashboard',
@@ -1106,6 +1124,16 @@ export default function RelatoriosPage() {
         <div style={styles.card}>
           <h3 style={styles.cardTitle}>Tempo médio de resolução</h3>
           <p style={styles.cardValue}>{mediaResolucaoGlobal} dias</p>
+        </div>
+
+        <div style={styles.card}>
+          <h3 style={styles.cardTitle}>Avaliações recebidas</h3>
+          <p style={styles.cardValue}>{avaliacoes.length}</p>
+        </div>
+
+        <div style={styles.card}>
+          <h3 style={styles.cardTitle}>Média de satisfação</h3>
+          <p style={styles.cardValue}>{mediaSatisfacao || 0}/5</p>
         </div>
       </div>
 
@@ -1380,9 +1408,9 @@ export default function RelatoriosPage() {
 
           <div style={styles.sectionHeader}>
             <div>
-              <h2 style={styles.sectionTitle}>Últimas ocorrências fora do prazo</h2>
+              <h2 style={styles.sectionTitle}>Avaliações recebidas</h2>
               <div style={styles.sectionSubtitle}>
-                Lista das ocorrências atualmente mais críticas em atraso.
+                Comentários e pontuações submetidos pelos utilizadores.
               </div>
             </div>
           </div>
@@ -1393,38 +1421,28 @@ export default function RelatoriosPage() {
                 <tr>
                   <th style={styles.th}>Ocorrência</th>
                   <th style={styles.th}>Unidade</th>
-                  <th style={styles.th}>Categoria</th>
-                  <th style={styles.th}>Prioridade</th>
-                  <th style={styles.th}>Estado</th>
-                  <th style={styles.th}>Data reporte</th>
-                  <th style={styles.th}>Dias de atraso</th>
+                  <th style={styles.th}>Pontuação</th>
+                  <th style={styles.th}>Comentário</th>
+                  <th style={styles.th}>Data</th>
                 </tr>
               </thead>
               <tbody>
-                {topForaPrazo.length === 0 ? (
+                {avaliacoes.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={styles.empty}>
-                      Sem dados
+                    <td colSpan={5} style={styles.empty}>
+                      Sem avaliações submetidas
                     </td>
                   </tr>
                 ) : (
-                  topForaPrazo.map((item) => {
-                    const original = rows.find((row) => row.id === item.id)
-
-                    return (
-                      <tr key={item.id}>
-                        <td style={styles.td}>{item.ocorrencia}</td>
-                        <td style={styles.td}>{item.unidade}</td>
-                        <td style={styles.td}>{item.categoria}</td>
-                        <td style={styles.td}>{item.prioridade}</td>
-                        <td style={styles.td}>{item.estado}</td>
-                        <td style={styles.td}>
-                          {formatDate(original?.data_reporte || null)}
-                        </td>
-                        <td style={styles.td}>{item.diasAtraso}</td>
-                      </tr>
-                    )
-                  })
+                  avaliacoes.map((item) => (
+                    <tr key={item.id}>
+                      <td style={styles.td}>{item.ocorrencia || '-'}</td>
+                      <td style={styles.td}>{getUnitName(item.units, item.local_ocorrencia)}</td>
+                      <td style={styles.td}>{item.satisfaction_score}/5</td>
+                      <td style={styles.td}>{item.satisfaction_comment || '-'}</td>
+                      <td style={styles.td}>{formatDate(item.satisfaction_submitted_at || null)}</td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
