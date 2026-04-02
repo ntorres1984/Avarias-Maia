@@ -1,26 +1,20 @@
 export const CATEGORIAS = [
-  'Iluminação',
+  'Eletricidade',
+  'Águas e esgotos',
   'AVAC',
-  'Sistema Elétrico',
-  'Água Quente Sanitária',
-  'Serralharia',
-  'Carpintaria',
-  'Águas Residuais',
-  'Águas Pluviais',
-  'Controlo de pragas ou insetos',
-  'Arranjos Exteriores',
-  'Sinalética',
-  'Deteção de Incêndio',
-  'Canalização',
-  'Inundações',
-  'Edificado',
-  'Outro',
-  'Vidros',
-]
+  'Construção civil',
+  'Equipamentos',
+  'Informática',
+  'Redes e comunicações',
+  'Segurança',
+  'Elevadores',
+  'Limpeza',
+  'Vigilância',
+] as const
 
-export const PRIORIDADES = ['Baixa', 'Média', 'Alta']
+export const PRIORIDADES = ['Alta', 'Média', 'Baixa'] as const
 
-export const IMPACTOS = ['Baixo', 'Médio', 'Alto', 'Crítico']
+export const IMPACTOS = ['Alto', 'Médio', 'Baixo'] as const
 
 export const ESTADOS = [
   'Em aberto',
@@ -28,4 +22,4 @@ export const ESTADOS = [
   'Em execução',
   'Concluída',
   'Encerrada',
-]
+] as const
