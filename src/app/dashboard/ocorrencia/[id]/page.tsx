@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { ESTADOS } from '@/lib/constants'
-import DashboardTopbar from '@/components/dashboard/DashboardTopbar'
+import { createClient } from '../../lib/supabase/client'
+import DashboardTopbar from '../../components/dashboard/DashboardTopbar'
 
 type UnitRelation =
   | {
