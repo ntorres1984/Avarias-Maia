@@ -14,7 +14,7 @@ export const CATEGORIAS = [
 
 export const PRIORIDADES = ['Alta', 'Média', 'Baixa'] as const
 
-export const IMPACTOS = ['Alto', 'Médio', 'Baixo'] as const
+export const IMPACTOS = ['Crítico', 'Alto', 'Médio', 'Baixo'] as const
 
 export const ESTADOS = [
   'Em aberto',
