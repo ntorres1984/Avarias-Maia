@@ -30,7 +30,6 @@ type Occurrence = {
   fora_sla: boolean | null
   sla_dias: number | null
   created_by: string | null
-  foto_url: string | null
   units: UnitRelation
 }
 
@@ -88,7 +87,6 @@ function exportToCSV(lista: Occurrence[]) {
     'Prazo de resolução (dias)',
     'Fora do prazo',
     'Observações',
-    'Foto',
   ]
 
   const rows = lista.map((item) => [
@@ -104,7 +102,6 @@ function exportToCSV(lista: Occurrence[]) {
     item.sla_dias ?? '',
     getForaPrazoValue(item) ? 'Sim' : 'Não',
     item.observacoes || '',
-    item.foto_url || '',
   ])
 
   const csvContent = [headers, ...rows]
@@ -265,7 +262,7 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
-    minWidth: '1320px',
+    minWidth: '1200px',
   },
 
   th: {
@@ -327,37 +324,6 @@ const styles = {
     borderRadius: '10px',
     padding: '12px 14px',
     marginBottom: '16px',
-  } as const,
-
-  photoWrap: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: '84px',
-  } as const,
-
-  photoThumb: {
-    width: '72px',
-    height: '72px',
-    objectFit: 'cover' as const,
-    borderRadius: '10px',
-    border: '1px solid #cbd5e1',
-    backgroundColor: '#f8fafc',
-  } as const,
-
-  photoEmpty: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '72px',
-    height: '72px',
-    borderRadius: '10px',
-    border: '1px dashed #cbd5e1',
-    backgroundColor: '#f8fafc',
-    color: '#94a3b8',
-    fontSize: '12px',
-    textAlign: 'center' as const,
-    padding: '6px',
   } as const,
 }
 
@@ -445,7 +411,6 @@ export default function DashboardPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [profile, setProfile] = useState<Profile | null>(null)
   const [role, setRole] = useState<string>('user')
-  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
 
   const [filtroUnidade, setFiltroUnidade] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('')
@@ -458,34 +423,6 @@ export default function DashboardPage() {
   const canSeeReports = role === 'admin' || role === 'gestor' || role === 'tecnico'
   const canManageUsers = role === 'admin' || role === 'gestor'
   const canDelete = role === 'admin' || role === 'gestor'
-
-  async function loadPhotoUrls(items: Occurrence[]) {
-    const withPhoto = items.filter((item) => item.foto_url)
-
-    if (withPhoto.length === 0) {
-      setPhotoUrls({})
-      return
-    }
-
-    const signedUrlMap: Record<string, string> = {}
-
-    await Promise.all(
-      withPhoto.map(async (item) => {
-        const path = item.foto_url
-        if (!path) return
-
-        const { data, error } = await supabase.storage
-          .from('ocorrencias')
-          .createSignedUrl(path, 3600)
-
-        if (!error && data?.signedUrl) {
-          signedUrlMap[item.id] = data.signedUrl
-        }
-      })
-    )
-
-    setPhotoUrls(signedUrlMap)
-  }
 
   async function loadOccurrences() {
     setLoading(true)
@@ -540,7 +477,6 @@ export default function DashboardPage() {
         fora_sla,
         sla_dias,
         created_by,
-        foto_url,
         units (
           nome
         )
@@ -554,9 +490,7 @@ export default function DashboardPage() {
       return
     }
 
-    const items = (data || []) as Occurrence[]
-    setRows(items)
-    await loadPhotoUrls(items)
+    setRows((data || []) as Occurrence[])
     setLoading(false)
   }
 
@@ -928,7 +862,6 @@ export default function DashboardPage() {
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={styles.th}>Foto</th>
                 <th style={styles.th}>Ocorrência</th>
                 <th style={styles.th}>Unidade</th>
                 <th style={styles.th}>Categoria</th>
@@ -945,36 +878,19 @@ export default function DashboardPage() {
             <tbody>
               {listaFiltrada.length === 0 ? (
                 <tr>
-                  <td colSpan={11} style={styles.empty}>
+                  <td colSpan={10} style={styles.empty}>
                     Sem ocorrências em aberto para os filtros escolhidos
                   </td>
                 </tr>
               ) : (
                 listaFiltrada.map((item) => {
                   const foraPrazoAtual = getForaPrazoValue(item)
-                  const photoUrl = photoUrls[item.id]
 
                   return (
                     <tr
                       key={item.id}
                       style={foraPrazoAtual ? { backgroundColor: '#fef2f2' } : undefined}
                     >
-                      <td style={styles.td}>
-                        <div style={styles.photoWrap}>
-                          {photoUrl ? (
-                            <a href={photoUrl} target="_blank" rel="noreferrer">
-                              <img
-                                src={photoUrl}
-                                alt={item.ocorrencia || 'Fotografia da ocorrência'}
-                                style={styles.photoThumb}
-                              />
-                            </a>
-                          ) : (
-                            <div style={styles.photoEmpty}>Sem foto</div>
-                          )}
-                        </div>
-                      </td>
-
                       <td style={styles.td}>{item.ocorrencia || '-'}</td>
 
                       <td style={styles.td}>
