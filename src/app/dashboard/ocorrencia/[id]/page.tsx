@@ -54,6 +54,9 @@ type ProfileData = {
   role: string | null
 }
 
+type EstadoValue = (typeof ESTADOS)[number]
+type EstadoSemEncerrada = Exclude<EstadoValue, 'Encerrada'>
+
 function getUnitName(units: UnitRelation, fallback: string | null) {
   if (Array.isArray(units)) {
     return units[0]?.nome || fallback || '-'
@@ -217,6 +220,10 @@ function getImpactoBadgeStyle(impacto: string | null) {
     backgroundColor: '#f1f5f9',
     color: '#475569',
   }
+}
+
+function isEstadoValue(value: string | null): value is EstadoValue {
+  return !!value && (ESTADOS as readonly string[]).includes(value)
 }
 
 const styles = {
@@ -489,7 +496,7 @@ export default function EditOccurrencePage() {
   const [categoria, setCategoria] = useState('')
   const [prioridade, setPrioridade] = useState('')
   const [impacto, setImpacto] = useState('')
-  const [estado, setEstado] = useState('Em aberto')
+  const [estado, setEstado] = useState<string>('Em aberto')
   const [dataReporte, setDataReporte] = useState('')
   const [dataEstado, setDataEstado] = useState('')
   const [dataEncerramento, setDataEncerramento] = useState('')
@@ -681,17 +688,22 @@ export default function EditOccurrencePage() {
     })
   }, [originalDataReporte, dataEncerramento, slaDias, estado])
 
-  const estadosDisponiveis = useMemo(() => {
-    const base = ESTADOS.filter(
-      (item): item is Exclude<(typeof ESTADOS)[number], 'Encerrada'> =>
-        item !== 'Encerrada'
+  const estadosDisponiveis = useMemo<(EstadoSemEncerrada | 'Encerrada')[]>(() => {
+    const base: EstadoSemEncerrada[] = ESTADOS.filter(
+      (item): item is EstadoSemEncerrada => item !== 'Encerrada'
     )
+
+    if (!isEstadoValue(estado)) {
+      return base
+    }
 
     if (estado === 'Encerrada') {
       return [estado, ...base]
     }
 
-    if (estado && !base.includes(estado)) {
+    const existsInBase = base.some((item) => item === estado)
+
+    if (!existsInBase) {
       return [estado, ...base]
     }
 
