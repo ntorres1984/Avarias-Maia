@@ -30,9 +30,6 @@ type Occurrence = {
   fora_sla: boolean | null
   sla_dias: number | null
   created_by: string | null
-  created_by_email: string | null
-  updated_by_email: string | null
-  foto_url: string | null
   units: UnitRelation
 }
 
@@ -65,7 +62,7 @@ function getUnitName(units: UnitRelation, fallback: string | null) {
   return units?.nome || fallback || '-'
 }
 
-function getForaSlaValue(item: Occurrence) {
+function getForaPrazoValue(item: Occurrence) {
   return item.fora_sla === true
 }
 
@@ -87,8 +84,8 @@ function exportToCSV(lista: Occurrence[]) {
     'Data reporte',
     'Data alteração estado',
     'Data fim',
-    'SLA dias',
-    'Fora SLA',
+    'Prazo de resolução (dias)',
+    'Fora do prazo',
     'Observações',
   ]
 
@@ -103,7 +100,7 @@ function exportToCSV(lista: Occurrence[]) {
     formatDateTime(item.data_estado),
     formatDateTime(item.data_encerramento),
     item.sla_dias ?? '',
-    getForaSlaValue(item) ? 'Sim' : 'Não',
+    getForaPrazoValue(item) ? 'Sim' : 'Não',
     item.observacoes || '',
   ])
 
@@ -265,7 +262,7 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
-    minWidth: '1500px',
+    minWidth: '1200px',
   },
 
   th: {
@@ -318,36 +315,6 @@ const styles = {
     textDecoration: 'none',
     fontWeight: 600,
     fontSize: '13px',
-  } as const,
-
-  photoBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#ffffff',
-    color: '#0f172a',
-    padding: '8px 12px',
-    borderRadius: '8px',
-    border: '1px solid #cbd5e1',
-    textDecoration: 'none',
-    fontWeight: 600,
-    fontSize: '13px',
-  } as const,
-
-  photoThumb: {
-    width: '56px',
-    height: '56px',
-    objectFit: 'cover' as const,
-    borderRadius: '10px',
-    border: '1px solid #cbd5e1',
-    display: 'block',
-  } as const,
-
-  photoCellWrap: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '8px',
-    alignItems: 'flex-start',
   } as const,
 
   error: {
@@ -416,8 +383,8 @@ function getPrioridadeBadgeStyle(prioridade: string | null) {
   return { ...styles.badgeBase, backgroundColor: '#f1f5f9', color: '#475569' }
 }
 
-function getSlaBadgeStyle(foraSla: boolean) {
-  if (foraSla) {
+function getPrazoBadgeStyle(foraPrazo: boolean) {
+  if (foraPrazo) {
     return {
       ...styles.badgeBase,
       backgroundColor: '#dc2626',
@@ -438,14 +405,12 @@ export default function DashboardPage() {
   const router = useRouter()
 
   const [rows, setRows] = useState<Occurrence[]>([])
-  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [loggingOut, setLoggingOut] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
   const [profile, setProfile] = useState<Profile | null>(null)
   const [role, setRole] = useState<string>('user')
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   const [filtroUnidade, setFiltroUnidade] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('')
@@ -458,7 +423,6 @@ export default function DashboardPage() {
   const canSeeReports = role === 'admin' || role === 'gestor' || role === 'tecnico'
   const canManageUsers = role === 'admin' || role === 'gestor'
   const canDelete = role === 'admin' || role === 'gestor'
-  const canSeeAudit = role === 'admin' || role === 'gestor'
 
   async function loadOccurrences() {
     setLoading(true)
@@ -475,8 +439,6 @@ export default function DashboardPage() {
       setLoading(false)
       return
     }
-
-    setCurrentUserId(user.id)
 
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
@@ -515,9 +477,6 @@ export default function DashboardPage() {
         fora_sla,
         sla_dias,
         created_by,
-        created_by_email,
-        updated_by_email,
-        foto_url,
         units (
           nome
         )
@@ -531,35 +490,7 @@ export default function DashboardPage() {
       return
     }
 
-    const occurrences = (data || []) as Occurrence[]
-    setRows(occurrences)
-
-    const fotos = occurrences.filter((item) => item.foto_url)
-    if (fotos.length > 0) {
-      const paths = fotos
-        .map((item) => item.foto_url)
-        .filter((value): value is string => Boolean(value))
-
-      const { data: signedData, error: signedError } = await supabase.storage
-        .from('ocorrencias')
-        .createSignedUrls(paths, 3600)
-
-      if (signedError) {
-        console.error('Erro ao gerar signed URLs das fotos:', signedError)
-      } else {
-        const mapping: Record<string, string> = {}
-        signedData.forEach((item, index) => {
-          const path = paths[index]
-          if (path && item.signedUrl) {
-            mapping[path] = item.signedUrl
-          }
-        })
-        setPhotoUrls(mapping)
-      }
-    } else {
-      setPhotoUrls({})
-    }
-
+    setRows((data || []) as Occurrence[])
     setLoading(false)
   }
 
@@ -592,11 +523,6 @@ export default function DashboardPage() {
     setDeletingId(null)
   }
 
-  function canEditOccurrence(item: Occurrence) {
-    if (role === 'admin' || role === 'gestor' || role === 'tecnico') return true
-    return role === 'user' && currentUserId === item.created_by
-  }
-
   useEffect(() => {
     loadOccurrences()
   }, [])
@@ -614,10 +540,10 @@ export default function DashboardPage() {
     (o) => o.estado === 'Concluída' || o.estado === 'Encerrada'
   ).length
 
-  const foraSla = rows.filter((o) => getForaSlaValue(o)).length
+  const foraPrazo = rows.filter((o) => getForaPrazoValue(o)).length
 
-  const percentagemForaSla =
-    total > 0 ? Math.round((foraSla / total) * 100) : 0
+  const percentagemForaPrazo =
+    total > 0 ? Math.round((foraPrazo / total) * 100) : 0
 
   const ocorrenciasCriticasAbertas = rows.filter(
     (o) =>
@@ -810,13 +736,13 @@ export default function DashboardPage() {
         </div>
 
         <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Fora SLA</h3>
-          <p style={styles.cardValue}>{foraSla}</p>
+          <h3 style={styles.cardTitle}>Fora do prazo</h3>
+          <p style={styles.cardValue}>{foraPrazo}</p>
         </div>
 
         <div style={styles.card}>
-          <h3 style={styles.cardTitle}>% Fora SLA</h3>
-          <p style={styles.cardValue}>{percentagemForaSla}%</p>
+          <h3 style={styles.cardTitle}>% Fora do prazo</h3>
+          <p style={styles.cardValue}>{percentagemForaPrazo}%</p>
         </div>
 
         <div style={styles.card}>
@@ -936,17 +862,14 @@ export default function DashboardPage() {
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={styles.th}>Foto</th>
                 <th style={styles.th}>Ocorrência</th>
                 <th style={styles.th}>Unidade</th>
                 <th style={styles.th}>Categoria</th>
                 <th style={styles.th}>Prioridade</th>
                 <th style={styles.th}>Impacto</th>
                 <th style={styles.th}>Estado</th>
-                <th style={styles.th}>SLA</th>
+                <th style={styles.th}>Prazo de resolução</th>
                 <th style={styles.th}>Data reporte</th>
-                {canSeeAudit && <th style={styles.th}>Criado por</th>}
-                {canSeeAudit && <th style={styles.th}>Última edição por</th>}
                 <th style={styles.th}>Observações</th>
                 <th style={styles.th}>Ações</th>
               </tr>
@@ -955,42 +878,19 @@ export default function DashboardPage() {
             <tbody>
               {listaFiltrada.length === 0 ? (
                 <tr>
-                  <td colSpan={canSeeAudit ? 13 : 11} style={styles.empty}>
+                  <td colSpan={10} style={styles.empty}>
                     Sem ocorrências em aberto para os filtros escolhidos
                   </td>
                 </tr>
               ) : (
                 listaFiltrada.map((item) => {
-                  const foraSlaAtual = getForaSlaValue(item)
-                  const signedPhotoUrl = item.foto_url ? photoUrls[item.foto_url] : ''
+                  const foraPrazoAtual = getForaPrazoValue(item)
 
                   return (
                     <tr
                       key={item.id}
-                      style={foraSlaAtual ? { backgroundColor: '#fef2f2' } : undefined}
+                      style={foraPrazoAtual ? { backgroundColor: '#fef2f2' } : undefined}
                     >
-                      <td style={styles.td}>
-                        {signedPhotoUrl ? (
-                          <div style={styles.photoCellWrap}>
-                            <img
-                              src={signedPhotoUrl}
-                              alt="Foto da ocorrência"
-                              style={styles.photoThumb}
-                            />
-                            <a
-                              href={signedPhotoUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={styles.photoBtn}
-                            >
-                              Ver foto
-                            </a>
-                          </div>
-                        ) : (
-                          '-'
-                        )}
-                      </td>
-
                       <td style={styles.td}>{item.ocorrencia || '-'}</td>
 
                       <td style={styles.td}>
@@ -1020,21 +920,13 @@ export default function DashboardPage() {
                       <td style={styles.td}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                           <span>{item.sla_dias == null ? '-' : `${item.sla_dias} dias`}</span>
-                          <span style={getSlaBadgeStyle(foraSlaAtual)}>
-                            {foraSlaAtual ? 'Fora SLA' : 'Dentro SLA'}
+                          <span style={getPrazoBadgeStyle(foraPrazoAtual)}>
+                            {foraPrazoAtual ? 'Fora do prazo' : 'Dentro do prazo'}
                           </span>
                         </div>
                       </td>
 
                       <td style={styles.td}>{formatDate(item.data_reporte)}</td>
-
-                      {canSeeAudit && (
-                        <td style={styles.td}>{item.created_by_email || '-'}</td>
-                      )}
-
-                      {canSeeAudit && (
-                        <td style={styles.td}>{item.updated_by_email || '-'}</td>
-                      )}
 
                       <td style={{ ...styles.td, ...styles.obsCell }}>
                         {item.observacoes || '-'}
@@ -1042,14 +934,12 @@ export default function DashboardPage() {
 
                       <td style={styles.td}>
                         <div style={styles.rowActions}>
-                          {canEditOccurrence(item) && (
-                            <Link
-                              href={`/dashboard/ocorrencia/${item.id}`}
-                              style={styles.editBtn}
-                            >
-                              Editar
-                            </Link>
-                          )}
+                          <Link
+                            href={`/dashboard/ocorrencia/${item.id}`}
+                            style={styles.editBtn}
+                          >
+                            Editar
+                          </Link>
 
                           {canDelete && (
                             <button
