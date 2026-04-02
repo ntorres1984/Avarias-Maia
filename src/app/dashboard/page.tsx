@@ -3,8 +3,8 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import DashboardTopbar from '@/components/dashboard/DashboardTopbar'
+import { createClient } from '../../lib/supabase/client'
+import DashboardTopbar from '../../components/dashboard/DashboardTopbar'
 
 type UnitRelation =
   | {
