@@ -207,10 +207,19 @@ export default function NovaOcorrenciaPage() {
     loadUnits()
   }, [supabase])
 
+  useEffect(() => {
+    return () => {
+      if (fotoPreview) {
+        URL.revokeObjectURL(fotoPreview)
+      }
+    }
+  }, [fotoPreview])
+
   function handleFotoChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] || null
 
     if (!file) {
+      if (fotoPreview) URL.revokeObjectURL(fotoPreview)
       setFotoFile(null)
       setFotoPreview('')
       return
@@ -219,6 +228,7 @@ export default function NovaOcorrenciaPage() {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg']
     if (!allowedTypes.includes(file.type)) {
       setErrorMessage('A fotografia tem de ser JPG, JPEG, PNG ou WEBP.')
+      if (fotoPreview) URL.revokeObjectURL(fotoPreview)
       setFotoFile(null)
       setFotoPreview('')
       return
@@ -227,10 +237,13 @@ export default function NovaOcorrenciaPage() {
     const maxSizeMb = 5
     if (file.size > maxSizeMb * 1024 * 1024) {
       setErrorMessage(`A fotografia não pode ultrapassar ${maxSizeMb} MB.`)
+      if (fotoPreview) URL.revokeObjectURL(fotoPreview)
       setFotoFile(null)
       setFotoPreview('')
       return
     }
+
+    if (fotoPreview) URL.revokeObjectURL(fotoPreview)
 
     setErrorMessage('')
     setFotoFile(file)
@@ -357,6 +370,8 @@ export default function NovaOcorrenciaPage() {
     }
 
     setSuccessMessage('Ocorrência criada com sucesso.')
+
+    if (fotoPreview) URL.revokeObjectURL(fotoPreview)
 
     setUnidadeId('')
     setDescricao('')
