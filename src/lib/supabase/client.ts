@@ -1,3 +1,5 @@
+'use client'
+
 import { createBrowserClient } from '@supabase/ssr'
 
 export function createClient() {
@@ -6,7 +8,7 @@ export function createClient() {
 
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error(
-      'Faltam variáveis NEXT_PUBLIC_SUPABASE_URL e/ou NEXT_PUBLIC_SUPABASE_ANON_KEY'
+      'Faltam as variáveis NEXT_PUBLIC_SUPABASE_URL e/ou NEXT_PUBLIC_SUPABASE_ANON_KEY.'
     )
   }
 
