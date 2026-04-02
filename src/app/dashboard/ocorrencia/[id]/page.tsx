@@ -663,8 +663,7 @@ export default function EditOccurrencePage() {
     return false
   }, [currentRole, currentUserId, createdBy])
 
-  const canSeeAudit =
-    currentRole === 'admin' || currentRole === 'gestor' || currentRole === 'tecnico'
+  const canSeeAudit = currentRole === 'admin' || currentRole === 'gestor' || currentRole === 'tecnico'
 
   const foraPrazoAtual = useMemo(() => {
     return isForaPrazo({
@@ -682,6 +681,26 @@ export default function EditOccurrencePage() {
     }
     return base
   }, [estado])
+
+  async function sendConclusionEmail() {
+    if (!createdByEmail) return
+
+    const response = await fetch('/api/notify-occurrence-closed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        occurrenceId: id,
+        recipientEmail: createdByEmail,
+        occurrenceTitle: ocorrencia,
+        unitName: unidade,
+      }),
+    })
+
+    if (!response.ok) {
+      const result = await response.json().catch(() => null)
+      throw new Error(result?.error || 'Não foi possível enviar o email de avaliação.')
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -746,17 +765,20 @@ export default function EditOccurrencePage() {
         await loadOccurrence()
         return
       }
+    }
 
-      if (estado === 'Concluída') {
-        try {
-          await fetch('/api/notify-occurrence-closed', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ occurrenceId: id }),
-          })
-        } catch (err) {
-          console.error('Erro ao enviar email:', err)
-        }
+    const becameConcluded = originalEstado !== 'Concluída' && estado === 'Concluída'
+
+    if (becameConcluded && createdByEmail && !satisfactionRequestedAt) {
+      try {
+        await sendConclusionEmail()
+      } catch (err: any) {
+        setErrorMessage(
+          `Estado guardado com sucesso, mas falhou o envio do email de avaliação: ${err?.message || 'Erro desconhecido.'}`
+        )
+        setSaving(false)
+        await loadOccurrence()
+        return
       }
     }
 
