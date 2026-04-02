@@ -33,6 +33,10 @@ type Occurrence = {
   created_by_email: string | null
   updated_by_email: string | null
   foto_url: string | null
+  satisfaction_requested_at?: string | null
+  satisfaction_submitted_at?: string | null
+  satisfaction_score?: number | null
+  satisfaction_comment?: string | null
   units: UnitRelation
 }
 
@@ -93,7 +97,7 @@ function fromInputDateTime(value: string) {
   return date.toISOString()
 }
 
-function isForaSLA(item: {
+function isForaPrazo(item: {
   data_reporte: string | null
   data_encerramento: string | null
   sla_dias: number | null
@@ -496,6 +500,10 @@ export default function EditOccurrencePage() {
 
   const [createdByEmail, setCreatedByEmail] = useState<string | null>(null)
   const [updatedByEmail, setUpdatedByEmail] = useState<string | null>(null)
+  const [satisfactionRequestedAt, setSatisfactionRequestedAt] = useState<string | null>(null)
+  const [satisfactionSubmittedAt, setSatisfactionSubmittedAt] = useState<string | null>(null)
+  const [satisfactionScore, setSatisfactionScore] = useState<number | null>(null)
+  const [satisfactionComment, setSatisfactionComment] = useState<string | null>(null)
 
   const [originalEstado, setOriginalEstado] = useState<string | null>(null)
   const [originalDataEstado, setOriginalDataEstado] = useState<string | null>(null)
@@ -565,6 +573,10 @@ export default function EditOccurrencePage() {
         created_by_email,
         updated_by_email,
         foto_url,
+        satisfaction_requested_at,
+        satisfaction_submitted_at,
+        satisfaction_score,
+        satisfaction_comment,
         units (
           nome
         )
@@ -608,6 +620,10 @@ export default function EditOccurrencePage() {
     setFotoUrl(item.foto_url || null)
     setCreatedByEmail(item.created_by_email || null)
     setUpdatedByEmail(item.updated_by_email || null)
+    setSatisfactionRequestedAt(item.satisfaction_requested_at || null)
+    setSatisfactionSubmittedAt(item.satisfaction_submitted_at || null)
+    setSatisfactionScore(item.satisfaction_score ?? null)
+    setSatisfactionComment(item.satisfaction_comment || null)
 
     setOriginalEstado(item.estado)
     setOriginalDataEstado(item.data_estado)
@@ -647,10 +663,10 @@ export default function EditOccurrencePage() {
     return false
   }, [currentRole, currentUserId, createdBy])
 
-  const canSeeAudit = currentRole === 'admin' || currentRole === 'gestor'
+  const canSeeAudit = currentRole === 'admin' || currentRole === 'gestor' || currentRole === 'tecnico'
 
-  const foraSlaAtual = useMemo(() => {
-    return isForaSLA({
+  const foraPrazoAtual = useMemo(() => {
+    return isForaPrazo({
       data_reporte: originalDataReporte,
       data_encerramento: fromInputDateTime(dataEncerramento),
       sla_dias: slaDias,
@@ -660,11 +676,31 @@ export default function EditOccurrencePage() {
 
   const estadosDisponiveis = useMemo(() => {
     const base = ESTADOS.filter((item) => item !== 'Encerrada')
-    if (estado && !base.includes(estado)) {
+    if (estado && !base.includes(estado as any)) {
       return [estado, ...base]
     }
     return base
   }, [estado])
+
+  async function sendConclusionEmail() {
+    if (!createdByEmail) return
+
+    const response = await fetch('/api/notify-occurrence-closed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        occurrenceId: id,
+        recipientEmail: createdByEmail,
+        occurrenceTitle: ocorrencia,
+        unitName: unidade,
+      }),
+    })
+
+    if (!response.ok) {
+      const result = await response.json().catch(() => null)
+      throw new Error(result?.error || 'Não foi possível enviar o email de avaliação.')
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -731,6 +767,21 @@ export default function EditOccurrencePage() {
       }
     }
 
+    const becameConcluded = originalEstado !== 'Concluída' && estado === 'Concluída'
+
+    if (becameConcluded && createdByEmail && !satisfactionRequestedAt) {
+      try {
+        await sendConclusionEmail()
+      } catch (err: any) {
+        setErrorMessage(
+          `Estado guardado com sucesso, mas falhou o envio do email de avaliação: ${err?.message || 'Erro desconhecido.'}`
+        )
+        setSaving(false)
+        await loadOccurrence()
+        return
+      }
+    }
+
     setSuccessMessage('Alterações guardadas com sucesso.')
     setSaving(false)
     await loadOccurrence()
@@ -775,16 +826,16 @@ export default function EditOccurrencePage() {
             </div>
 
             <div style={styles.summaryCard}>
-              <div style={styles.summaryLabel}>SLA</div>
+              <div style={styles.summaryLabel}>Prazo de resolução</div>
               <div style={styles.summaryValue}>
                 <span
                   style={{
                     ...styles.badge,
-                    backgroundColor: foraSlaAtual ? '#dc2626' : '#16a34a',
+                    backgroundColor: foraPrazoAtual ? '#dc2626' : '#16a34a',
                     color: '#ffffff',
                   }}
                 >
-                  {foraSlaAtual ? 'Fora SLA' : 'Dentro SLA'}
+                  {foraPrazoAtual ? 'Fora do prazo' : 'Dentro do prazo'}
                 </span>
               </div>
             </div>
@@ -795,7 +846,7 @@ export default function EditOccurrencePage() {
             </div>
 
             <div style={styles.summaryCard}>
-              <div style={styles.summaryLabel}>Prazo SLA</div>
+              <div style={styles.summaryLabel}>Prazo definido</div>
               <div style={styles.summaryValue}>
                 {slaDias == null ? '-' : `${slaDias} dias`}
               </div>
@@ -909,7 +960,7 @@ export default function EditOccurrencePage() {
                 </div>
 
                 <div style={styles.field}>
-                  <label style={styles.label}>SLA</label>
+                  <label style={styles.label}>Prazo definido</label>
                   <input
                     style={{ ...styles.input, ...styles.readOnly }}
                     value={slaDias == null ? '-' : `${slaDias} dias`}
@@ -918,16 +969,16 @@ export default function EditOccurrencePage() {
                 </div>
 
                 <div style={styles.field}>
-                  <label style={styles.label}>Situação SLA</label>
+                  <label style={styles.label}>Situação do prazo</label>
                   <div
                     style={{
                       ...styles.badge,
-                      backgroundColor: foraSlaAtual ? '#dc2626' : '#16a34a',
+                      backgroundColor: foraPrazoAtual ? '#dc2626' : '#16a34a',
                       color: '#ffffff',
                       marginTop: '8px',
                     }}
                   >
-                    {foraSlaAtual ? 'Fora SLA' : 'Dentro SLA'}
+                    {foraPrazoAtual ? 'Fora do prazo' : 'Dentro do prazo'}
                   </div>
                 </div>
 
@@ -964,6 +1015,51 @@ export default function EditOccurrencePage() {
                     Sempre que mudares o estado e guardares, a alteração ficará registada no histórico.
                   </div>
                 </div>
+
+                {canSeeAudit && (
+                  <div style={styles.fieldFull}>
+                    <label style={styles.label}>Avaliação de satisfação</label>
+
+                    {!satisfactionRequestedAt && (
+                      <div style={styles.smallInfo}>
+                        Ainda não foi enviado pedido de avaliação.
+                      </div>
+                    )}
+
+                    {satisfactionRequestedAt && !satisfactionSubmittedAt && (
+                      <div style={styles.smallInfo}>
+                        Pedido enviado em {formatDateTime(satisfactionRequestedAt)}. Ainda sem resposta.
+                      </div>
+                    )}
+
+                    {satisfactionSubmittedAt && (
+                      <div style={styles.smallInfo}>
+                        Avaliação recebida em {formatDateTime(satisfactionSubmittedAt)}.
+                      </div>
+                    )}
+
+                    {satisfactionScore != null && (
+                      <div
+                        style={{
+                          ...styles.badge,
+                          backgroundColor: '#0f172a',
+                          color: '#ffffff',
+                          marginTop: '8px',
+                        }}
+                      >
+                        Pontuação: {satisfactionScore}/5
+                      </div>
+                    )}
+
+                    {satisfactionComment && (
+                      <textarea
+                        style={{ ...styles.textarea, ...styles.readOnly, marginTop: '10px' }}
+                        value={satisfactionComment}
+                        readOnly
+                      />
+                    )}
+                  </div>
+                )}
 
                 {fotoUrl && (
                   <div style={styles.fieldFull}>
