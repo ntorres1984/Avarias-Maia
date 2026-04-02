@@ -39,7 +39,7 @@ type UnitSummary = {
   emExecucao: number
   concluidas: number
   encerradas: number
-  foraSla: number
+  foraPrazo: number
 }
 
 type CategorySummary = {
@@ -50,7 +50,7 @@ type CategorySummary = {
   emExecucao: number
   concluidas: number
   encerradas: number
-  foraSla: number
+  foraPrazo: number
 }
 
 type MonthlySummary = {
@@ -72,7 +72,7 @@ function normalizeCategoria(value: string | null) {
   return value || 'Sem categoria'
 }
 
-function getForaSlaValue(item: Occurrence) {
+function getForaPrazoValue(item: Occurrence) {
   return item.fora_sla === true
 }
 
@@ -132,7 +132,7 @@ function exportUnitsCSV(lista: UnitSummary[]) {
     'Em execução',
     'Concluídas',
     'Encerradas',
-    'Fora SLA',
+    'Fora do prazo',
   ]
 
   const rows = lista.map((item) => [
@@ -143,7 +143,7 @@ function exportUnitsCSV(lista: UnitSummary[]) {
     item.emExecucao,
     item.concluidas,
     item.encerradas,
-    item.foraSla,
+    item.foraPrazo,
   ])
 
   const csvContent = [headers, ...rows]
@@ -174,7 +174,7 @@ function exportCategoriesCSV(lista: CategorySummary[]) {
     'Em execução',
     'Concluídas',
     'Encerradas',
-    'Fora SLA',
+    'Fora do prazo',
   ]
 
   const rows = lista.map((item) => [
@@ -185,7 +185,7 @@ function exportCategoriesCSV(lista: CategorySummary[]) {
     item.emExecucao,
     item.concluidas,
     item.encerradas,
-    item.foraSla,
+    item.foraPrazo,
   ])
 
   const csvContent = [headers, ...rows]
@@ -825,7 +825,7 @@ export default function RelatoriosPage() {
     rows.forEach((item) => {
       const unidade = getUnitName(item.units, item.local_ocorrencia)
       const estado = item.estado || '-'
-      const foraSlaAtual = getForaSlaValue(item)
+      const foraPrazoAtual = getForaPrazoValue(item)
 
       if (!map.has(unidade)) {
         map.set(unidade, {
@@ -836,7 +836,7 @@ export default function RelatoriosPage() {
           emExecucao: 0,
           concluidas: 0,
           encerradas: 0,
-          foraSla: 0,
+          foraPrazo: 0,
         })
       }
 
@@ -849,7 +849,7 @@ export default function RelatoriosPage() {
       if (estado === 'Em execução') current.emExecucao += 1
       if (estado === 'Concluída') current.concluidas += 1
       if (estado === 'Encerrada') current.encerradas += 1
-      if (foraSlaAtual) current.foraSla += 1
+      if (foraPrazoAtual) current.foraPrazo += 1
     })
 
     return Array.from(map.values()).sort((a, b) =>
@@ -863,7 +863,7 @@ export default function RelatoriosPage() {
     rows.forEach((item) => {
       const categoria = normalizeCategoria(item.categoria)
       const estado = item.estado || '-'
-      const foraSlaAtual = getForaSlaValue(item)
+      const foraPrazoAtual = getForaPrazoValue(item)
 
       if (!map.has(categoria)) {
         map.set(categoria, {
@@ -874,7 +874,7 @@ export default function RelatoriosPage() {
           emExecucao: 0,
           concluidas: 0,
           encerradas: 0,
-          foraSla: 0,
+          foraPrazo: 0,
         })
       }
 
@@ -887,7 +887,7 @@ export default function RelatoriosPage() {
       if (estado === 'Em execução') current.emExecucao += 1
       if (estado === 'Concluída') current.concluidas += 1
       if (estado === 'Encerrada') current.encerradas += 1
-      if (foraSlaAtual) current.foraSla += 1
+      if (foraPrazoAtual) current.foraPrazo += 1
     })
 
     return Array.from(map.values()).sort((a, b) =>
@@ -908,8 +908,8 @@ export default function RelatoriosPage() {
       o.estado === 'Em execução'
   ).length
 
-  const totalForaSla = rows.filter((o) => getForaSlaValue(o)).length
-  const totalDentroSla = total - totalForaSla
+  const totalForaPrazo = rows.filter((o) => getForaPrazoValue(o)).length
+  const totalDentroPrazo = total - totalForaPrazo
 
   const graficoUnidades = useMemo(() => {
     return [...resumoPorUnidade]
@@ -1029,9 +1029,9 @@ export default function RelatoriosPage() {
     }))
   }, [mediaResolucaoPorUnidade])
 
-  const topForaSla = useMemo(() => {
+  const topForaPrazo = useMemo(() => {
     return rows
-      .filter((item) => getForaSlaValue(item))
+      .filter((item) => getForaPrazoValue(item))
       .map((item) => ({
         id: item.id,
         ocorrencia: item.ocorrencia || '-',
@@ -1061,7 +1061,7 @@ export default function RelatoriosPage() {
     <div style={styles.page}>
       <DashboardTopbar
         title="Relatórios de gestão"
-        subtitle="Visão global das ocorrências, SLA, tempos médios e distribuição por unidade e categoria."
+        subtitle="Visão global das ocorrências, prazos de resolução, tempos médios e distribuição por unidade e categoria."
         actions={[
           {
             label: 'Voltar ao dashboard',
@@ -1094,17 +1094,17 @@ export default function RelatoriosPage() {
         </div>
 
         <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Fora SLA</h3>
-          <p style={styles.cardValue}>{totalForaSla}</p>
+          <h3 style={styles.cardTitle}>Fora do prazo</h3>
+          <p style={styles.cardValue}>{totalForaPrazo}</p>
         </div>
 
         <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Dentro SLA</h3>
-          <p style={styles.cardValue}>{totalDentroSla}</p>
+          <h3 style={styles.cardTitle}>Dentro do prazo</h3>
+          <p style={styles.cardValue}>{totalDentroPrazo}</p>
         </div>
 
         <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Tempo médio resolução</h3>
+          <h3 style={styles.cardTitle}>Tempo médio de resolução</h3>
           <p style={styles.cardValue}>{mediaResolucaoGlobal} dias</p>
         </div>
       </div>
@@ -1141,11 +1141,11 @@ export default function RelatoriosPage() {
             />
 
             <DonutCard
-              title="SLA global"
-              valueA={totalDentroSla}
-              valueB={totalForaSla}
-              labelA="Dentro SLA"
-              labelB="Fora SLA"
+              title="Prazo de resolução global"
+              valueA={totalDentroPrazo}
+              valueB={totalForaPrazo}
+              labelA="Dentro do prazo"
+              labelB="Fora do prazo"
               colorA="#16a34a"
               colorB="#dc2626"
             />
@@ -1180,7 +1180,7 @@ export default function RelatoriosPage() {
 
           <div style={styles.sectionHeader}>
             <div>
-              <h2 style={styles.sectionTitle}>Top ocorrências fora SLA</h2>
+              <h2 style={styles.sectionTitle}>Top ocorrências fora do prazo</h2>
               <div style={styles.sectionSubtitle}>
                 Ocorrências com maior atraso face ao prazo definido.
               </div>
@@ -1188,11 +1188,11 @@ export default function RelatoriosPage() {
           </div>
 
           <div style={styles.chartCard}>
-            {topForaSla.length === 0 ? (
-              <div style={styles.empty}>Sem ocorrências fora SLA</div>
+            {topForaPrazo.length === 0 ? (
+              <div style={styles.empty}>Sem ocorrências fora do prazo</div>
             ) : (
               <>
-                {topForaSla.slice(0, 3).map((item) => (
+                {topForaPrazo.slice(0, 3).map((item) => (
                   <div key={item.id} style={styles.topAlert}>
                     <h3 style={styles.topAlertTitle}>
                       {item.ocorrencia} — {item.diasAtraso} dias de atraso
@@ -1216,7 +1216,7 @@ export default function RelatoriosPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {topForaSla.map((item) => (
+                      {topForaPrazo.map((item) => (
                         <tr key={item.id}>
                           <td style={styles.td}>{item.ocorrencia}</td>
                           <td style={styles.td}>{item.unidade}</td>
@@ -1257,7 +1257,7 @@ export default function RelatoriosPage() {
                   <th style={styles.th}>Em execução</th>
                   <th style={styles.th}>Concluídas</th>
                   <th style={styles.th}>Encerradas</th>
-                  <th style={styles.th}>Fora SLA</th>
+                  <th style={styles.th}>Fora do prazo</th>
                 </tr>
               </thead>
               <tbody>
@@ -1277,7 +1277,7 @@ export default function RelatoriosPage() {
                       <td style={styles.td}>{item.emExecucao}</td>
                       <td style={styles.td}>{item.concluidas}</td>
                       <td style={styles.td}>{item.encerradas}</td>
-                      <td style={styles.td}>{item.foraSla}</td>
+                      <td style={styles.td}>{item.foraPrazo}</td>
                     </tr>
                   ))
                 )}
@@ -1312,7 +1312,7 @@ export default function RelatoriosPage() {
                   <th style={styles.th}>Em execução</th>
                   <th style={styles.th}>Concluídas</th>
                   <th style={styles.th}>Encerradas</th>
-                  <th style={styles.th}>Fora SLA</th>
+                  <th style={styles.th}>Fora do prazo</th>
                 </tr>
               </thead>
               <tbody>
@@ -1332,7 +1332,7 @@ export default function RelatoriosPage() {
                       <td style={styles.td}>{item.emExecucao}</td>
                       <td style={styles.td}>{item.concluidas}</td>
                       <td style={styles.td}>{item.encerradas}</td>
-                      <td style={styles.td}>{item.foraSla}</td>
+                      <td style={styles.td}>{item.foraPrazo}</td>
                     </tr>
                   ))
                 )}
@@ -1380,7 +1380,7 @@ export default function RelatoriosPage() {
 
           <div style={styles.sectionHeader}>
             <div>
-              <h2 style={styles.sectionTitle}>Últimas ocorrências fora SLA</h2>
+              <h2 style={styles.sectionTitle}>Últimas ocorrências fora do prazo</h2>
               <div style={styles.sectionSubtitle}>
                 Lista das ocorrências atualmente mais críticas em atraso.
               </div>
@@ -1401,14 +1401,14 @@ export default function RelatoriosPage() {
                 </tr>
               </thead>
               <tbody>
-                {topForaSla.length === 0 ? (
+                {topForaPrazo.length === 0 ? (
                   <tr>
                     <td colSpan={7} style={styles.empty}>
                       Sem dados
                     </td>
                   </tr>
                 ) : (
-                  topForaSla.map((item) => {
+                  topForaPrazo.map((item) => {
                     const original = rows.find((row) => row.id === item.id)
 
                     return (
