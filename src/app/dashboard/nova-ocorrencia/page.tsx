@@ -190,8 +190,9 @@ const styles = {
 }
 
 export default function NovaOcorrenciaPage() {
-  const supabase = createClient()
   const router = useRouter()
+
+  const supabase = useMemo(() => createClient(), [])
 
   const [profile, setProfile] = useState<Profile | null>(null)
   const [units, setUnits] = useState<Unit[]>([])
@@ -213,57 +214,79 @@ export default function NovaOcorrenciaPage() {
   const [successMessage, setSuccessMessage] = useState('')
 
   useEffect(() => {
+    let isMounted = true
+
     async function loadInitialData() {
-      setLoadingPage(true)
-      setErrorMessage('')
+      try {
+        setLoadingPage(true)
+        setErrorMessage('')
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser()
 
-      if (userError || !user) {
-        router.replace('/login')
-        return
+        if (userError || !user) {
+          router.replace('/login')
+          return
+        }
+
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, nome, email, role, ativo')
+          .eq('id', user.id)
+          .single()
+
+        if (profileError || !profileData) {
+          if (isMounted) {
+            setErrorMessage(profileError?.message || 'Não foi possível carregar o perfil.')
+            setLoadingPage(false)
+          }
+          return
+        }
+
+        const currentProfile = profileData as Profile
+
+        if (currentProfile.ativo === false) {
+          await supabase.auth.signOut()
+          router.replace('/login')
+          return
+        }
+
+        if (isMounted) {
+          setProfile(currentProfile)
+        }
+
+        const { data: unitsData, error: unitsError } = await supabase
+          .from('units')
+          .select('id, nome')
+          .order('nome', { ascending: true })
+
+        if (unitsError) {
+          console.error('Erro ao carregar unidades:', unitsError)
+          if (isMounted) {
+            setUnits([])
+          }
+        } else if (isMounted) {
+          setUnits((unitsData || []) as Unit[])
+        }
+
+        if (isMounted) {
+          setLoadingPage(false)
+        }
+      } catch (error: any) {
+        if (isMounted) {
+          setErrorMessage(error?.message || 'Erro ao carregar a página.')
+          setLoadingPage(false)
+        }
       }
-
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, nome, email, role, ativo')
-        .eq('id', user.id)
-        .single()
-
-      if (profileError || !profileData) {
-        setErrorMessage(profileError?.message || 'Não foi possível carregar o perfil.')
-        setLoadingPage(false)
-        return
-      }
-
-      const currentProfile = profileData as Profile
-
-      if (currentProfile.ativo === false) {
-        await supabase.auth.signOut()
-        router.replace('/login')
-        return
-      }
-
-      setProfile(currentProfile)
-
-      const { data: unitsData, error: unitsError } = await supabase
-        .from('units')
-        .select('id, nome')
-        .order('nome', { ascending: true })
-
-      if (unitsError) {
-        console.error('Erro ao carregar unidades:', unitsError)
-      } else {
-        setUnits((unitsData || []) as Unit[])
-      }
-
-      setLoadingPage(false)
     }
 
     void loadInitialData()
+
+    return () => {
+      isMounted = false
+    }
   }, [router, supabase])
 
   useEffect(() => {
@@ -311,104 +334,109 @@ export default function NovaOcorrenciaPage() {
     setErrorMessage('')
     setSuccessMessage('')
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-      setErrorMessage('Sessão inválida.')
-      setLoading(false)
-      return
-    }
-
-    if (!ocorrencia.trim()) {
-      setErrorMessage('Indica a descrição da ocorrência.')
-      setLoading(false)
-      return
-    }
-
-    if (!categoria) {
-      setErrorMessage('Seleciona uma categoria.')
-      setLoading(false)
-      return
-    }
-
-    if (!prioridade) {
-      setErrorMessage('Seleciona uma prioridade.')
-      setLoading(false)
-      return
-    }
-
-    if (!impacto) {
-      setErrorMessage('Seleciona um impacto.')
-      setLoading(false)
-      return
-    }
-
-    if (!unidadeId && !localOcorrencia.trim()) {
-      setErrorMessage('Seleciona a unidade ou indica o local da ocorrência.')
-      setLoading(false)
-      return
-    }
-
-    let fotoPath: string | null = null
-
     try {
-      fotoPath = await uploadImageIfNeeded(user.id)
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Erro ao carregar a imagem.')
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError || !user) {
+        setErrorMessage('Sessão inválida.')
+        setLoading(false)
+        return
+      }
+
+      if (!ocorrencia.trim()) {
+        setErrorMessage('Indica a descrição da ocorrência.')
+        setLoading(false)
+        return
+      }
+
+      if (!categoria) {
+        setErrorMessage('Seleciona uma categoria.')
+        setLoading(false)
+        return
+      }
+
+      if (!prioridade) {
+        setErrorMessage('Seleciona uma prioridade.')
+        setLoading(false)
+        return
+      }
+
+      if (!impacto) {
+        setErrorMessage('Seleciona um impacto.')
+        setLoading(false)
+        return
+      }
+
+      if (!unidadeId && !localOcorrencia.trim()) {
+        setErrorMessage('Seleciona a unidade ou indica o local da ocorrência.')
+        setLoading(false)
+        return
+      }
+
+      let fotoPath: string | null = null
+
+      try {
+        fotoPath = await uploadImageIfNeeded(user.id)
+      } catch (err: any) {
+        setErrorMessage(err?.message || 'Erro ao carregar a imagem.')
+        setLoading(false)
+        return
+      }
+
+      const nowIso = new Date().toISOString()
+
+      const payload = {
+        ocorrencia: ocorrencia.trim(),
+        local_ocorrencia: unidadeSelecionada?.nome || localOcorrencia.trim() || null,
+        unidade_id: unidadeId || null,
+        categoria,
+        prioridade,
+        impacto,
+        estado: 'Em aberto',
+        observacoes: observacoes.trim() || null,
+        sla_dias: slaDias ? Number(slaDias) : null,
+        data_reporte: nowIso,
+        data_estado: nowIso,
+        data_encerramento: null,
+        created_by: user.id,
+        created_by_email: user.email || profile?.email || null,
+        updated_by_email: user.email || profile?.email || null,
+        foto_url: fotoPath,
+        assigned_gestor: null,
+        assigned_gestor_email: null,
+        assigned_gestor_at: null,
+        assigned_tecnico: null,
+        assigned_tecnico_email: null,
+        assigned_tecnico_at: null,
+        forwarded_by: null,
+        forwarded_by_email: null,
+        area: null,
+        fora_sla: false,
+      }
+
+      const { error: insertError } = await supabase
+        .from('occurrences')
+        .insert([payload])
+
+      if (insertError) {
+        setErrorMessage(`Erro ao guardar ocorrência: ${insertError.message}`)
+        setLoading(false)
+        return
+      }
+
+      setSuccessMessage('Ocorrência registada com sucesso.')
       setLoading(false)
-      return
-    }
 
-    const nowIso = new Date().toISOString()
-
-    const payload = {
-      ocorrencia: ocorrencia.trim(),
-      local_ocorrencia: unidadeSelecionada?.nome || localOcorrencia.trim() || null,
-      unidade_id: unidadeId || null,
-      categoria,
-      prioridade,
-      impacto,
-      estado: 'Em aberto',
-      observacoes: observacoes.trim() || null,
-      sla_dias: slaDias ? Number(slaDias) : null,
-      data_reporte: nowIso,
-      data_estado: nowIso,
-      data_encerramento: null,
-      created_by: user.id,
-      created_by_email: user.email || profile?.email || null,
-      updated_by_email: user.email || profile?.email || null,
-      foto_url: fotoPath,
-      assigned_gestor: null,
-      assigned_gestor_email: null,
-      assigned_gestor_at: null,
-      assigned_tecnico: null,
-      assigned_tecnico_email: null,
-      assigned_tecnico_at: null,
-      forwarded_by: null,
-      forwarded_by_email: null,
-      area: null,
-      fora_sla: false,
-    }
-
-    const { error: insertError } = await supabase
-      .from('occurrences')
-      .insert([payload])
-
-    if (insertError) {
-      setErrorMessage(`Erro ao guardar ocorrência: ${insertError.message}`)
+      setTimeout(() => {
+        router.push('/dashboard')
+      }, 900)
+    } catch (error: any) {
+      setErrorMessage(error?.message || 'Erro inesperado ao guardar a ocorrência.')
       setLoading(false)
-      return
     }
-
-    setSuccessMessage('Ocorrência registada com sucesso.')
-    setLoading(false)
-
-    setTimeout(() => {
-      router.push('/dashboard')
-    }, 900)
   }
 
   return (
@@ -469,6 +497,9 @@ export default function NovaOcorrenciaPage() {
                     </option>
                   ))}
                 </select>
+                <div style={styles.smallInfo}>
+                  Se não tiveres unidades registadas, podes preencher apenas o local.
+                </div>
               </div>
 
               <div style={styles.field}>
