@@ -173,8 +173,8 @@ export default function UtilizadoresPage() {
   const canManageUsers =
     currentUser?.role === 'admin' || currentUser?.role === 'gestor'
 
-  async function loadUsers() {
-    setLoading(true)
+  async function loadUsers(showLoader = true) {
+    if (showLoader) setLoading(true)
     setError('')
     setSuccess('')
 
@@ -218,7 +218,7 @@ export default function UtilizadoresPage() {
       setProfiles((data || []) as Profile[])
     }
 
-    setLoading(false)
+    if (showLoader) setLoading(false)
   }
 
   useEffect(() => {
@@ -282,10 +282,12 @@ export default function UtilizadoresPage() {
     setError('')
     setSuccess('')
 
-    const { error: updateError } = await supabase
+    const { data: updatedRow, error: updateError } = await supabase
       .from('profiles')
       .update({ role: newRole })
       .eq('id', id)
+      .select('id, nome, email, role, ativo')
+      .maybeSingle()
 
     if (updateError) {
       setError(`Erro ao alterar perfil: ${updateError.message}`)
@@ -293,14 +295,15 @@ export default function UtilizadoresPage() {
       return
     }
 
-    setProfiles((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, role: newRole } : u))
-    )
-
-    if (currentUser?.id === id) {
-      setCurrentUser((prev) => (prev ? { ...prev, role: newRole } : prev))
+    if (!updatedRow) {
+      setError(
+        'A alteração não foi gravada na base de dados. Verifica as permissões/RLS da tabela profiles.'
+      )
+      setSavingId(null)
+      return
     }
 
+    await loadUsers(false)
     setSuccess('Perfil atualizado com sucesso.')
     setSavingId(null)
   }
@@ -331,10 +334,12 @@ export default function UtilizadoresPage() {
     setError('')
     setSuccess('')
 
-    const { error: updateError } = await supabase
+    const { data: updatedRow, error: updateError } = await supabase
       .from('profiles')
       .update({ ativo })
       .eq('id', id)
+      .select('id, nome, email, role, ativo')
+      .maybeSingle()
 
     if (updateError) {
       setError(`Erro ao atualizar estado do utilizador: ${updateError.message}`)
@@ -342,16 +347,20 @@ export default function UtilizadoresPage() {
       return
     }
 
-    setProfiles((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, ativo } : u))
-    )
+    if (!updatedRow) {
+      setError(
+        'A alteração não foi gravada na base de dados. Verifica as permissões/RLS da tabela profiles.'
+      )
+      setSavingId(null)
+      return
+    }
 
+    await loadUsers(false)
     setSuccess(
       ativo
         ? 'Utilizador reativado com sucesso.'
         : 'Utilizador desativado com sucesso.'
     )
-
     setSavingId(null)
   }
 
