@@ -142,100 +142,58 @@ function isForaPrazo(item: {
 
 function getEstadoBadgeStyle(estado: string | null) {
   if (estado === 'Concluída') {
-    return {
-      backgroundColor: '#dcfce7',
-      color: '#166534',
-    }
+    return { backgroundColor: '#dcfce7', color: '#166534' }
   }
 
   if (estado === 'Encerrada') {
-    return {
-      backgroundColor: '#e2e8f0',
-      color: '#334155',
-    }
+    return { backgroundColor: '#e2e8f0', color: '#334155' }
   }
 
   if (estado === 'Em execução') {
-    return {
-      backgroundColor: '#dbeafe',
-      color: '#1d4ed8',
-    }
+    return { backgroundColor: '#dbeafe', color: '#1d4ed8' }
   }
 
   if (estado === 'Em análise') {
-    return {
-      backgroundColor: '#fef3c7',
-      color: '#92400e',
-    }
+    return { backgroundColor: '#fef3c7', color: '#92400e' }
   }
 
-  return {
-    backgroundColor: '#ede9fe',
-    color: '#6d28d9',
-  }
+  return { backgroundColor: '#ede9fe', color: '#6d28d9' }
 }
 
 function getPrioridadeBadgeStyle(prioridade: string | null) {
   if (prioridade === 'Alta') {
-    return {
-      backgroundColor: '#fee2e2',
-      color: '#b91c1c',
-    }
+    return { backgroundColor: '#fee2e2', color: '#b91c1c' }
   }
 
   if (prioridade === 'Média') {
-    return {
-      backgroundColor: '#fef3c7',
-      color: '#92400e',
-    }
+    return { backgroundColor: '#fef3c7', color: '#92400e' }
   }
 
   if (prioridade === 'Baixa') {
-    return {
-      backgroundColor: '#dcfce7',
-      color: '#166534',
-    }
+    return { backgroundColor: '#dcfce7', color: '#166534' }
   }
 
-  return {
-    backgroundColor: '#f1f5f9',
-    color: '#475569',
-  }
+  return { backgroundColor: '#f1f5f9', color: '#475569' }
 }
 
 function getImpactoBadgeStyle(impacto: string | null) {
   if (impacto === 'Crítico') {
-    return {
-      backgroundColor: '#fee2e2',
-      color: '#b91c1c',
-    }
+    return { backgroundColor: '#fee2e2', color: '#b91c1c' }
   }
 
   if (impacto === 'Alto') {
-    return {
-      backgroundColor: '#ffedd5',
-      color: '#c2410c',
-    }
+    return { backgroundColor: '#ffedd5', color: '#c2410c' }
   }
 
   if (impacto === 'Médio') {
-    return {
-      backgroundColor: '#fef3c7',
-      color: '#a16207',
-    }
+    return { backgroundColor: '#fef3c7', color: '#a16207' }
   }
 
   if (impacto === 'Baixo') {
-    return {
-      backgroundColor: '#dcfce7',
-      color: '#166534',
-    }
+    return { backgroundColor: '#dcfce7', color: '#166534' }
   }
 
-  return {
-    backgroundColor: '#f1f5f9',
-    color: '#475569',
-  }
+  return { backgroundColor: '#f1f5f9', color: '#475569' }
 }
 
 function isEstadoValue(value: string | null): value is EstadoValue {
@@ -548,6 +506,8 @@ export default function EditOccurrencePage() {
   const [originalDataEstado, setOriginalDataEstado] = useState<string | null>(null)
   const [originalDataReporte, setOriginalDataReporte] = useState<string | null>(null)
   const [createdBy, setCreatedBy] = useState<string | null>(null)
+  const [originalAssignedGestorId, setOriginalAssignedGestorId] = useState<string>('')
+  const [originalAssignedTecnicoId, setOriginalAssignedTecnicoId] = useState<string>('')
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [currentRole, setCurrentRole] = useState<string>('user')
@@ -712,6 +672,9 @@ export default function EditOccurrencePage() {
     setAssignedTecnicoEmail(item.assigned_tecnico_email || null)
     setAssignedTecnicoAt(item.assigned_tecnico_at || null)
 
+    setOriginalAssignedGestorId(item.assigned_gestor || '')
+    setOriginalAssignedTecnicoId(item.assigned_tecnico || '')
+
     setOriginalEstado(item.estado)
     setOriginalDataEstado(item.data_estado)
     setOriginalDataReporte(item.data_reporte)
@@ -856,10 +819,6 @@ export default function EditOccurrencePage() {
     const nextAssignedTecnicoEmail =
       assignedTecnicoId && selectedTecnico ? selectedTecnico.email || null : null
 
-    const currentGestorChanged = assignedGestorId !== ((assignedGestorId && assignedGestorId) || '')
-    const currentTecnicoChanged =
-      assignedTecnicoId !== ((assignedTecnicoId && assignedTecnicoId) || '')
-
     const updatePayload: Record<string, any> = {
       estado,
       data_estado: dataEstadoIso,
@@ -868,7 +827,7 @@ export default function EditOccurrencePage() {
       updated_by_email: user?.email || updatedByEmail || null,
     }
 
-    if (canForwardToGestor) {
+    if (canForwardToGestor && assignedGestorId !== originalAssignedGestorId) {
       updatePayload.assigned_gestor = assignedGestorId || null
       updatePayload.assigned_gestor_email = nextAssignedGestorEmail
       updatePayload.assigned_gestor_at = assignedGestorId ? nowIso : null
@@ -882,7 +841,7 @@ export default function EditOccurrencePage() {
       }
     }
 
-    if (canForwardToTecnico) {
+    if (canForwardToTecnico && assignedTecnicoId !== originalAssignedTecnicoId) {
       updatePayload.assigned_tecnico = assignedTecnicoId || null
       updatePayload.assigned_tecnico_email = nextAssignedTecnicoEmail
       updatePayload.assigned_tecnico_at = assignedTecnicoId ? nowIso : null
@@ -960,9 +919,7 @@ export default function EditOccurrencePage() {
       />
 
       {errorMessage ? <div style={styles.messageError}>{errorMessage}</div> : null}
-      {successMessage ? (
-        <div style={styles.messageSuccess}>{successMessage}</div>
-      ) : null}
+      {successMessage ? <div style={styles.messageSuccess}>{successMessage}</div> : null}
 
       {loading ? (
         <div style={styles.card}>A carregar...</div>
@@ -974,12 +931,7 @@ export default function EditOccurrencePage() {
             <div style={styles.summaryCard}>
               <div style={styles.summaryLabel}>Estado atual</div>
               <div style={styles.summaryValue}>
-                <span
-                  style={{
-                    ...styles.badge,
-                    ...getEstadoBadgeStyle(estado),
-                  }}
-                >
+                <span style={{ ...styles.badge, ...getEstadoBadgeStyle(estado) }}>
                   {estado || '-'}
                 </span>
               </div>
@@ -1023,29 +975,17 @@ export default function EditOccurrencePage() {
               <div style={styles.grid}>
                 <div style={styles.field}>
                   <label style={styles.label}>Ocorrência</label>
-                  <input
-                    style={{ ...styles.input, ...styles.readOnly }}
-                    value={ocorrencia}
-                    readOnly
-                  />
+                  <input style={{ ...styles.input, ...styles.readOnly }} value={ocorrencia} readOnly />
                 </div>
 
                 <div style={styles.field}>
                   <label style={styles.label}>Unidade</label>
-                  <input
-                    style={{ ...styles.input, ...styles.readOnly }}
-                    value={unidade}
-                    readOnly
-                  />
+                  <input style={{ ...styles.input, ...styles.readOnly }} value={unidade} readOnly />
                 </div>
 
                 <div style={styles.field}>
                   <label style={styles.label}>Categoria</label>
-                  <input
-                    style={{ ...styles.input, ...styles.readOnly }}
-                    value={categoria}
-                    readOnly
-                  />
+                  <input style={{ ...styles.input, ...styles.readOnly }} value={categoria} readOnly />
                 </div>
 
                 <div style={styles.field}>
@@ -1262,9 +1202,7 @@ export default function EditOccurrencePage() {
                     <label style={styles.label}>Avaliação de satisfação</label>
 
                     {!satisfactionRequestedAt ? (
-                      <div style={styles.smallInfo}>
-                        Ainda não foi enviado pedido de avaliação.
-                      </div>
+                      <div style={styles.smallInfo}>Ainda não foi enviado pedido de avaliação.</div>
                     ) : null}
 
                     {satisfactionRequestedAt && !satisfactionSubmittedAt ? (
