@@ -11,8 +11,6 @@ type Profile = {
   email: string | null
   role: string | null
   ativo: boolean | null
-  area: string | null
-  unidade_id?: string | null
 }
 
 function getRoleLabel(role: string | null) {
@@ -40,7 +38,7 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
-    minWidth: '1450px',
+    minWidth: '1250px',
   },
 
   th: {
@@ -65,16 +63,6 @@ const styles = {
     border: '1px solid #cbd5e1',
     backgroundColor: '#fff',
     minWidth: '170px',
-  } as const,
-
-  input: {
-    padding: '8px 10px',
-    borderRadius: '8px',
-    border: '1px solid #cbd5e1',
-    backgroundColor: '#fff',
-    minWidth: '180px',
-    width: '100%',
-    boxSizing: 'border-box' as const,
   } as const,
 
   error: {
@@ -139,20 +127,6 @@ const styles = {
     cursor: 'pointer',
   } as const,
 
-  btnSecondary: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0f172a',
-    color: '#fff',
-    padding: '8px 12px',
-    borderRadius: '8px',
-    border: 'none',
-    fontWeight: 600,
-    fontSize: '13px',
-    cursor: 'pointer',
-  } as const,
-
   btnDisabled: {
     opacity: 0.6,
     cursor: 'not-allowed',
@@ -195,7 +169,6 @@ export default function UtilizadoresPage() {
   const [savingId, setSavingId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [areasDraft, setAreasDraft] = useState<Record<string, string>>({})
 
   const canManageUsers =
     currentUser?.role === 'admin' || currentUser?.role === 'gestor'
@@ -216,7 +189,7 @@ export default function UtilizadoresPage() {
 
     const { data: me, error: meError } = await supabase
       .from('profiles')
-      .select('id, nome, email, role, ativo, area, unidade_id')
+      .select('id, nome, email, role, ativo')
       .eq('id', user.id)
       .single()
 
@@ -235,21 +208,14 @@ export default function UtilizadoresPage() {
 
     const { data, error: profilesError } = await supabase
       .from('profiles')
-      .select('id, nome, email, role, ativo, area, unidade_id')
+      .select('id, nome, email, role, ativo')
       .order('nome', { ascending: true })
 
     if (profilesError) {
       setError(profilesError.message)
       setProfiles([])
     } else {
-      const list = (data || []) as Profile[]
-      setProfiles(list)
-
-      const nextDrafts: Record<string, string> = {}
-      list.forEach((item) => {
-        nextDrafts[item.id] = item.area || ''
-      })
-      setAreasDraft(nextDrafts)
+      setProfiles((data || []) as Profile[])
     }
 
     setLoading(false)
@@ -389,46 +355,6 @@ export default function UtilizadoresPage() {
     setSavingId(null)
   }
 
-  async function updateArea(id: string) {
-    if (!canManageUsers) return
-
-    const targetUser = profiles.find((u) => u.id === id)
-
-    if (!targetUser) {
-      setError('Utilizador não encontrado.')
-      return
-    }
-
-    if (!canManagerEditTarget(targetUser)) {
-      setError('Não tens permissão para alterar a área deste utilizador.')
-      return
-    }
-
-    setSavingId(id)
-    setError('')
-    setSuccess('')
-
-    const novaArea = areasDraft[id]?.trim() || null
-
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ area: novaArea })
-      .eq('id', id)
-
-    if (updateError) {
-      setError(`Erro ao atualizar área: ${updateError.message}`)
-      setSavingId(null)
-      return
-    }
-
-    setProfiles((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, area: novaArea } : u))
-    )
-
-    setSuccess('Área atualizada com sucesso.')
-    setSavingId(null)
-  }
-
   const allowedRoles = getAllowedRolesForEditor()
 
   return (
@@ -455,7 +381,6 @@ export default function UtilizadoresPage() {
                 <th style={styles.th}>Nome</th>
                 <th style={styles.th}>Perfil atual</th>
                 <th style={styles.th}>Alterar perfil</th>
-                <th style={styles.th}>Área</th>
                 <th style={styles.th}>Estado</th>
                 <th style={styles.th}>Ações</th>
               </tr>
@@ -464,7 +389,7 @@ export default function UtilizadoresPage() {
             <tbody>
               {profiles.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={styles.td}>
+                  <td colSpan={6} style={styles.td}>
                     Sem utilizadores para mostrar.
                   </td>
                 </tr>
@@ -502,38 +427,6 @@ export default function UtilizadoresPage() {
                             O gestor só pode atribuir Técnico e Utilizador.
                           </div>
                         ) : null}
-                      </td>
-
-                      <td style={styles.td}>
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                          <input
-                            type="text"
-                            style={styles.input}
-                            value={areasDraft[u.id] || ''}
-                            disabled={!canManageUsers || !canEditTarget || isSaving}
-                            onChange={(e) =>
-                              setAreasDraft((prev) => ({
-                                ...prev,
-                                [u.id]: e.target.value,
-                              }))
-                            }
-                            placeholder="Ex.: Instalações, Informática..."
-                          />
-
-                          <button
-                            type="button"
-                            style={{
-                              ...styles.btnSecondary,
-                              ...(!canManageUsers || !canEditTarget || isSaving
-                                ? styles.btnDisabled
-                                : {}),
-                            }}
-                            disabled={!canManageUsers || !canEditTarget || isSaving}
-                            onClick={() => void updateArea(u.id)}
-                          >
-                            {isSaving ? 'A guardar...' : 'Guardar área'}
-                          </button>
-                        </div>
                       </td>
 
                       <td style={styles.td}>{u.ativo ? 'Ativo' : 'Inativo'}</td>
