@@ -11,12 +11,15 @@ type Profile = {
   email: string | null
   role: string | null
   ativo: boolean | null
+  area: string | null
+  unidade_id?: string | null
 }
 
 function getRoleLabel(role: string | null) {
   if (role === 'admin') return 'Administrador'
   if (role === 'gestor') return 'Gestor'
   if (role === 'tecnico') return 'Técnico'
+  if (role === 'consulta') return 'Consulta'
   return 'Utilizador'
 }
 
@@ -37,7 +40,7 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
-    minWidth: '1200px',
+    minWidth: '1450px',
   },
 
   th: {
@@ -61,7 +64,17 @@ const styles = {
     borderRadius: '8px',
     border: '1px solid #cbd5e1',
     backgroundColor: '#fff',
-    minWidth: '150px',
+    minWidth: '170px',
+  } as const,
+
+  input: {
+    padding: '8px 10px',
+    borderRadius: '8px',
+    border: '1px solid #cbd5e1',
+    backgroundColor: '#fff',
+    minWidth: '180px',
+    width: '100%',
+    boxSizing: 'border-box' as const,
   } as const,
 
   error: {
@@ -126,9 +139,29 @@ const styles = {
     cursor: 'pointer',
   } as const,
 
+  btnSecondary: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0f172a',
+    color: '#fff',
+    padding: '8px 12px',
+    borderRadius: '8px',
+    border: 'none',
+    fontWeight: 600,
+    fontSize: '13px',
+    cursor: 'pointer',
+  } as const,
+
   btnDisabled: {
     opacity: 0.6,
     cursor: 'not-allowed',
+  } as const,
+
+  smallInfo: {
+    color: '#64748b',
+    fontSize: '12px',
+    marginTop: '4px',
   } as const,
 }
 
@@ -136,12 +169,19 @@ function getBadge(role: string | null) {
   if (role === 'admin') {
     return { ...styles.badge, background: '#fee2e2', color: '#b91c1c' }
   }
+
   if (role === 'gestor') {
     return { ...styles.badge, background: '#dcfce7', color: '#166534' }
   }
+
   if (role === 'tecnico') {
     return { ...styles.badge, background: '#dbeafe', color: '#1d4ed8' }
   }
+
+  if (role === 'consulta') {
+    return { ...styles.badge, background: '#ede9fe', color: '#6d28d9' }
+  }
+
   return { ...styles.badge, background: '#e2e8f0', color: '#334155' }
 }
 
@@ -155,6 +195,7 @@ export default function UtilizadoresPage() {
   const [savingId, setSavingId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [areasDraft, setAreasDraft] = useState<Record<string, string>>({})
 
   const canManageUsers =
     currentUser?.role === 'admin' || currentUser?.role === 'gestor'
@@ -175,7 +216,7 @@ export default function UtilizadoresPage() {
 
     const { data: me, error: meError } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, nome, email, role, ativo, area, unidade_id')
       .eq('id', user.id)
       .single()
 
@@ -194,14 +235,21 @@ export default function UtilizadoresPage() {
 
     const { data, error: profilesError } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, nome, email, role, ativo, area, unidade_id')
       .order('nome', { ascending: true })
 
     if (profilesError) {
       setError(profilesError.message)
       setProfiles([])
     } else {
-      setProfiles((data || []) as Profile[])
+      const list = (data || []) as Profile[]
+      setProfiles(list)
+
+      const nextDrafts: Record<string, string> = {}
+      list.forEach((item) => {
+        nextDrafts[item.id] = item.area || ''
+      })
+      setAreasDraft(nextDrafts)
     }
 
     setLoading(false)
@@ -219,10 +267,22 @@ export default function UtilizadoresPage() {
     }
 
     if (currentUser.role === 'gestor') {
-      return targetUser.role !== 'admin'
+      return targetUser.role === 'tecnico' || targetUser.role === 'user'
     }
 
     return false
+  }
+
+  function getAllowedRolesForEditor() {
+    if (currentUser?.role === 'admin') {
+      return ['admin', 'gestor', 'tecnico', 'user', 'consulta']
+    }
+
+    if (currentUser?.role === 'gestor') {
+      return ['tecnico', 'user']
+    }
+
+    return ['user']
   }
 
   async function updateRole(id: string, newRole: string) {
@@ -235,19 +295,21 @@ export default function UtilizadoresPage() {
       return
     }
 
-    if (currentUser?.id === id && newRole !== 'admin') {
+    if (currentUser?.id === id && currentUser.role === 'admin' && newRole !== 'admin') {
       setError('Não podes retirar a ti próprio o perfil de administrador.')
       return
     }
 
-    if (currentUser?.role === 'gestor' && targetUser.role === 'admin') {
-      setError('O gestor não pode alterar o perfil de um administrador.')
-      return
-    }
+    if (currentUser?.role === 'gestor') {
+      if (targetUser.role !== 'tecnico' && targetUser.role !== 'user') {
+        setError('O gestor só pode gerir utilizadores técnicos e utilizadores normais.')
+        return
+      }
 
-    if (currentUser?.role === 'gestor' && newRole === 'admin') {
-      setError('O gestor não pode promover utilizadores a administrador.')
-      return
+      if (!['tecnico', 'user'].includes(newRole)) {
+        setError('O gestor só pode atribuir os perfis técnico e utilizador.')
+        return
+      }
     }
 
     setSavingId(id)
@@ -292,9 +354,11 @@ export default function UtilizadoresPage() {
       return
     }
 
-    if (currentUser?.role === 'gestor' && targetUser.role === 'admin') {
-      setError('O gestor não pode desativar um administrador.')
-      return
+    if (currentUser?.role === 'gestor') {
+      if (targetUser.role !== 'tecnico' && targetUser.role !== 'user') {
+        setError('O gestor só pode ativar ou desativar técnicos e utilizadores.')
+        return
+      }
     }
 
     setSavingId(id)
@@ -325,6 +389,48 @@ export default function UtilizadoresPage() {
     setSavingId(null)
   }
 
+  async function updateArea(id: string) {
+    if (!canManageUsers) return
+
+    const targetUser = profiles.find((u) => u.id === id)
+
+    if (!targetUser) {
+      setError('Utilizador não encontrado.')
+      return
+    }
+
+    if (!canManagerEditTarget(targetUser)) {
+      setError('Não tens permissão para alterar a área deste utilizador.')
+      return
+    }
+
+    setSavingId(id)
+    setError('')
+    setSuccess('')
+
+    const novaArea = areasDraft[id]?.trim() || null
+
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ area: novaArea })
+      .eq('id', id)
+
+    if (updateError) {
+      setError(`Erro ao atualizar área: ${updateError.message}`)
+      setSavingId(null)
+      return
+    }
+
+    setProfiles((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, area: novaArea } : u))
+    )
+
+    setSuccess('Área atualizada com sucesso.')
+    setSavingId(null)
+  }
+
+  const allowedRoles = getAllowedRolesForEditor()
+
   return (
     <div style={styles.page}>
       <DashboardTopbar
@@ -347,8 +453,9 @@ export default function UtilizadoresPage() {
               <tr>
                 <th style={styles.th}>Email</th>
                 <th style={styles.th}>Nome</th>
-                <th style={styles.th}>Perfil</th>
+                <th style={styles.th}>Perfil atual</th>
                 <th style={styles.th}>Alterar perfil</th>
+                <th style={styles.th}>Área</th>
                 <th style={styles.th}>Estado</th>
                 <th style={styles.th}>Ações</th>
               </tr>
@@ -357,7 +464,7 @@ export default function UtilizadoresPage() {
             <tbody>
               {profiles.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={styles.td}>
+                  <td colSpan={7} style={styles.td}>
                     Sem utilizadores para mostrar.
                   </td>
                 </tr>
@@ -373,9 +480,7 @@ export default function UtilizadoresPage() {
                       <td style={styles.td}>{u.nome || '-'}</td>
 
                       <td style={styles.td}>
-                        <span style={getBadge(u.role)}>
-                          {getRoleLabel(u.role)}
-                        </span>
+                        <span style={getBadge(u.role)}>{getRoleLabel(u.role)}</span>
                       </td>
 
                       <td style={styles.td}>
@@ -385,14 +490,53 @@ export default function UtilizadoresPage() {
                           disabled={!canManageUsers || !canEditTarget || isSaving}
                           onChange={(e) => void updateRole(u.id, e.target.value)}
                         >
-                          <option value="admin">admin</option>
-                          <option value="gestor">gestor</option>
-                          <option value="tecnico">tecnico</option>
-                          <option value="user">user</option>
+                          {allowedRoles.map((roleValue) => (
+                            <option key={roleValue} value={roleValue}>
+                              {getRoleLabel(roleValue)}
+                            </option>
+                          ))}
                         </select>
+
+                        {currentUser?.role === 'gestor' ? (
+                          <div style={styles.smallInfo}>
+                            O gestor só pode atribuir Técnico e Utilizador.
+                          </div>
+                        ) : null}
                       </td>
 
-                      <td style={styles.td}>{u.ativo ? 'OK' : 'Inativo'}</td>
+                      <td style={styles.td}>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          <input
+                            type="text"
+                            style={styles.input}
+                            value={areasDraft[u.id] || ''}
+                            disabled={!canManageUsers || !canEditTarget || isSaving}
+                            onChange={(e) =>
+                              setAreasDraft((prev) => ({
+                                ...prev,
+                                [u.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="Ex.: Instalações, Informática..."
+                          />
+
+                          <button
+                            type="button"
+                            style={{
+                              ...styles.btnSecondary,
+                              ...(!canManageUsers || !canEditTarget || isSaving
+                                ? styles.btnDisabled
+                                : {}),
+                            }}
+                            disabled={!canManageUsers || !canEditTarget || isSaving}
+                            onClick={() => void updateArea(u.id)}
+                          >
+                            {isSaving ? 'A guardar...' : 'Guardar área'}
+                          </button>
+                        </div>
+                      </td>
+
+                      <td style={styles.td}>{u.ativo ? 'Ativo' : 'Inativo'}</td>
 
                       <td style={styles.td}>
                         <div style={styles.actionsWrap}>
@@ -422,9 +566,7 @@ export default function UtilizadoresPage() {
                               type="button"
                               style={{
                                 ...styles.btnSuccess,
-                                ...(isSaving || !canEditTarget
-                                  ? styles.btnDisabled
-                                  : {}),
+                                ...(isSaving || !canEditTarget ? styles.btnDisabled : {}),
                               }}
                               disabled={isSaving || !canEditTarget}
                               onClick={() => void updateAtivo(u.id, true)}
