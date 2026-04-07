@@ -30,7 +30,8 @@ type Occurrence = {
   fora_sla: boolean | null
   sla_dias: number | null
   created_by: string | null
-  foto_url: string | null
+  assigned_gestor?: string | null
+  assigned_tecnico?: string | null
   units: UnitRelation
 }
 
@@ -71,6 +72,7 @@ function getRoleLabel(role: string | null) {
   if (role === 'admin') return 'Administrador'
   if (role === 'gestor') return 'Gestor'
   if (role === 'tecnico') return 'Técnico'
+  if (role === 'consulta') return 'Consulta'
   return 'Utilizador'
 }
 
@@ -263,7 +265,7 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
-    minWidth: '1350px',
+    minWidth: '1200px',
   },
 
   th: {
@@ -325,26 +327,6 @@ const styles = {
     borderRadius: '10px',
     padding: '12px 14px',
     marginBottom: '16px',
-  } as const,
-
-  imageThumb: {
-    width: '72px',
-    height: '72px',
-    borderRadius: '10px',
-    border: '1px solid #cbd5e1',
-    objectFit: 'cover' as const,
-    display: 'block',
-    backgroundColor: '#f8fafc',
-  } as const,
-
-  imageLink: {
-    display: 'inline-block',
-    textDecoration: 'none',
-  } as const,
-
-  noImage: {
-    color: '#94a3b8',
-    fontSize: '12px',
   } as const,
 }
 
@@ -432,7 +414,6 @@ export default function DashboardPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [profile, setProfile] = useState<Profile | null>(null)
   const [role, setRole] = useState<string>('user')
-  const [fotoUrls, setFotoUrls] = useState<Record<string, string>>({})
 
   const [filtroUnidade, setFiltroUnidade] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('')
@@ -441,32 +422,10 @@ export default function DashboardPage() {
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
 
-  const canExport = role === 'admin' || role === 'gestor'
-  const canSeeReports = role === 'admin' || role === 'gestor' || role === 'tecnico'
+  const canExport = role === 'admin' || role === 'gestor' || role === 'tecnico' || role === 'consulta'
+  const canSeeReports = role === 'admin' || role === 'gestor' || role === 'tecnico' || role === 'consulta'
   const canManageUsers = role === 'admin' || role === 'gestor'
-  const canDelete = role === 'admin' || role === 'gestor'
-
-  async function loadSignedUrls(lista: Occurrence[]) {
-    const nextMap: Record<string, string> = {}
-
-    const itemsWithPhoto = lista.filter((item) => !!item.foto_url)
-
-    await Promise.all(
-      itemsWithPhoto.map(async (item) => {
-        if (!item.foto_url) return
-
-        const { data, error } = await supabase.storage
-          .from('ocorrencias')
-          .createSignedUrl(item.foto_url, 3600)
-
-        if (!error && data?.signedUrl) {
-          nextMap[item.id] = data.signedUrl
-        }
-      })
-    )
-
-    setFotoUrls(nextMap)
-  }
+  const canDelete = role === 'admin'
 
   async function loadOccurrences() {
     setLoading(true)
@@ -504,7 +463,7 @@ export default function DashboardPage() {
       return
     }
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('occurrences')
       .select(`
         id,
@@ -521,12 +480,29 @@ export default function DashboardPage() {
         fora_sla,
         sla_dias,
         created_by,
-        foto_url,
+        assigned_gestor,
+        assigned_tecnico,
         units (
           nome
         )
       `)
       .order('data_reporte', { ascending: false })
+
+    const currentRole = currentProfile?.role || 'user'
+
+    if (currentRole === 'gestor') {
+      query = query.eq('assigned_gestor', user.id)
+    } else if (currentRole === 'tecnico') {
+      query = query.eq('assigned_tecnico', user.id)
+    } else if (currentRole === 'user') {
+      query = query.eq('created_by', user.id)
+    } else if (currentRole === 'admin' || currentRole === 'consulta') {
+      // vê tudo
+    } else {
+      query = query.eq('created_by', user.id)
+    }
+
+    const { data, error } = await query
 
     if (error) {
       setErrorMessage(error.message)
@@ -535,9 +511,7 @@ export default function DashboardPage() {
       return
     }
 
-    const lista = (data || []) as Occurrence[]
-    setRows(lista)
-    await loadSignedUrls(lista)
+    setRows((data || []) as Occurrence[])
     setLoading(false)
   }
 
@@ -623,14 +597,13 @@ export default function DashboardPage() {
       return acc + (fim - inicio)
     }, 0)
 
-    return Math.round(
-      totalMs / resolvidasValidas.length / (1000 * 60 * 60 * 24)
-    )
+    return Math.round(totalMs / resolvidasValidas.length / (1000 * 60 * 60 * 24))
   })()
 
-  const listaDashboard = rows.filter(
-    (o) => o.estado !== 'Concluída' && o.estado !== 'Encerrada'
-  )
+  const listaDashboard =
+    role === 'consulta'
+      ? rows
+      : rows.filter((o) => o.estado !== 'Concluída' && o.estado !== 'Encerrada')
 
   const unidades = useMemo(() => {
     const values = rows
@@ -745,11 +718,15 @@ export default function DashboardPage() {
           },
         ]
       : []),
-    {
-      label: 'Nova Ocorrência',
-      href: '/dashboard/nova-ocorrencia',
-      variant: 'primary' as const,
-    },
+    ...(role !== 'consulta'
+      ? [
+          {
+            label: 'Nova Ocorrência',
+            href: '/dashboard/nova-ocorrencia',
+            variant: 'primary' as const,
+          },
+        ]
+      : []),
     {
       label: loggingOut ? 'A sair...' : 'Logout',
       onClick: handleLogout,
@@ -805,7 +782,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <h2 style={styles.sectionTitle}>Ocorrências em aberto</h2>
+      <h2 style={styles.sectionTitle}>
+        {role === 'consulta' ? 'Ocorrências' : 'Ocorrências em aberto'}
+      </h2>
 
       <div style={styles.filtersBox}>
         <div style={styles.filterGroup}>
@@ -912,7 +891,6 @@ export default function DashboardPage() {
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={styles.th}>Imagem</th>
                 <th style={styles.th}>Ocorrência</th>
                 <th style={styles.th}>Unidade</th>
                 <th style={styles.th}>Categoria</th>
@@ -929,39 +907,19 @@ export default function DashboardPage() {
             <tbody>
               {listaFiltrada.length === 0 ? (
                 <tr>
-                  <td colSpan={11} style={styles.empty}>
-                    Sem ocorrências em aberto para os filtros escolhidos
+                  <td colSpan={10} style={styles.empty}>
+                    Sem ocorrências para os filtros escolhidos
                   </td>
                 </tr>
               ) : (
                 listaFiltrada.map((item) => {
                   const foraPrazoAtual = getForaPrazoValue(item)
-                  const fotoSignedUrl = fotoUrls[item.id]
 
                   return (
                     <tr
                       key={item.id}
                       style={foraPrazoAtual ? { backgroundColor: '#fef2f2' } : undefined}
                     >
-                      <td style={styles.td}>
-                        {fotoSignedUrl ? (
-                          <a
-                            href={fotoSignedUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={styles.imageLink}
-                          >
-                            <img
-                              src={fotoSignedUrl}
-                              alt={item.ocorrencia || 'Imagem da ocorrência'}
-                              style={styles.imageThumb}
-                            />
-                          </a>
-                        ) : (
-                          <span style={styles.noImage}>Sem imagem</span>
-                        )}
-                      </td>
-
                       <td style={styles.td}>{item.ocorrencia || '-'}</td>
 
                       <td style={styles.td}>
@@ -1009,14 +967,14 @@ export default function DashboardPage() {
                             href={`/dashboard/ocorrencia/${item.id}`}
                             style={styles.editBtn}
                           >
-                            Editar
+                            {role === 'consulta' ? 'Consultar' : 'Editar'}
                           </Link>
 
                           {canDelete && (
                             <button
                               type="button"
                               style={styles.deleteBtn}
-                              onClick={() => handleDelete(item.id)}
+                              onClick={() => void handleDelete(item.id)}
                               disabled={deletingId === item.id}
                             >
                               {deletingId === item.id ? 'A apagar...' : 'Apagar'}
