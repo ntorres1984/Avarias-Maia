@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '../../../lib/supabase/client'
 import DashboardTopbar from '../../../components/dashboard/DashboardTopbar'
 
@@ -30,7 +31,18 @@ type Occurrence = {
   satisfaction_score?: number | null
   satisfaction_comment?: string | null
   satisfaction_submitted_at?: string | null
+  assigned_gestor?: string | null
+  assigned_tecnico?: string | null
+  created_by?: string | null
   units: UnitRelation
+}
+
+type Profile = {
+  id: string
+  nome: string | null
+  email: string | null
+  role: string | null
+  ativo: boolean | null
 }
 
 type UnitSummary = {
@@ -769,16 +781,60 @@ function MonthlyOpenClosedCard({
 
 export default function RelatoriosPage() {
   const supabase = createClient()
+  const router = useRouter()
 
   const [rows, setRows] = useState<Occurrence[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [role, setRole] = useState<string>('user')
 
   async function loadOccurrences() {
     setLoading(true)
     setErrorMessage('')
 
-    const { data, error } = await supabase
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      setErrorMessage('Sessão inválida.')
+      setRows([])
+      setLoading(false)
+      return
+    }
+
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, nome, email, role, ativo')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (profileError) {
+      setErrorMessage(profileError.message)
+      setLoading(false)
+      return
+    }
+
+    const currentProfile = (profileData || null) as Profile | null
+    setProfile(currentProfile)
+    setRole(currentProfile?.role || 'user')
+
+    if (currentProfile?.ativo === false) {
+      await supabase.auth.signOut()
+      router.replace('/login')
+      return
+    }
+
+    const currentRole = currentProfile?.role || 'user'
+
+    if (currentRole === 'user') {
+      router.replace('/dashboard')
+      return
+    }
+
+    let query = supabase
       .from('occurrences')
       .select(`
         id,
@@ -797,11 +853,26 @@ export default function RelatoriosPage() {
         satisfaction_score,
         satisfaction_comment,
         satisfaction_submitted_at,
+        assigned_gestor,
+        assigned_tecnico,
+        created_by,
         units (
           nome
         )
       `)
       .order('data_reporte', { ascending: false })
+
+    if (currentRole === 'gestor') {
+      query = query.eq('assigned_gestor', user.id)
+    } else if (currentRole === 'tecnico') {
+      query = query.eq('assigned_tecnico', user.id)
+    } else if (currentRole === 'admin' || currentRole === 'consulta') {
+      // vê tudo
+    } else {
+      query = query.eq('created_by', user.id)
+    }
+
+    const { data, error } = await query
 
     if (error) {
       setErrorMessage(error.message)
@@ -840,7 +911,6 @@ export default function RelatoriosPage() {
       }
 
       const current = map.get(unidade)!
-
       current.total += 1
 
       if (estadoAtual === 'Em aberto') current.emAberto += 1
@@ -876,7 +946,6 @@ export default function RelatoriosPage() {
       }
 
       const current = map.get(categoriaAtual)!
-
       current.total += 1
 
       if (estadoAtual === 'Em aberto') current.emAberto += 1
@@ -1161,7 +1230,11 @@ export default function RelatoriosPage() {
               colorB="#dc2626"
             />
 
-            <MonthlyEvolutionCard title="Evolução mensal" items={graficoMensal} color="#0f172a" />
+            <MonthlyEvolutionCard
+              title="Evolução mensal"
+              items={graficoMensal}
+              color="#0f172a"
+            />
 
             <HorizontalBars
               title="Distribuição por prioridade"
@@ -1179,7 +1252,10 @@ export default function RelatoriosPage() {
               color="#0f766e"
             />
 
-            <MonthlyOpenClosedCard title="Abertas vs concluídas por mês" items={graficoMensal} />
+            <MonthlyOpenClosedCard
+              title="Abertas vs concluídas por mês"
+              items={graficoMensal}
+            />
           </div>
 
           <div style={styles.sectionHeader}>
