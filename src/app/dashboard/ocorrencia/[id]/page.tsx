@@ -37,6 +37,14 @@ type Occurrence = {
   satisfaction_submitted_at?: string | null
   satisfaction_score?: number | null
   satisfaction_comment?: string | null
+  assigned_gestor?: string | null
+  assigned_gestor_email?: string | null
+  assigned_gestor_at?: string | null
+  assigned_tecnico?: string | null
+  assigned_tecnico_email?: string | null
+  assigned_tecnico_at?: string | null
+  forwarded_by?: string | null
+  forwarded_by_email?: string | null
   units: UnitRelation
 }
 
@@ -52,6 +60,14 @@ type HistoryItem = {
 
 type ProfileData = {
   role: string | null
+}
+
+type UserOption = {
+  id: string
+  nome: string | null
+  email: string | null
+  role: string | null
+  ativo: boolean | null
 }
 
 type EstadoValue = (typeof ESTADOS)[number]
@@ -224,6 +240,11 @@ function getImpactoBadgeStyle(impacto: string | null) {
 
 function isEstadoValue(value: string | null): value is EstadoValue {
   return !!value && (ESTADOS as readonly string[]).includes(value)
+}
+
+function getUserDisplayName(item: UserOption | null | undefined) {
+  if (!item) return '-'
+  return item.nome || item.email || '-'
 }
 
 const styles = {
@@ -512,6 +533,17 @@ export default function EditOccurrencePage() {
   const [satisfactionScore, setSatisfactionScore] = useState<number | null>(null)
   const [satisfactionComment, setSatisfactionComment] = useState<string | null>(null)
 
+  const [assignedGestorId, setAssignedGestorId] = useState('')
+  const [assignedGestorEmail, setAssignedGestorEmail] = useState<string | null>(null)
+  const [assignedGestorAt, setAssignedGestorAt] = useState<string | null>(null)
+
+  const [assignedTecnicoId, setAssignedTecnicoId] = useState('')
+  const [assignedTecnicoEmail, setAssignedTecnicoEmail] = useState<string | null>(null)
+  const [assignedTecnicoAt, setAssignedTecnicoAt] = useState<string | null>(null)
+
+  const [gestores, setGestores] = useState<UserOption[]>([])
+  const [tecnicos, setTecnicos] = useState<UserOption[]>([])
+
   const [originalEstado, setOriginalEstado] = useState<string | null>(null)
   const [originalDataEstado, setOriginalDataEstado] = useState<string | null>(null)
   const [originalDataReporte, setOriginalDataReporte] = useState<string | null>(null)
@@ -519,6 +551,35 @@ export default function EditOccurrencePage() {
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [currentRole, setCurrentRole] = useState<string>('user')
+
+  const selectedGestor = useMemo(
+    () => gestores.find((item) => item.id === assignedGestorId) || null,
+    [gestores, assignedGestorId]
+  )
+
+  const selectedTecnico = useMemo(
+    () => tecnicos.find((item) => item.id === assignedTecnicoId) || null,
+    [tecnicos, assignedTecnicoId]
+  )
+
+  async function loadAssignableUsers() {
+    const { data: gestoresData } = await supabase
+      .from('profiles')
+      .select('id, nome, email, role, ativo')
+      .eq('role', 'gestor')
+      .eq('ativo', true)
+      .order('nome', { ascending: true })
+
+    const { data: tecnicosData } = await supabase
+      .from('profiles')
+      .select('id, nome, email, role, ativo')
+      .eq('role', 'tecnico')
+      .eq('ativo', true)
+      .order('nome', { ascending: true })
+
+    setGestores((gestoresData || []) as UserOption[])
+    setTecnicos((tecnicosData || []) as UserOption[])
+  }
 
   async function loadHistory() {
     const { data } = await supabase
@@ -584,6 +645,14 @@ export default function EditOccurrencePage() {
         satisfaction_submitted_at,
         satisfaction_score,
         satisfaction_comment,
+        assigned_gestor,
+        assigned_gestor_email,
+        assigned_gestor_at,
+        assigned_tecnico,
+        assigned_tecnico_email,
+        assigned_tecnico_at,
+        forwarded_by,
+        forwarded_by_email,
         units (
           nome
         )
@@ -603,12 +672,15 @@ export default function EditOccurrencePage() {
 
     const canOpen =
       roleAtual === 'admin' ||
-      roleAtual === 'gestor' ||
-      roleAtual === 'tecnico' ||
+      roleAtual === 'consulta' ||
+      (roleAtual === 'gestor' &&
+        (item.assigned_gestor === user.id || item.created_by === user.id)) ||
+      (roleAtual === 'tecnico' &&
+        (item.assigned_tecnico === user.id || item.created_by === user.id)) ||
       (roleAtual === 'user' && item.created_by === user.id)
 
     if (!canOpen) {
-      setErrorMessage('Não tens permissão para editar esta ocorrência.')
+      setErrorMessage('Não tens permissão para consultar esta ocorrência.')
       setLoading(false)
       return
     }
@@ -632,6 +704,14 @@ export default function EditOccurrencePage() {
     setSatisfactionScore(item.satisfaction_score ?? null)
     setSatisfactionComment(item.satisfaction_comment || null)
 
+    setAssignedGestorId(item.assigned_gestor || '')
+    setAssignedGestorEmail(item.assigned_gestor_email || null)
+    setAssignedGestorAt(item.assigned_gestor_at || null)
+
+    setAssignedTecnicoId(item.assigned_tecnico || '')
+    setAssignedTecnicoEmail(item.assigned_tecnico_email || null)
+    setAssignedTecnicoAt(item.assigned_tecnico_at || null)
+
     setOriginalEstado(item.estado)
     setOriginalDataEstado(item.data_estado)
     setOriginalDataReporte(item.data_reporte)
@@ -648,6 +728,7 @@ export default function EditOccurrencePage() {
       }
     }
 
+    await loadAssignableUsers()
     await loadHistory()
     setLoading(false)
   }
@@ -659,12 +740,14 @@ export default function EditOccurrencePage() {
   }, [id])
 
   const canEdit = useMemo(() => {
-    if (
-      currentRole === 'admin' ||
-      currentRole === 'gestor' ||
-      currentRole === 'tecnico'
-    ) {
-      return true
+    if (currentRole === 'admin') return true
+
+    if (currentRole === 'gestor' && currentUserId) {
+      return assignedGestorId === currentUserId || createdBy === currentUserId
+    }
+
+    if (currentRole === 'tecnico' && currentUserId) {
+      return assignedTecnicoId === currentUserId || createdBy === currentUserId
     }
 
     if (currentRole === 'user' && currentUserId && createdBy === currentUserId) {
@@ -672,12 +755,17 @@ export default function EditOccurrencePage() {
     }
 
     return false
-  }, [currentRole, currentUserId, createdBy])
+  }, [currentRole, currentUserId, createdBy, assignedGestorId, assignedTecnicoId])
 
   const canSeeAudit =
     currentRole === 'admin' ||
     currentRole === 'gestor' ||
-    currentRole === 'tecnico'
+    currentRole === 'tecnico' ||
+    currentRole === 'consulta'
+
+  const canForwardToGestor = currentRole === 'admin'
+  const canForwardToTecnico =
+    currentRole === 'gestor' && currentUserId != null && assignedGestorId === currentUserId
 
   const foraPrazoAtual = useMemo(() => {
     return isForaPrazo({
@@ -733,7 +821,7 @@ export default function EditOccurrencePage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
 
-    if (!canEdit) {
+    if (!canEdit && !canForwardToGestor && !canForwardToTecnico) {
       setErrorMessage('Não tens permissão para editar esta ocorrência.')
       return
     }
@@ -760,15 +848,51 @@ export default function EditOccurrencePage() {
       dataEncerramentoIso = null
     }
 
+    const nowIso = new Date().toISOString()
+
+    const nextAssignedGestorEmail =
+      assignedGestorId && selectedGestor ? selectedGestor.email || null : null
+
+    const nextAssignedTecnicoEmail =
+      assignedTecnicoId && selectedTecnico ? selectedTecnico.email || null : null
+
+    const currentGestorChanged = assignedGestorId !== ((assignedGestorId && assignedGestorId) || '')
+    const currentTecnicoChanged =
+      assignedTecnicoId !== ((assignedTecnicoId && assignedTecnicoId) || '')
+
+    const updatePayload: Record<string, any> = {
+      estado,
+      data_estado: dataEstadoIso,
+      data_encerramento: dataEncerramentoIso,
+      observacoes: observacoes.trim() || null,
+      updated_by_email: user?.email || updatedByEmail || null,
+    }
+
+    if (canForwardToGestor) {
+      updatePayload.assigned_gestor = assignedGestorId || null
+      updatePayload.assigned_gestor_email = nextAssignedGestorEmail
+      updatePayload.assigned_gestor_at = assignedGestorId ? nowIso : null
+      updatePayload.forwarded_by = user?.id || null
+      updatePayload.forwarded_by_email = user?.email || null
+
+      if (!assignedGestorId) {
+        updatePayload.assigned_tecnico = null
+        updatePayload.assigned_tecnico_email = null
+        updatePayload.assigned_tecnico_at = null
+      }
+    }
+
+    if (canForwardToTecnico) {
+      updatePayload.assigned_tecnico = assignedTecnicoId || null
+      updatePayload.assigned_tecnico_email = nextAssignedTecnicoEmail
+      updatePayload.assigned_tecnico_at = assignedTecnicoId ? nowIso : null
+      updatePayload.forwarded_by = user?.id || null
+      updatePayload.forwarded_by_email = user?.email || null
+    }
+
     const { error: updateError } = await supabase
       .from('occurrences')
-      .update({
-        estado,
-        data_estado: dataEstadoIso,
-        data_encerramento: dataEncerramentoIso,
-        observacoes: observacoes.trim() || null,
-        updated_by_email: user?.email || updatedByEmail || null,
-      })
+      .update(updatePayload)
       .eq('id', id)
 
     if (updateError) {
@@ -825,7 +949,7 @@ export default function EditOccurrencePage() {
     <div style={styles.page}>
       <DashboardTopbar
         title="Editar Ocorrência"
-        subtitle="Consulta os dados, atualiza o estado e regista observações da intervenção."
+        subtitle="Consulta os dados, atualiza o estado, regista observações e faz o encaminhamento."
         actions={[
           {
             label: 'Voltar ao dashboard',
@@ -842,8 +966,8 @@ export default function EditOccurrencePage() {
 
       {loading ? (
         <div style={styles.card}>A carregar...</div>
-      ) : !canEdit ? (
-        <div style={styles.card}>Não tens permissão para editar esta ocorrência.</div>
+      ) : !canEdit && !canForwardToGestor && !canForwardToTecnico ? (
+        <div style={styles.card}>Não tens permissão para consultar esta ocorrência.</div>
       ) : (
         <>
           <div style={styles.topSummaryGrid}>
@@ -893,8 +1017,7 @@ export default function EditOccurrencePage() {
             <div style={styles.card}>
               <h2 style={styles.sectionTitle}>Dados da ocorrência</h2>
               <div style={styles.sectionSubTitle}>
-                Os dados base ficam visíveis e o estado pode ser atualizado conforme a
-                evolução.
+                Os dados base ficam visíveis e o estado pode ser atualizado conforme a evolução.
               </div>
 
               <div style={styles.grid}>
@@ -957,6 +1080,7 @@ export default function EditOccurrencePage() {
                     style={styles.input}
                     value={estado}
                     onChange={(e) => setEstado(e.target.value)}
+                    disabled={!canEdit}
                   >
                     {estadosDisponiveis.map((item) => (
                       <option key={item} value={item}>
@@ -983,6 +1107,7 @@ export default function EditOccurrencePage() {
                     style={styles.input}
                     value={dataEstado}
                     onChange={(e) => setDataEstado(e.target.value)}
+                    disabled={!canEdit}
                   />
                 </div>
 
@@ -993,6 +1118,7 @@ export default function EditOccurrencePage() {
                     style={styles.input}
                     value={dataEncerramento}
                     onChange={(e) => setDataEncerramento(e.target.value)}
+                    disabled={!canEdit}
                   />
                 </div>
 
@@ -1040,17 +1166,94 @@ export default function EditOccurrencePage() {
                     </div>
                   </>
                 )}
+              </div>
+            </div>
 
+            <div style={styles.card}>
+              <h2 style={styles.sectionTitle}>Encaminhamento</h2>
+              <div style={styles.sectionSubTitle}>
+                O administrador encaminha para gestor. O gestor encaminha para técnico.
+              </div>
+
+              <div style={styles.grid}>
+                <div style={styles.field}>
+                  <label style={styles.label}>Gestor atribuído</label>
+                  <select
+                    style={styles.input}
+                    value={assignedGestorId}
+                    onChange={(e) => setAssignedGestorId(e.target.value)}
+                    disabled={!canForwardToGestor}
+                  >
+                    <option value="">Sem gestor atribuído</option>
+                    {gestores.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {getUserDisplayName(item)}
+                      </option>
+                    ))}
+                  </select>
+                  <div style={styles.smallInfo}>
+                    {selectedGestor
+                      ? `${getUserDisplayName(selectedGestor)}${selectedGestor.email ? ` • ${selectedGestor.email}` : ''}`
+                      : assignedGestorEmail || 'Sem encaminhamento para gestor'}
+                  </div>
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Data encaminhamento gestor</label>
+                  <input
+                    style={{ ...styles.input, ...styles.readOnly }}
+                    value={formatDateTime(assignedGestorAt)}
+                    readOnly
+                  />
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Técnico atribuído</label>
+                  <select
+                    style={styles.input}
+                    value={assignedTecnicoId}
+                    onChange={(e) => setAssignedTecnicoId(e.target.value)}
+                    disabled={!canForwardToTecnico}
+                  >
+                    <option value="">Sem técnico atribuído</option>
+                    {tecnicos.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {getUserDisplayName(item)}
+                      </option>
+                    ))}
+                  </select>
+                  <div style={styles.smallInfo}>
+                    {selectedTecnico
+                      ? `${getUserDisplayName(selectedTecnico)}${selectedTecnico.email ? ` • ${selectedTecnico.email}` : ''}`
+                      : assignedTecnicoEmail || 'Sem encaminhamento para técnico'}
+                  </div>
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Data encaminhamento técnico</label>
+                  <input
+                    style={{ ...styles.input, ...styles.readOnly }}
+                    value={formatDateTime(assignedTecnicoAt)}
+                    readOnly
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.card}>
+              <h2 style={styles.sectionTitle}>Observações e validação</h2>
+
+              <div style={styles.grid}>
                 <div style={styles.fieldFull}>
                   <label style={styles.label}>Observações</label>
                   <textarea
                     style={styles.textarea}
                     value={observacoes}
                     onChange={(e) => setObservacoes(e.target.value)}
+                    disabled={!canEdit}
                   />
                   <div style={styles.smallInfo}>
-                    Sempre que mudares o estado e guardares, a alteração ficará
-                    registada no histórico.
+                    Sempre que mudares o estado e guardares, a alteração ficará registada no histórico.
                   </div>
                 </div>
 
@@ -1066,8 +1269,7 @@ export default function EditOccurrencePage() {
 
                     {satisfactionRequestedAt && !satisfactionSubmittedAt ? (
                       <div style={styles.smallInfo}>
-                        Pedido enviado em {formatDateTime(satisfactionRequestedAt)}. Ainda
-                        sem resposta.
+                        Pedido enviado em {formatDateTime(satisfactionRequestedAt)}. Ainda sem resposta.
                       </div>
                     ) : null}
 
