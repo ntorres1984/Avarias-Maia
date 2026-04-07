@@ -30,6 +30,7 @@ type Occurrence = {
   fora_sla: boolean | null
   sla_dias: number | null
   created_by: string | null
+  foto_url: string | null
   units: UnitRelation
 }
 
@@ -262,7 +263,7 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
-    minWidth: '1200px',
+    minWidth: '1350px',
   },
 
   th: {
@@ -324,6 +325,26 @@ const styles = {
     borderRadius: '10px',
     padding: '12px 14px',
     marginBottom: '16px',
+  } as const,
+
+  imageThumb: {
+    width: '72px',
+    height: '72px',
+    borderRadius: '10px',
+    border: '1px solid #cbd5e1',
+    objectFit: 'cover' as const,
+    display: 'block',
+    backgroundColor: '#f8fafc',
+  } as const,
+
+  imageLink: {
+    display: 'inline-block',
+    textDecoration: 'none',
+  } as const,
+
+  noImage: {
+    color: '#94a3b8',
+    fontSize: '12px',
   } as const,
 }
 
@@ -411,6 +432,7 @@ export default function DashboardPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [profile, setProfile] = useState<Profile | null>(null)
   const [role, setRole] = useState<string>('user')
+  const [fotoUrls, setFotoUrls] = useState<Record<string, string>>({})
 
   const [filtroUnidade, setFiltroUnidade] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('')
@@ -423,6 +445,28 @@ export default function DashboardPage() {
   const canSeeReports = role === 'admin' || role === 'gestor' || role === 'tecnico'
   const canManageUsers = role === 'admin' || role === 'gestor'
   const canDelete = role === 'admin' || role === 'gestor'
+
+  async function loadSignedUrls(lista: Occurrence[]) {
+    const nextMap: Record<string, string> = {}
+
+    const itemsWithPhoto = lista.filter((item) => !!item.foto_url)
+
+    await Promise.all(
+      itemsWithPhoto.map(async (item) => {
+        if (!item.foto_url) return
+
+        const { data, error } = await supabase.storage
+          .from('ocorrencias')
+          .createSignedUrl(item.foto_url, 3600)
+
+        if (!error && data?.signedUrl) {
+          nextMap[item.id] = data.signedUrl
+        }
+      })
+    )
+
+    setFotoUrls(nextMap)
+  }
 
   async function loadOccurrences() {
     setLoading(true)
@@ -477,6 +521,7 @@ export default function DashboardPage() {
         fora_sla,
         sla_dias,
         created_by,
+        foto_url,
         units (
           nome
         )
@@ -490,7 +535,9 @@ export default function DashboardPage() {
       return
     }
 
-    setRows((data || []) as Occurrence[])
+    const lista = (data || []) as Occurrence[]
+    setRows(lista)
+    await loadSignedUrls(lista)
     setLoading(false)
   }
 
@@ -524,7 +571,7 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    loadOccurrences()
+    void loadOccurrences()
   }, [])
 
   const total = rows.length
@@ -576,7 +623,9 @@ export default function DashboardPage() {
       return acc + (fim - inicio)
     }, 0)
 
-    return Math.round(totalMs / resolvidasValidas.length / (1000 * 60 * 60 * 24))
+    return Math.round(
+      totalMs / resolvidasValidas.length / (1000 * 60 * 60 * 24)
+    )
   })()
 
   const listaDashboard = rows.filter(
@@ -840,6 +889,7 @@ export default function DashboardPage() {
 
         <div style={styles.filterButtonWrap}>
           <button
+            type="button"
             style={styles.btn}
             onClick={() => {
               setFiltroUnidade('')
@@ -862,6 +912,7 @@ export default function DashboardPage() {
           <table style={styles.table}>
             <thead>
               <tr>
+                <th style={styles.th}>Imagem</th>
                 <th style={styles.th}>Ocorrência</th>
                 <th style={styles.th}>Unidade</th>
                 <th style={styles.th}>Categoria</th>
@@ -878,19 +929,39 @@ export default function DashboardPage() {
             <tbody>
               {listaFiltrada.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={styles.empty}>
+                  <td colSpan={11} style={styles.empty}>
                     Sem ocorrências em aberto para os filtros escolhidos
                   </td>
                 </tr>
               ) : (
                 listaFiltrada.map((item) => {
                   const foraPrazoAtual = getForaPrazoValue(item)
+                  const fotoSignedUrl = fotoUrls[item.id]
 
                   return (
                     <tr
                       key={item.id}
                       style={foraPrazoAtual ? { backgroundColor: '#fef2f2' } : undefined}
                     >
+                      <td style={styles.td}>
+                        {fotoSignedUrl ? (
+                          <a
+                            href={fotoSignedUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={styles.imageLink}
+                          >
+                            <img
+                              src={fotoSignedUrl}
+                              alt={item.ocorrencia || 'Imagem da ocorrência'}
+                              style={styles.imageThumb}
+                            />
+                          </a>
+                        ) : (
+                          <span style={styles.noImage}>Sem imagem</span>
+                        )}
+                      </td>
+
                       <td style={styles.td}>{item.ocorrencia || '-'}</td>
 
                       <td style={styles.td}>
