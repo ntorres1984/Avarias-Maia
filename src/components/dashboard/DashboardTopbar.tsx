@@ -229,6 +229,11 @@ export default function DashboardTopbar({
   avatarUrl,
 }: Props) {
   const initials = getInitials(userName, userEmail)
+  const shouldShowUserBox = Boolean(
+    (userName && userName.trim()) ||
+      (userEmail && userEmail.trim()) ||
+      (avatarUrl && avatarUrl.trim())
+  )
 
   return (
     <div style={styles.wrapper}>
@@ -251,24 +256,26 @@ export default function DashboardTopbar({
       </div>
 
       <div style={styles.actions}>
-        <div style={styles.userBox}>
-          <div style={styles.avatar}>
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={userName || userEmail || 'Utilizador'}
-                style={styles.avatarImage}
-              />
-            ) : (
-              <span style={styles.avatarFallback}>{initials}</span>
-            )}
-          </div>
+        {shouldShowUserBox ? (
+          <div style={styles.userBox}>
+            <div style={styles.avatar}>
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={userName || userEmail || 'Utilizador'}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <span style={styles.avatarFallback}>{initials}</span>
+              )}
+            </div>
 
-          <div style={styles.userText}>
-            <span style={styles.userName}>{userName || 'Utilizador'}</span>
-            <span style={styles.userEmail}>{userEmail || ''}</span>
+            <div style={styles.userText}>
+              <span style={styles.userName}>{userName || 'Utilizador'}</span>
+              <span style={styles.userEmail}>{userEmail || ''}</span>
+            </div>
           </div>
-        </div>
+        ) : null}
 
         {actions.map((action, index) => {
           const buttonStyle = getButtonStyle(action.variant, action.disabled)
