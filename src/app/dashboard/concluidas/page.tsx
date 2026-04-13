@@ -32,6 +32,7 @@ type Occurrence = {
   created_by: string | null
   assigned_gestor?: string | null
   assigned_tecnico?: string | null
+  foto_url?: string | null
   units: UnitRelation
 }
 
@@ -43,17 +44,37 @@ type Profile = {
   ativo?: boolean | null
 }
 
+function parseDateSafe(dateString: string) {
+  if (!dateString) return null
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+    const date = new Date(dateString)
+    if (!Number.isNaN(date.getTime())) return date
+  }
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
+    const [day, month, year] = dateString.split('/')
+    const date = new Date(Number(year), Number(month) - 1, Number(day))
+    if (!Number.isNaN(date.getTime())) return date
+  }
+
+  const fallback = new Date(dateString)
+  if (!Number.isNaN(fallback.getTime())) return fallback
+
+  return null
+}
+
 function formatDate(dateString: string | null) {
   if (!dateString) return '-'
-  const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return '-'
+  const date = parseDateSafe(dateString)
+  if (!date) return '-'
   return date.toLocaleDateString('pt-PT')
 }
 
 function formatDateTime(dateString: string | null) {
   if (!dateString) return '-'
-  const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return '-'
+  const date = parseDateSafe(dateString)
+  if (!date) return '-'
   return date.toLocaleString('pt-PT')
 }
 
@@ -220,7 +241,7 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
-    minWidth: '1200px',
+    minWidth: '1300px',
   },
 
   th: {
@@ -274,6 +295,28 @@ const styles = {
     fontWeight: 600,
     fontSize: '13px',
   } as const,
+
+  imageThumb: {
+    width: '74px',
+    height: '74px',
+    objectFit: 'cover' as const,
+    borderRadius: '10px',
+    border: '1px solid #cbd5e1',
+    display: 'block',
+  } as const,
+
+  noImage: {
+    width: '74px',
+    height: '74px',
+    borderRadius: '10px',
+    border: '1px dashed #cbd5e1',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#94a3b8',
+    fontSize: '12px',
+    backgroundColor: '#f8fafc',
+  } as const,
 }
 
 export default function ConcluidasPage() {
@@ -285,6 +328,7 @@ export default function ConcluidasPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [profile, setProfile] = useState<Profile | null>(null)
   const [role, setRole] = useState<string>('user')
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
 
   const [filtroUnidade, setFiltroUnidade] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('')
@@ -292,6 +336,39 @@ export default function ConcluidasPage() {
   const [search, setSearch] = useState('')
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
+
+  async function buildSignedPhotoUrls(items: Occurrence[]) {
+    const withPhoto = items.filter((item) => item.foto_url)
+
+    if (withPhoto.length === 0) {
+      setPhotoUrls({})
+      return
+    }
+
+    const entries = await Promise.all(
+      withPhoto.map(async (item) => {
+        const path = item.foto_url as string
+
+        const { data, error } = await supabase.storage
+          .from('ocorrencias')
+          .createSignedUrl(path, 3600)
+
+        if (error || !data?.signedUrl) {
+          console.error(`Erro ao gerar signed URL para ocorrência ${item.id}:`, error)
+          return [item.id, ''] as const
+        }
+
+        return [item.id, data.signedUrl] as const
+      })
+    )
+
+    const nextMap: Record<string, string> = {}
+    entries.forEach(([id, url]) => {
+      if (url) nextMap[id] = url
+    })
+
+    setPhotoUrls(nextMap)
+  }
 
   async function loadConcluidas() {
     setLoading(true)
@@ -348,6 +425,7 @@ export default function ConcluidasPage() {
         created_by,
         assigned_gestor,
         assigned_tecnico,
+        foto_url,
         units (
           nome
         )
@@ -378,7 +456,9 @@ export default function ConcluidasPage() {
       return
     }
 
-    setRows((data || []) as Occurrence[])
+    const occurrences = (data || []) as Occurrence[]
+    setRows(occurrences)
+    await buildSignedPhotoUrls(occurrences)
     setLoading(false)
   }
 
@@ -430,10 +510,10 @@ export default function ConcluidasPage() {
         !search.trim() || textoPesquisa.includes(search.trim().toLowerCase())
 
       const dataItem = item.data_encerramento
-        ? new Date(item.data_encerramento)
+        ? parseDateSafe(item.data_encerramento)
         : item.data_reporte
-        ? new Date(item.data_reporte)
-        : null
+          ? parseDateSafe(item.data_reporte)
+          : null
 
       const dataItemTime =
         dataItem && !Number.isNaN(dataItem.getTime()) ? dataItem.getTime() : null
@@ -580,6 +660,7 @@ export default function ConcluidasPage() {
           <table style={styles.table}>
             <thead>
               <tr>
+                <th style={styles.th}>Foto</th>
                 <th style={styles.th}>Ocorrência</th>
                 <th style={styles.th}>Unidade</th>
                 <th style={styles.th}>Categoria</th>
@@ -596,39 +677,57 @@ export default function ConcluidasPage() {
             <tbody>
               {listaFiltrada.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={styles.empty}>
+                  <td colSpan={11} style={styles.empty}>
                     Sem ocorrências concluídas para os filtros escolhidos
                   </td>
                 </tr>
               ) : (
-                listaFiltrada.map((item) => (
-                  <tr key={item.id}>
-                    <td style={styles.td}>{item.ocorrencia || '-'}</td>
-                    <td style={styles.td}>
-                      {getUnitName(item.units, item.local_ocorrencia)}
-                    </td>
-                    <td style={styles.td}>{item.categoria || 'Sem categoria'}</td>
-                    <td style={styles.td}>
-                      <span style={{ ...styles.badge, ...getPrioridadeBadgeStyle(item.prioridade) }}>
-                        {item.prioridade || '-'}
-                      </span>
-                    </td>
-                    <td style={styles.td}>{item.impacto || '-'}</td>
-                    <td style={styles.td}>
-                      <span style={{ ...styles.badge, ...getEstadoBadgeStyle(item.estado) }}>
-                        {item.estado || '-'}
-                      </span>
-                    </td>
-                    <td style={styles.td}>{formatDate(item.data_reporte)}</td>
-                    <td style={styles.td}>{formatDateTime(item.data_encerramento)}</td>
-                    <td style={{ ...styles.td, ...styles.obsCell }}>{item.observacoes || '-'}</td>
-                    <td style={styles.td}>
-                      <Link href={`/dashboard/ocorrencia/${item.id}`} style={styles.editBtn}>
-                        {role === 'consulta' ? 'Consultar' : 'Ver'}
-                      </Link>
-                    </td>
-                  </tr>
-                ))
+                listaFiltrada.map((item) => {
+                  const signedPhotoUrl = photoUrls[item.id]
+
+                  return (
+                    <tr key={item.id}>
+                      <td style={styles.td}>
+                        {signedPhotoUrl ? (
+                          <a href={signedPhotoUrl} target="_blank" rel="noreferrer">
+                            <img
+                              src={signedPhotoUrl}
+                              alt={item.ocorrencia || 'Fotografia da ocorrência'}
+                              style={styles.imageThumb}
+                            />
+                          </a>
+                        ) : (
+                          <div style={styles.noImage}>Sem foto</div>
+                        )}
+                      </td>
+
+                      <td style={styles.td}>{item.ocorrencia || '-'}</td>
+                      <td style={styles.td}>
+                        {getUnitName(item.units, item.local_ocorrencia)}
+                      </td>
+                      <td style={styles.td}>{item.categoria || 'Sem categoria'}</td>
+                      <td style={styles.td}>
+                        <span style={{ ...styles.badge, ...getPrioridadeBadgeStyle(item.prioridade) }}>
+                          {item.prioridade || '-'}
+                        </span>
+                      </td>
+                      <td style={styles.td}>{item.impacto || '-'}</td>
+                      <td style={styles.td}>
+                        <span style={{ ...styles.badge, ...getEstadoBadgeStyle(item.estado) }}>
+                          {item.estado || '-'}
+                        </span>
+                      </td>
+                      <td style={styles.td}>{formatDate(item.data_reporte)}</td>
+                      <td style={styles.td}>{formatDateTime(item.data_encerramento)}</td>
+                      <td style={{ ...styles.td, ...styles.obsCell }}>{item.observacoes || '-'}</td>
+                      <td style={styles.td}>
+                        <Link href={`/dashboard/ocorrencia/${item.id}`} style={styles.editBtn}>
+                          {role === 'consulta' ? 'Consultar' : 'Ver'}
+                        </Link>
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
