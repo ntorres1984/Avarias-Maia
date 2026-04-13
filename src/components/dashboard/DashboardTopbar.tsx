@@ -15,6 +15,9 @@ type Props = {
   title: string
   subtitle?: string
   actions?: Action[]
+  userName?: string
+  userEmail?: string
+  avatarUrl?: string | null
 }
 
 const styles = {
@@ -57,7 +60,61 @@ const styles = {
     display: 'flex',
     gap: '12px',
     flexWrap: 'wrap' as const,
+    alignItems: 'center',
   },
+
+  userBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    marginRight: '8px',
+    padding: '6px 10px',
+    borderRadius: '999px',
+    backgroundColor: '#ffffff',
+    border: '1px solid #e2e8f0',
+  } as const,
+
+  avatar: {
+    width: '42px',
+    height: '42px',
+    borderRadius: '999px',
+    overflow: 'hidden',
+    backgroundColor: '#e2e8f0',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0 as const,
+    border: '1px solid #cbd5e1',
+  } as const,
+
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover' as const,
+  },
+
+  avatarFallback: {
+    fontSize: '14px',
+    fontWeight: 700,
+    color: '#334155',
+  } as const,
+
+  userText: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    lineHeight: 1.2,
+  } as const,
+
+  userName: {
+    fontSize: '14px',
+    fontWeight: 700,
+    color: '#0f172a',
+  } as const,
+
+  userEmail: {
+    fontSize: '12px',
+    color: '#64748b',
+  } as const,
 
   baseButton: {
     display: 'inline-flex',
@@ -143,11 +200,36 @@ function getButtonStyle(variant: Action['variant'], disabled?: boolean) {
   }
 }
 
+function getInitials(name?: string, email?: string) {
+  const source = (name || email || '').trim()
+
+  if (!source) return '?'
+
+  if (name && name.trim()) {
+    const parts = name
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+
+    const first = parts[0]?.[0] || ''
+    const second = parts[1]?.[0] || ''
+
+    return `${first}${second}`.toUpperCase()
+  }
+
+  return source.slice(0, 2).toUpperCase()
+}
+
 export default function DashboardTopbar({
   title,
   subtitle,
   actions = [],
+  userName,
+  userEmail,
+  avatarUrl,
 }: Props) {
+  const initials = getInitials(userName, userEmail)
+
   return (
     <div style={styles.wrapper}>
       <div style={styles.left}>
@@ -169,6 +251,25 @@ export default function DashboardTopbar({
       </div>
 
       <div style={styles.actions}>
+        <div style={styles.userBox}>
+          <div style={styles.avatar}>
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={userName || userEmail || 'Utilizador'}
+                style={styles.avatarImage}
+              />
+            ) : (
+              <span style={styles.avatarFallback}>{initials}</span>
+            )}
+          </div>
+
+          <div style={styles.userText}>
+            <span style={styles.userName}>{userName || 'Utilizador'}</span>
+            <span style={styles.userEmail}>{userEmail || ''}</span>
+          </div>
+        </div>
+
         {actions.map((action, index) => {
           const buttonStyle = getButtonStyle(action.variant, action.disabled)
 
