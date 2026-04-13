@@ -10,16 +10,16 @@ export async function POST(req: Request) {
     const {
       to,
       subject,
-      message,
-      occurrenceId,
+      html,
+      text,
     }: {
       to: string
       subject: string
-      message: string
-      occurrenceId?: string
+      html?: string
+      text?: string
     } = body
 
-    if (!to || !subject || !message) {
+    if (!to || !subject || (!html && !text)) {
       return NextResponse.json(
         { error: 'Dados incompletos.' },
         { status: 400 }
@@ -40,39 +40,15 @@ export async function POST(req: Request) {
       )
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-    const occurrenceUrl =
-      occurrenceId && baseUrl
-        ? `${baseUrl}/dashboard/ocorrencia/${occurrenceId}`
-        : ''
-
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from: process.env.EMAIL_FROM,
       to,
       subject,
-      html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #0f172a;">
-          <h2 style="margin-bottom: 16px;">${subject}</h2>
-          <p>${message}</p>
-          ${
-            occurrenceUrl
-              ? `
-                <p style="margin-top: 20px;">
-                  <a
-                    href="${occurrenceUrl}"
-                    style="display:inline-block;padding:10px 16px;background:#0f172a;color:#ffffff;text-decoration:none;border-radius:10px;font-weight:600;"
-                  >
-                    Abrir ocorrência
-                  </a>
-                </p>
-              `
-              : ''
-          }
-        </div>
-      `,
+      html,
+      text,
     })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, result })
   } catch (error: any) {
     console.error('Erro ao enviar email:', error)
 
