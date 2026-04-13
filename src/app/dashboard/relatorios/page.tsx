@@ -86,8 +86,68 @@ function normalizeCategoria(value: string | null) {
   return value || 'Sem categoria'
 }
 
+function parseDateSafe(dateString: string) {
+  if (!dateString) return null
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+    const date = new Date(dateString)
+    if (!Number.isNaN(date.getTime())) return date
+  }
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
+    const [day, month, year] = dateString.split('/')
+    const date = new Date(Number(year), Number(month) - 1, Number(day))
+    if (!Number.isNaN(date.getTime())) return date
+  }
+
+  const fallback = new Date(dateString)
+  if (!Number.isNaN(fallback.getTime())) return fallback
+
+  return null
+}
+
+function normalizeEstado(estado: string | null) {
+  return (estado || '').trim().toLowerCase()
+}
+
+function isClosedEstado(estado: string | null) {
+  const normalized = normalizeEstado(estado)
+  return (
+    normalized === 'concluída' ||
+    normalized === 'concluida' ||
+    normalized === 'encerrada' ||
+    normalized === 'resolvida'
+  )
+}
+
+function isOpenEstado(estado: string | null) {
+  return !isClosedEstado(estado)
+}
+
 function getForaPrazoValue(item: Occurrence) {
-  return item.fora_sla === true
+  if (!item.data_reporte || item.sla_dias == null) return false
+  if (isClosedEstado(item.estado)) return false
+
+  const dataReporte = parseDateSafe(item.data_reporte)
+  if (!dataReporte) return false
+
+  const inicio = new Date(dataReporte)
+  inicio.setHours(0, 0, 0, 0)
+
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+
+  const prazoFinal = new Date(inicio)
+  prazoFinal.setDate(prazoFinal.getDate() + item.sla_dias)
+
+  return hoje > prazoFinal
+}
+
+function getDentroPrazoValue(item: Occurrence) {
+  if (!item.data_reporte || item.sla_dias == null) return false
+  if (isClosedEstado(item.estado)) return false
+
+  return !getForaPrazoValue(item)
 }
 
 function percent(value: number, total: number) {
@@ -97,44 +157,42 @@ function percent(value: number, total: number) {
 
 function formatDate(dateString: string | null) {
   if (!dateString) return '-'
-  const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return '-'
+  const date = parseDateSafe(dateString)
+  if (!date) return '-'
   return date.toLocaleDateString('pt-PT')
 }
 
 function calcResolutionDays(item: Occurrence) {
   if (!item.data_reporte || !item.data_encerramento) return null
 
-  const inicio = new Date(item.data_reporte).getTime()
-  const fim = new Date(item.data_encerramento).getTime()
+  const inicio = parseDateSafe(item.data_reporte)?.getTime()
+  const fim = parseDateSafe(item.data_encerramento)?.getTime()
 
-  if (Number.isNaN(inicio) || Number.isNaN(fim) || fim < inicio) return null
+  if (inicio == null || fim == null || Number.isNaN(inicio) || Number.isNaN(fim) || fim < inicio) {
+    return null
+  }
 
   return (fim - inicio) / (1000 * 60 * 60 * 24)
 }
 
 function calcDiasAtraso(item: Occurrence) {
   if (!item.data_reporte || item.sla_dias == null) return 0
+  if (isClosedEstado(item.estado)) return 0
 
-  const inicio = new Date(item.data_reporte).getTime()
-  if (Number.isNaN(inicio)) return 0
+  const inicio = parseDateSafe(item.data_reporte)?.getTime()
+  if (inicio == null || Number.isNaN(inicio)) return 0
 
   const prazoMs = item.sla_dias * 24 * 60 * 60 * 1000
   const limite = inicio + prazoMs
 
-  const referencia =
-    item.estado === 'Concluída' || item.estado === 'Encerrada'
-      ? item.data_encerramento
-        ? new Date(item.data_encerramento).getTime()
-        : Date.now()
-      : Date.now()
-
-  if (Number.isNaN(referencia)) return 0
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+  const referencia = hoje.getTime()
 
   const atrasoMs = referencia - limite
   if (atrasoMs <= 0) return 0
 
-  return Math.round(atrasoMs / (1000 * 60 * 60 * 24))
+  return Math.ceil(atrasoMs / (1000 * 60 * 60 * 24))
 }
 
 function exportUnitsCSV(lista: UnitSummary[]) {
@@ -965,12 +1023,10 @@ export default function RelatoriosPage() {
     (o) => o.estado === 'Concluída' || o.estado === 'Encerrada'
   ).length
 
-  const totalAbertas = rows.filter(
-    (o) => o.estado === 'Em aberto' || o.estado === 'Em análise' || o.estado === 'Em execução'
-  ).length
+  const totalAbertas = rows.filter((o) => isOpenEstado(o.estado)).length
 
   const totalForaPrazo = rows.filter((o) => getForaPrazoValue(o)).length
-  const totalDentroPrazo = total - totalForaPrazo
+  const totalDentroPrazo = rows.filter((o) => getDentroPrazoValue(o)).length
 
   const avaliacoes = rows.filter(
     (item) => item.satisfaction_score != null && item.satisfaction_submitted_at
@@ -1042,8 +1098,8 @@ export default function RelatoriosPage() {
     rows.forEach((item) => {
       if (!item.data_reporte) return
 
-      const data = new Date(item.data_reporte)
-      if (Number.isNaN(data.getTime())) return
+      const data = parseDateSafe(item.data_reporte)
+      if (!data) return
 
       const chave = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`
       const target = mesesBase.find((m) => m.chave === chave)
@@ -1051,11 +1107,7 @@ export default function RelatoriosPage() {
 
       target.total += 1
 
-      if (
-        item.estado === 'Em aberto' ||
-        item.estado === 'Em análise' ||
-        item.estado === 'Em execução'
-      ) {
+      if (isOpenEstado(item.estado)) {
         target.abertas += 1
       }
 
