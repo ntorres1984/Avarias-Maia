@@ -40,21 +40,8 @@ type Profile = {
   role: string | null
   nome: string | null
   email: string | null
+  avatar_url?: string | null
   ativo?: boolean | null
-}
-
-function formatDate(dateString: string | null) {
-  if (!dateString) return '-'
-  const date = parseDateSafe(dateString)
-  if (!date) return '-'
-  return date.toLocaleDateString('pt-PT')
-}
-
-function formatDateTime(dateString: string | null) {
-  if (!dateString) return '-'
-  const date = parseDateSafe(dateString)
-  if (!date) return '-'
-  return date.toLocaleString('pt-PT')
 }
 
 function parseDateSafe(dateString: string) {
@@ -75,6 +62,20 @@ function parseDateSafe(dateString: string) {
   if (!Number.isNaN(fallback.getTime())) return fallback
 
   return null
+}
+
+function formatDate(dateString: string | null) {
+  if (!dateString) return '-'
+  const date = parseDateSafe(dateString)
+  if (!date) return '-'
+  return date.toLocaleDateString('pt-PT')
+}
+
+function formatDateTime(dateString: string | null) {
+  if (!dateString) return '-'
+  const date = parseDateSafe(dateString)
+  if (!date) return '-'
+  return date.toLocaleString('pt-PT')
 }
 
 function getUnitName(units: UnitRelation, fallback: string | null) {
@@ -496,7 +497,7 @@ export default function DashboardPage() {
 
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
-      .select('id, role, nome, email, ativo')
+      .select('id, role, nome, email, avatar_url, ativo')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -791,6 +792,9 @@ export default function DashboardPage() {
       <DashboardTopbar
         title="Dashboard"
         subtitle={`${profile?.nome || profile?.email || 'Utilizador'} • ${getRoleLabel(role)}`}
+        userName={profile?.nome || undefined}
+        userEmail={profile?.email || undefined}
+        avatarUrl={profile?.avatar_url || null}
         actions={topbarActions}
       />
 
