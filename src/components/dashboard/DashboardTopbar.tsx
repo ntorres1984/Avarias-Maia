@@ -2,7 +2,6 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
 
 type Action = {
   label: string
@@ -92,6 +91,7 @@ const styles = {
     width: '100%',
     height: '100%',
     objectFit: 'cover' as const,
+    display: 'block',
   },
 
   avatarFallback: {
@@ -229,8 +229,6 @@ export default function DashboardTopbar({
   userEmail,
   avatarUrl,
 }: Props) {
-  const [imageError, setImageError] = useState(false)
-
   const initials = getInitials(userName, userEmail)
 
   const shouldShowUserBox = Boolean(
@@ -238,11 +236,6 @@ export default function DashboardTopbar({
       (userEmail && userEmail.trim()) ||
       (avatarUrl && avatarUrl.trim())
   )
-
-  const safeAvatarUrl = useMemo(() => {
-    if (!avatarUrl || !avatarUrl.trim() || imageError) return null
-    return avatarUrl
-  }, [avatarUrl, imageError])
 
   return (
     <div style={styles.wrapper}>
@@ -268,12 +261,11 @@ export default function DashboardTopbar({
         {shouldShowUserBox ? (
           <div style={styles.userBox}>
             <div style={styles.avatar}>
-              {safeAvatarUrl ? (
+              {avatarUrl ? (
                 <img
-                  src={safeAvatarUrl}
+                  src={avatarUrl}
                   alt={userName || userEmail || 'Utilizador'}
                   style={styles.avatarImage}
-                  onError={() => setImageError(true)}
                 />
               ) : (
                 <span style={styles.avatarFallback}>{initials}</span>
