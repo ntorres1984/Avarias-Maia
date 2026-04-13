@@ -199,31 +199,6 @@ function calcDiasAtraso(item: Occurrence) {
   return Math.ceil(atrasoMs / (1000 * 60 * 60 * 24))
 }
 
-function resolveAvatarUrl(
-  profileData: Record<string, unknown> | null | undefined
-) {
-  const candidates = [
-    profileData?.avatar_url,
-    profileData?.foto_url,
-    profileData?.foto,
-    profileData?.imagem_url,
-    profileData?.imagem,
-    profileData?.image_url,
-    profileData?.profile_image,
-    profileData?.profile_image_url,
-    profileData?.photo_url,
-    profileData?.picture,
-  ]
-
-  for (const value of candidates) {
-    if (typeof value === 'string' && value.trim()) {
-      return value
-    }
-  }
-
-  return null
-}
-
 function exportUnitsCSV(lista: UnitSummary[]) {
   const headers = [
     'Unidade',
@@ -875,7 +850,6 @@ export default function RelatoriosPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [profile, setProfile] = useState<Profile | null>(null)
   const [role, setRole] = useState<string>('user')
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   async function loadOccurrences() {
     setLoading(true)
@@ -908,7 +882,6 @@ export default function RelatoriosPage() {
     const currentProfile = (profileData || null) as Profile | null
     setProfile(currentProfile)
     setRole(currentProfile?.role || 'user')
-    setAvatarUrl(resolveAvatarUrl(currentProfile))
 
     if (currentProfile?.ativo === false) {
       await supabase.auth.signOut()
@@ -1220,9 +1193,6 @@ export default function RelatoriosPage() {
       <DashboardTopbar
         title="Relatórios de gestão"
         subtitle="Visão global das ocorrências, prazos de resolução, tempos médios, satisfação e distribuição por unidade e categoria."
-        userName={profile?.nome || undefined}
-        userEmail={profile?.email || undefined}
-        avatarUrl={avatarUrl}
         actions={[
           {
             label: 'Voltar ao dashboard',
