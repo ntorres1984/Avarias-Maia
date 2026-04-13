@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
-import nodemailer from 'nodemailer'
+import { Resend } from 'resend'
+
+const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(req: Request) {
   try {
@@ -9,10 +11,12 @@ export async function POST(req: Request) {
       to,
       subject,
       message,
+      occurrenceId,
     }: {
       to: string
       subject: string
       message: string
+      occurrenceId?: string
     } = body
 
     if (!to || !subject || !message) {
@@ -22,26 +26,48 @@ export async function POST(req: Request) {
       )
     }
 
-    // Configuração SMTP (vem das variáveis do Vercel)
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT),
-      secure: false, // true se porta 465
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    })
+    if (!process.env.RESEND_API_KEY) {
+      return NextResponse.json(
+        { error: 'RESEND_API_KEY não configurada.' },
+        { status: 500 }
+      )
+    }
 
-    // Enviar email
-    await transporter.sendMail({
-      from: `"Maia Saúde" <${process.env.SMTP_USER}>`,
+    if (!process.env.EMAIL_FROM) {
+      return NextResponse.json(
+        { error: 'EMAIL_FROM não configurado.' },
+        { status: 500 }
+      )
+    }
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+    const occurrenceUrl =
+      occurrenceId && baseUrl
+        ? `${baseUrl}/dashboard/ocorrencia/${occurrenceId}`
+        : ''
+
+    await resend.emails.send({
+      from: process.env.EMAIL_FROM,
       to,
       subject,
       html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.5;">
-          <h2>${subject}</h2>
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #0f172a;">
+          <h2 style="margin-bottom: 16px;">${subject}</h2>
           <p>${message}</p>
+          ${
+            occurrenceUrl
+              ? `
+                <p style="margin-top: 20px;">
+                  <a
+                    href="${occurrenceUrl}"
+                    style="display:inline-block;padding:10px 16px;background:#0f172a;color:#ffffff;text-decoration:none;border-radius:10px;font-weight:600;"
+                  >
+                    Abrir ocorrência
+                  </a>
+                </p>
+              `
+              : ''
+          }
         </div>
       `,
     })
@@ -51,7 +77,7 @@ export async function POST(req: Request) {
     console.error('Erro ao enviar email:', error)
 
     return NextResponse.json(
-      { error: 'Erro ao enviar email.' },
+      { error: error?.message || 'Erro ao enviar email.' },
       { status: 500 }
     )
   }
