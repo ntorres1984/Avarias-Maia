@@ -856,4 +856,544 @@ export default function EditOccurrencePage() {
       if (!assignedGestorId) {
         updatePayload.assigned_tecnico = null
         updatePayload.assigned_tecnico_email = null
-        updatePayload.ass
+        updatePayload.assigned_tecnico_at = null
+      }
+    }
+
+    if (tecnicoChanged) {
+      updatePayload.assigned_tecnico = assignedTecnicoId || null
+      updatePayload.assigned_tecnico_email = nextAssignedTecnicoEmail
+      updatePayload.assigned_tecnico_at = assignedTecnicoId ? nowIso : null
+      updatePayload.forwarded_by = user?.id || null
+      updatePayload.forwarded_by_email = user?.email || null
+    }
+
+    const { error: updateError } = await supabase
+      .from('occurrences')
+      .update(updatePayload)
+      .eq('id', id)
+
+    if (updateError) {
+      setErrorMessage(updateError.message)
+      setSaving(false)
+      return
+    }
+
+    if (originalEstado !== estado) {
+      const { error: historyError } = await supabase
+        .from('occurrence_history')
+        .insert({
+          occurrence_id: id,
+          estado_anterior: originalEstado,
+          estado_novo: estado,
+          observacoes: observacoes.trim() || null,
+          user_email: user?.email || null,
+          data_alteracao: dataEstadoIso || new Date().toISOString(),
+        })
+
+      if (historyError) {
+        setErrorMessage(
+          `Ocorrência guardada, mas sem histórico: ${historyError.message}`
+        )
+        setSaving(false)
+        await loadOccurrence()
+        return
+      }
+    }
+
+    if (gestorChanged && selectedGestor?.email) {
+      try {
+        await sendEmail(
+          selectedGestor.email,
+          'Nova ocorrência atribuída',
+          `Foi-lhe atribuída a ocorrência "${ocorrencia || '-'}" da unidade "${unidade || '-'}".`
+        )
+      } catch (err: any) {
+        setErrorMessage(
+          `Ocorrência guardada, mas falhou o email para o gestor: ${
+            err?.message || 'Erro desconhecido.'
+          }`
+        )
+        setSaving(false)
+        await loadOccurrence()
+        return
+      }
+    }
+
+    if (tecnicoChanged && selectedTecnico?.email) {
+      try {
+        await sendEmail(
+          selectedTecnico.email,
+          'Nova ocorrência atribuída',
+          `Foi-lhe atribuída a ocorrência "${ocorrencia || '-'}" da unidade "${unidade || '-'}".`
+        )
+      } catch (err: any) {
+        setErrorMessage(
+          `Ocorrência guardada, mas falhou o email para o técnico: ${
+            err?.message || 'Erro desconhecido.'
+          }`
+        )
+        setSaving(false)
+        await loadOccurrence()
+        return
+      }
+    }
+
+    const becameConcluded = originalEstado !== 'Concluída' && estado === 'Concluída'
+
+    if (becameConcluded && createdByEmail && !satisfactionRequestedAt) {
+      try {
+        await sendConclusionEmail()
+      } catch (err: any) {
+        setErrorMessage(
+          `Estado guardado com sucesso, mas falhou o envio do email de avaliação: ${
+            err?.message || 'Erro desconhecido.'
+          }`
+        )
+        setSaving(false)
+        await loadOccurrence()
+        return
+      }
+    }
+
+    setSuccessMessage('Alterações guardadas com sucesso.')
+    setSaving(false)
+    await loadOccurrence()
+  }
+
+  return (
+    <div style={styles.page}>
+      <DashboardTopbar
+        title="Editar Ocorrência"
+        subtitle="Consulta os dados, atualiza o estado, regista observações e faz o encaminhamento."
+        actions={[
+          {
+            label: 'Voltar ao dashboard',
+            href: '/dashboard',
+            variant: 'default',
+          },
+        ]}
+      />
+
+      {errorMessage ? <div style={styles.messageError}>{errorMessage}</div> : null}
+      {successMessage ? <div style={styles.messageSuccess}>{successMessage}</div> : null}
+
+      {loading ? (
+        <div style={styles.card}>A carregar...</div>
+      ) : !canEdit && !canForwardToGestor && !canForwardToTecnico ? (
+        <div style={styles.card}>Não tens permissão para consultar esta ocorrência.</div>
+      ) : (
+        <>
+          <div style={styles.topSummaryGrid}>
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryLabel}>Estado atual</div>
+              <div style={styles.summaryValue}>
+                <span style={{ ...styles.badge, ...getEstadoBadgeStyle(estado) }}>
+                  {estado || '-'}
+                </span>
+              </div>
+            </div>
+
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryLabel}>Prazo de resolução</div>
+              <div style={styles.summaryValue}>
+                <span
+                  style={{
+                    ...styles.badge,
+                    backgroundColor: foraPrazoAtual ? '#dc2626' : '#16a34a',
+                    color: '#ffffff',
+                  }}
+                >
+                  {foraPrazoAtual ? 'Fora do prazo' : 'Dentro do prazo'}
+                </span>
+              </div>
+            </div>
+
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryLabel}>Data reporte</div>
+              <div style={styles.summaryValue}>{formatDate(originalDataReporte)}</div>
+            </div>
+
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryLabel}>Prazo definido</div>
+              <div style={styles.summaryValue}>
+                {slaDias == null ? '-' : `${slaDias} dias`}
+              </div>
+            </div>
+          </div>
+
+          <form onSubmit={handleSave}>
+            <div style={styles.card}>
+              <h2 style={styles.sectionTitle}>Dados da ocorrência</h2>
+              <div style={styles.sectionSubTitle}>
+                Os dados base ficam visíveis e o estado pode ser atualizado conforme a evolução.
+              </div>
+
+              <div style={styles.grid}>
+                <div style={styles.field}>
+                  <label style={styles.label}>Ocorrência</label>
+                  <input style={{ ...styles.input, ...styles.readOnly }} value={ocorrencia} readOnly />
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Unidade</label>
+                  <input style={{ ...styles.input, ...styles.readOnly }} value={unidade} readOnly />
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Categoria</label>
+                  <input style={{ ...styles.input, ...styles.readOnly }} value={categoria} readOnly />
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Prioridade</label>
+                  <div
+                    style={{
+                      ...styles.badge,
+                      ...getPrioridadeBadgeStyle(prioridade),
+                      marginTop: '8px',
+                    }}
+                  >
+                    {prioridade || '-'}
+                  </div>
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Impacto</label>
+                  <div
+                    style={{
+                      ...styles.badge,
+                      ...getImpactoBadgeStyle(impacto),
+                      marginTop: '8px',
+                    }}
+                  >
+                    {impacto || '-'}
+                  </div>
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Estado</label>
+                  <select
+                    style={styles.input}
+                    value={estado}
+                    onChange={(e) => setEstado(e.target.value)}
+                    disabled={!canEdit}
+                  >
+                    {estadosDisponiveis.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Data reporte</label>
+                  <input
+                    type="date"
+                    style={{ ...styles.input, ...styles.readOnly }}
+                    value={dataReporte}
+                    readOnly
+                  />
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Data alteração de estado</label>
+                  <input
+                    type="datetime-local"
+                    style={styles.input}
+                    value={dataEstado}
+                    onChange={(e) => setDataEstado(e.target.value)}
+                    disabled={!canEdit}
+                  />
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Data fim</label>
+                  <input
+                    type="datetime-local"
+                    style={styles.input}
+                    value={dataEncerramento}
+                    onChange={(e) => setDataEncerramento(e.target.value)}
+                    disabled={!canEdit}
+                  />
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Prazo definido</label>
+                  <input
+                    style={{ ...styles.input, ...styles.readOnly }}
+                    value={slaDias == null ? '-' : `${slaDias} dias`}
+                    readOnly
+                  />
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Situação do prazo</label>
+                  <div
+                    style={{
+                      ...styles.badge,
+                      backgroundColor: foraPrazoAtual ? '#dc2626' : '#16a34a',
+                      color: '#ffffff',
+                      marginTop: '8px',
+                    }}
+                  >
+                    {foraPrazoAtual ? 'Fora do prazo' : 'Dentro do prazo'}
+                  </div>
+                </div>
+
+                {canSeeAudit && (
+                  <>
+                    <div style={styles.field}>
+                      <label style={styles.label}>Criado por</label>
+                      <input
+                        style={{ ...styles.input, ...styles.readOnly }}
+                        value={createdByEmail || '-'}
+                        readOnly
+                      />
+                    </div>
+
+                    <div style={styles.field}>
+                      <label style={styles.label}>Última edição por</label>
+                      <input
+                        style={{ ...styles.input, ...styles.readOnly }}
+                        value={updatedByEmail || '-'}
+                        readOnly
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div style={styles.card}>
+              <h2 style={styles.sectionTitle}>Encaminhamento</h2>
+              <div style={styles.sectionSubTitle}>
+                O administrador encaminha para gestor. O gestor encaminha para técnico.
+              </div>
+
+              <div style={styles.grid}>
+                <div style={styles.field}>
+                  <label style={styles.label}>Gestor atribuído</label>
+                  <select
+                    style={styles.input}
+                    value={assignedGestorId}
+                    onChange={(e) => setAssignedGestorId(e.target.value)}
+                    disabled={!canForwardToGestor}
+                  >
+                    <option value="">Sem gestor atribuído</option>
+                    {gestores.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {getUserDisplayName(item)}
+                      </option>
+                    ))}
+                  </select>
+                  <div style={styles.smallInfo}>
+                    {selectedGestor
+                      ? `${getUserDisplayName(selectedGestor)}${selectedGestor.email ? ` • ${selectedGestor.email}` : ''}`
+                      : assignedGestorEmail || 'Sem encaminhamento para gestor'}
+                  </div>
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Data encaminhamento gestor</label>
+                  <input
+                    style={{ ...styles.input, ...styles.readOnly }}
+                    value={formatDateTime(assignedGestorAt)}
+                    readOnly
+                  />
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Técnico atribuído</label>
+                  <select
+                    style={styles.input}
+                    value={assignedTecnicoId}
+                    onChange={(e) => setAssignedTecnicoId(e.target.value)}
+                    disabled={!canForwardToTecnico}
+                  >
+                    <option value="">Sem técnico atribuído</option>
+                    {tecnicos.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {getUserDisplayName(item)}
+                      </option>
+                    ))}
+                  </select>
+                  <div style={styles.smallInfo}>
+                    {selectedTecnico
+                      ? `${getUserDisplayName(selectedTecnico)}${selectedTecnico.email ? ` • ${selectedTecnico.email}` : ''}`
+                      : assignedTecnicoEmail || 'Sem encaminhamento para técnico'}
+                  </div>
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Data encaminhamento técnico</label>
+                  <input
+                    style={{ ...styles.input, ...styles.readOnly }}
+                    value={formatDateTime(assignedTecnicoAt)}
+                    readOnly
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.card}>
+              <h2 style={styles.sectionTitle}>Observações e validação</h2>
+
+              <div style={styles.grid}>
+                <div style={styles.fieldFull}>
+                  <label style={styles.label}>Observações</label>
+                  <textarea
+                    style={styles.textarea}
+                    value={observacoes}
+                    onChange={(e) => setObservacoes(e.target.value)}
+                    disabled={!canEdit}
+                  />
+                  <div style={styles.smallInfo}>
+                    Sempre que mudares o estado e guardares, a alteração ficará registada no histórico.
+                  </div>
+                </div>
+
+                {canSeeAudit && (
+                  <div style={styles.fieldFull}>
+                    <label style={styles.label}>Avaliação de satisfação</label>
+
+                    {!satisfactionRequestedAt ? (
+                      <div style={styles.smallInfo}>Ainda não foi enviado pedido de avaliação.</div>
+                    ) : null}
+
+                    {satisfactionRequestedAt && !satisfactionSubmittedAt ? (
+                      <div style={styles.smallInfo}>
+                        Pedido enviado em {formatDateTime(satisfactionRequestedAt)}. Ainda sem resposta.
+                      </div>
+                    ) : null}
+
+                    {satisfactionSubmittedAt ? (
+                      <div style={styles.smallInfo}>
+                        Avaliação recebida em {formatDateTime(satisfactionSubmittedAt)}.
+                      </div>
+                    ) : null}
+
+                    {satisfactionScore != null ? (
+                      <div
+                        style={{
+                          ...styles.badge,
+                          backgroundColor: '#0f172a',
+                          color: '#ffffff',
+                          marginTop: '8px',
+                        }}
+                      >
+                        Pontuação: {satisfactionScore}/5
+                      </div>
+                    ) : null}
+
+                    {satisfactionComment ? (
+                      <textarea
+                        style={{ ...styles.textarea, ...styles.readOnly, marginTop: '10px' }}
+                        value={satisfactionComment}
+                        readOnly
+                      />
+                    ) : null}
+                  </div>
+                )}
+
+                {fotoUrl ? (
+                  <div style={styles.fieldFull}>
+                    <label style={styles.label}>Fotografia anexada</label>
+                    <div style={styles.imageWrap}>
+                      {fotoSignedUrl ? (
+                        <>
+                          <img
+                            src={fotoSignedUrl}
+                            alt="Fotografia da ocorrência"
+                            style={styles.imagePreview}
+                          />
+                          <a
+                            href={fotoSignedUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={styles.btnLink}
+                          >
+                            Abrir imagem
+                          </a>
+                        </>
+                      ) : (
+                        <div style={styles.smallInfo}>
+                          Não foi possível gerar acesso temporário à imagem.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div style={styles.actions}>
+                <button type="submit" style={styles.btnPrimary} disabled={saving}>
+                  {saving ? 'A guardar...' : 'Guardar alterações'}
+                </button>
+
+                <button
+                  type="button"
+                  style={styles.btnSecondary}
+                  onClick={() => router.push('/dashboard')}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <div style={styles.card}>
+            <h2 style={styles.sectionTitle}>Histórico de estados</h2>
+            <div style={styles.sectionSubTitle}>
+              Registo das alterações efetuadas nesta ocorrência.
+            </div>
+
+            <div style={styles.tableWrapper}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Data</th>
+                    <th style={styles.th}>Estado anterior</th>
+                    <th style={styles.th}>Novo estado</th>
+                    <th style={styles.th}>Utilizador</th>
+                    <th style={styles.th}>Observações</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {history.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} style={styles.empty}>
+                        Sem histórico registado.
+                      </td>
+                    </tr>
+                  ) : (
+                    history.map((item) => (
+                      <tr key={item.id}>
+                        <td style={styles.td}>{formatDateTime(item.data_alteracao)}</td>
+                        <td style={styles.td}>{item.estado_anterior || '-'}</td>
+                        <td style={styles.td}>
+                          <span
+                            style={{
+                              ...styles.badge,
+                              ...getEstadoBadgeStyle(item.estado_novo),
+                            }}
+                          >
+                            {item.estado_novo}
+                          </span>
+                        </td>
+                        <td style={styles.td}>{item.user_email || '-'}</td>
+                        <td style={styles.td}>{item.observacoes || '-'}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
