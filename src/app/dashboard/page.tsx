@@ -40,7 +40,6 @@ type Profile = {
   role: string | null
   nome: string | null
   email: string | null
-  avatar_url?: string | null
   ativo?: boolean | null
 }
 
@@ -464,6 +463,7 @@ export default function DashboardPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [profile, setProfile] = useState<Profile | null>(null)
   const [role, setRole] = useState<string>('user')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   const [filtroUnidade, setFiltroUnidade] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('')
@@ -495,9 +495,21 @@ export default function DashboardPage() {
       return
     }
 
+    const metadata = (user.user_metadata || {}) as Record<string, unknown>
+    const possibleAvatar =
+      typeof metadata.avatar_url === 'string'
+        ? metadata.avatar_url
+        : typeof metadata.picture === 'string'
+          ? metadata.picture
+          : typeof metadata.photo_url === 'string'
+            ? metadata.photo_url
+            : null
+
+    setAvatarUrl(possibleAvatar)
+
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
-      .select('id, role, nome, email, avatar_url, ativo')
+      .select('id, role, nome, email, ativo')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -794,7 +806,7 @@ export default function DashboardPage() {
         subtitle={`${profile?.nome || profile?.email || 'Utilizador'} • ${getRoleLabel(role)}`}
         userName={profile?.nome || undefined}
         userEmail={profile?.email || undefined}
-        avatarUrl={profile?.avatar_url || null}
+        avatarUrl={avatarUrl}
         actions={topbarActions}
       />
 
