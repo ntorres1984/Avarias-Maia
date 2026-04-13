@@ -41,6 +41,7 @@ type Profile = {
   nome: string | null
   email: string | null
   ativo?: boolean | null
+  [key: string]: unknown
 }
 
 function parseDateSafe(dateString: string) {
@@ -123,6 +124,46 @@ function getRoleLabel(role: string | null) {
   if (role === 'tecnico') return 'Técnico'
   if (role === 'consulta') return 'Consulta'
   return 'Utilizador'
+}
+
+function resolveAvatarUrl(
+  profileData: Record<string, unknown> | null | undefined,
+  userMetadata: Record<string, unknown> | null | undefined
+) {
+  const profileCandidates = [
+    profileData?.avatar_url,
+    profileData?.foto_url,
+    profileData?.foto,
+    profileData?.imagem_url,
+    profileData?.imagem,
+    profileData?.image_url,
+    profileData?.profile_image,
+    profileData?.profile_image_url,
+    profileData?.photo_url,
+    profileData?.picture,
+  ]
+
+  for (const value of profileCandidates) {
+    if (typeof value === 'string' && value.trim()) {
+      return value
+    }
+  }
+
+  const metadataCandidates = [
+    userMetadata?.avatar_url,
+    userMetadata?.picture,
+    userMetadata?.photo_url,
+    userMetadata?.avatar,
+    userMetadata?.image,
+  ]
+
+  for (const value of metadataCandidates) {
+    if (typeof value === 'string' && value.trim()) {
+      return value
+    }
+  }
+
+  return null
 }
 
 function exportToCSV(lista: Occurrence[]) {
@@ -496,20 +537,10 @@ export default function DashboardPage() {
     }
 
     const metadata = (user.user_metadata || {}) as Record<string, unknown>
-    const possibleAvatar =
-      typeof metadata.avatar_url === 'string'
-        ? metadata.avatar_url
-        : typeof metadata.picture === 'string'
-          ? metadata.picture
-          : typeof metadata.photo_url === 'string'
-            ? metadata.photo_url
-            : null
-
-    setAvatarUrl(possibleAvatar)
 
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
-      .select('id, role, nome, email, ativo')
+      .select('*')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -520,6 +551,7 @@ export default function DashboardPage() {
     const currentProfile = (profileData || null) as Profile | null
     setProfile(currentProfile)
     setRole(currentProfile?.role || 'user')
+    setAvatarUrl(resolveAvatarUrl(currentProfile, metadata))
 
     if (currentProfile?.ativo === false) {
       await supabase.auth.signOut()
