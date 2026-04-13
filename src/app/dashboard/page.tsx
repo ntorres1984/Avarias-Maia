@@ -32,6 +32,7 @@ type Occurrence = {
   created_by: string | null
   assigned_gestor?: string | null
   assigned_tecnico?: string | null
+  foto_url?: string | null
   units: UnitRelation
 }
 
@@ -124,46 +125,6 @@ function getRoleLabel(role: string | null) {
   if (role === 'tecnico') return 'Técnico'
   if (role === 'consulta') return 'Consulta'
   return 'Utilizador'
-}
-
-function resolveAvatarUrl(
-  profileData: Record<string, unknown> | null | undefined,
-  userMetadata: Record<string, unknown> | null | undefined
-) {
-  const profileCandidates = [
-    profileData?.avatar_url,
-    profileData?.foto_url,
-    profileData?.foto,
-    profileData?.imagem_url,
-    profileData?.imagem,
-    profileData?.image_url,
-    profileData?.profile_image,
-    profileData?.profile_image_url,
-    profileData?.photo_url,
-    profileData?.picture,
-  ]
-
-  for (const value of profileCandidates) {
-    if (typeof value === 'string' && value.trim()) {
-      return value
-    }
-  }
-
-  const metadataCandidates = [
-    userMetadata?.avatar_url,
-    userMetadata?.picture,
-    userMetadata?.photo_url,
-    userMetadata?.avatar,
-    userMetadata?.image,
-  ]
-
-  for (const value of metadataCandidates) {
-    if (typeof value === 'string' && value.trim()) {
-      return value
-    }
-  }
-
-  return null
 }
 
 function exportToCSV(lista: Occurrence[]) {
@@ -355,7 +316,7 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
-    minWidth: '1200px',
+    minWidth: '1320px',
   },
 
   th: {
@@ -417,6 +378,28 @@ const styles = {
     borderRadius: '10px',
     padding: '12px 14px',
     marginBottom: '16px',
+  } as const,
+
+  imageThumb: {
+    width: '74px',
+    height: '74px',
+    objectFit: 'cover' as const,
+    borderRadius: '10px',
+    border: '1px solid #cbd5e1',
+    display: 'block',
+  } as const,
+
+  noImage: {
+    width: '74px',
+    height: '74px',
+    borderRadius: '10px',
+    border: '1px dashed #cbd5e1',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#94a3b8',
+    fontSize: '12px',
+    backgroundColor: '#f8fafc',
   } as const,
 }
 
@@ -504,7 +487,7 @@ export default function DashboardPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [profile, setProfile] = useState<Profile | null>(null)
   const [role, setRole] = useState<string>('user')
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
 
   const [filtroUnidade, setFiltroUnidade] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('')
@@ -519,6 +502,39 @@ export default function DashboardPage() {
     role === 'admin' || role === 'gestor' || role === 'tecnico' || role === 'consulta'
   const canManageUsers = role === 'admin' || role === 'gestor'
   const canDelete = role === 'admin'
+
+  async function buildSignedPhotoUrls(items: Occurrence[]) {
+    const withPhoto = items.filter((item) => item.foto_url)
+
+    if (withPhoto.length === 0) {
+      setPhotoUrls({})
+      return
+    }
+
+    const entries = await Promise.all(
+      withPhoto.map(async (item) => {
+        const path = item.foto_url as string
+
+        const { data, error } = await supabase.storage
+          .from('ocorrencias')
+          .createSignedUrl(path, 3600)
+
+        if (error || !data?.signedUrl) {
+          console.error(`Erro ao gerar signed URL para ocorrência ${item.id}:`, error)
+          return [item.id, ''] as const
+        }
+
+        return [item.id, data.signedUrl] as const
+      })
+    )
+
+    const nextMap: Record<string, string> = {}
+    entries.forEach(([id, url]) => {
+      if (url) nextMap[id] = url
+    })
+
+    setPhotoUrls(nextMap)
+  }
 
   async function loadOccurrences() {
     setLoading(true)
@@ -536,8 +552,6 @@ export default function DashboardPage() {
       return
     }
 
-    const metadata = (user.user_metadata || {}) as Record<string, unknown>
-
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('*')
@@ -551,7 +565,6 @@ export default function DashboardPage() {
     const currentProfile = (profileData || null) as Profile | null
     setProfile(currentProfile)
     setRole(currentProfile?.role || 'user')
-    setAvatarUrl(resolveAvatarUrl(currentProfile, metadata))
 
     if (currentProfile?.ativo === false) {
       await supabase.auth.signOut()
@@ -578,6 +591,7 @@ export default function DashboardPage() {
         created_by,
         assigned_gestor,
         assigned_tecnico,
+        foto_url,
         units (
           nome
         )
@@ -607,7 +621,9 @@ export default function DashboardPage() {
       return
     }
 
-    setRows((data || []) as Occurrence[])
+    const occurrences = (data || []) as Occurrence[]
+    setRows(occurrences)
+    await buildSignedPhotoUrls(occurrences)
     setLoading(false)
   }
 
@@ -836,9 +852,6 @@ export default function DashboardPage() {
       <DashboardTopbar
         title="Dashboard"
         subtitle={`${profile?.nome || profile?.email || 'Utilizador'} • ${getRoleLabel(role)}`}
-        userName={profile?.nome || undefined}
-        userEmail={profile?.email || undefined}
-        avatarUrl={avatarUrl}
         actions={topbarActions}
       />
 
@@ -990,6 +1003,7 @@ export default function DashboardPage() {
           <table style={styles.table}>
             <thead>
               <tr>
+                <th style={styles.th}>Foto</th>
                 <th style={styles.th}>Ocorrência</th>
                 <th style={styles.th}>Unidade</th>
                 <th style={styles.th}>Categoria</th>
@@ -1006,19 +1020,34 @@ export default function DashboardPage() {
             <tbody>
               {listaFiltrada.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={styles.empty}>
+                  <td colSpan={11} style={styles.empty}>
                     Sem ocorrências para os filtros escolhidos
                   </td>
                 </tr>
               ) : (
                 listaFiltrada.map((item) => {
                   const foraPrazoAtual = getForaPrazoValue(item)
+                  const signedPhotoUrl = photoUrls[item.id]
 
                   return (
                     <tr
                       key={item.id}
                       style={foraPrazoAtual ? { backgroundColor: '#fef2f2' } : undefined}
                     >
+                      <td style={styles.td}>
+                        {signedPhotoUrl ? (
+                          <a href={signedPhotoUrl} target="_blank" rel="noreferrer">
+                            <img
+                              src={signedPhotoUrl}
+                              alt={item.ocorrencia || 'Fotografia da ocorrência'}
+                              style={styles.imageThumb}
+                            />
+                          </a>
+                        ) : (
+                          <div style={styles.noImage}>Sem foto</div>
+                        )}
+                      </td>
+
                       <td style={styles.td}>{item.ocorrencia || '-'}</td>
 
                       <td style={styles.td}>
