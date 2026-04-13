@@ -781,6 +781,35 @@ export default function EditOccurrencePage() {
     }
   }
 
+  async function sendForwardNotification(params: {
+    recipientEmail: string
+    recipientName?: string | null
+    forwardedToRole: 'gestor' | 'tecnico'
+    forwardedByEmail?: string | null
+  }) {
+    const response = await fetch('/api/notify-occurrence-forwarded', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipientEmail: params.recipientEmail,
+        recipientName: params.recipientName || null,
+        forwardedToRole: params.forwardedToRole,
+        forwardedByEmail: params.forwardedByEmail || null,
+        occurrenceId: id,
+        occurrenceTitle: ocorrencia,
+        unitName: unidade,
+        category: categoria,
+        priority: prioridade,
+        impact: impacto,
+      }),
+    })
+
+    if (!response.ok) {
+      const result = await response.json().catch(() => null)
+      throw new Error(result?.error || 'Não foi possível enviar o email de encaminhamento.')
+    }
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
 
@@ -827,7 +856,13 @@ export default function EditOccurrencePage() {
       updated_by_email: user?.email || updatedByEmail || null,
     }
 
-    if (canForwardToGestor && assignedGestorId !== originalAssignedGestorId) {
+    const gestorChanged =
+      canForwardToGestor && assignedGestorId !== originalAssignedGestorId
+
+    const tecnicoChanged =
+      canForwardToTecnico && assignedTecnicoId !== originalAssignedTecnicoId
+
+    if (gestorChanged) {
       updatePayload.assigned_gestor = assignedGestorId || null
       updatePayload.assigned_gestor_email = nextAssignedGestorEmail
       updatePayload.assigned_gestor_at = assignedGestorId ? nowIso : null
@@ -841,7 +876,7 @@ export default function EditOccurrencePage() {
       }
     }
 
-    if (canForwardToTecnico && assignedTecnicoId !== originalAssignedTecnicoId) {
+    if (tecnicoChanged) {
       updatePayload.assigned_tecnico = assignedTecnicoId || null
       updatePayload.assigned_tecnico_email = nextAssignedTecnicoEmail
       updatePayload.assigned_tecnico_at = assignedTecnicoId ? nowIso : null
@@ -875,6 +910,46 @@ export default function EditOccurrencePage() {
       if (historyError) {
         setErrorMessage(
           `Ocorrência guardada, mas sem histórico: ${historyError.message}`
+        )
+        setSaving(false)
+        await loadOccurrence()
+        return
+      }
+    }
+
+    if (gestorChanged && selectedGestor?.email) {
+      try {
+        await sendForwardNotification({
+          recipientEmail: selectedGestor.email,
+          recipientName: selectedGestor.nome,
+          forwardedToRole: 'gestor',
+          forwardedByEmail: user?.email || null,
+        })
+      } catch (err: any) {
+        setErrorMessage(
+          `Ocorrência guardada, mas falhou o email para o gestor: ${
+            err?.message || 'Erro desconhecido.'
+          }`
+        )
+        setSaving(false)
+        await loadOccurrence()
+        return
+      }
+    }
+
+    if (tecnicoChanged && selectedTecnico?.email) {
+      try {
+        await sendForwardNotification({
+          recipientEmail: selectedTecnico.email,
+          recipientName: selectedTecnico.nome,
+          forwardedToRole: 'tecnico',
+          forwardedByEmail: user?.email || null,
+        })
+      } catch (err: any) {
+        setErrorMessage(
+          `Ocorrência guardada, mas falhou o email para o técnico: ${
+            err?.message || 'Erro desconhecido.'
+          }`
         )
         setSaving(false)
         await loadOccurrence()
