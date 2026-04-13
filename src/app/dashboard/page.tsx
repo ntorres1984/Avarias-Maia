@@ -45,16 +45,36 @@ type Profile = {
 
 function formatDate(dateString: string | null) {
   if (!dateString) return '-'
-  const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return '-'
+  const date = parseDateSafe(dateString)
+  if (!date) return '-'
   return date.toLocaleDateString('pt-PT')
 }
 
 function formatDateTime(dateString: string | null) {
   if (!dateString) return '-'
-  const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return '-'
+  const date = parseDateSafe(dateString)
+  if (!date) return '-'
   return date.toLocaleString('pt-PT')
+}
+
+function parseDateSafe(dateString: string) {
+  if (!dateString) return null
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+    const date = new Date(dateString)
+    if (!Number.isNaN(date.getTime())) return date
+  }
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
+    const [day, month, year] = dateString.split('/')
+    const date = new Date(Number(year), Number(month) - 1, Number(day))
+    if (!Number.isNaN(date.getTime())) return date
+  }
+
+  const fallback = new Date(dateString)
+  if (!Number.isNaN(fallback.getTime())) return fallback
+
+  return null
 }
 
 function getUnitName(units: UnitRelation, fallback: string | null) {
@@ -64,8 +84,37 @@ function getUnitName(units: UnitRelation, fallback: string | null) {
   return units?.nome || fallback || '-'
 }
 
+function normalizeEstado(estado: string | null) {
+  return (estado || '').trim().toLowerCase()
+}
+
+function isClosedEstado(estado: string | null) {
+  const normalized = normalizeEstado(estado)
+  return (
+    normalized === 'concluída' ||
+    normalized === 'concluida' ||
+    normalized === 'encerrada' ||
+    normalized === 'resolvida'
+  )
+}
+
 function getForaPrazoValue(item: Occurrence) {
-  return item.fora_sla === true
+  if (!item.data_reporte || item.sla_dias == null) return false
+  if (isClosedEstado(item.estado)) return false
+
+  const dataReporte = parseDateSafe(item.data_reporte)
+  if (!dataReporte) return false
+
+  const inicio = new Date(dataReporte)
+  inicio.setHours(0, 0, 0, 0)
+
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+
+  const prazoFinal = new Date(inicio)
+  prazoFinal.setDate(prazoFinal.getDate() + item.sla_dias)
+
+  return hoje > prazoFinal
 }
 
 function getRoleLabel(role: string | null) {
@@ -422,8 +471,10 @@ export default function DashboardPage() {
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
 
-  const canExport = role === 'admin' || role === 'gestor' || role === 'tecnico' || role === 'consulta'
-  const canSeeReports = role === 'admin' || role === 'gestor' || role === 'tecnico' || role === 'consulta'
+  const canExport =
+    role === 'admin' || role === 'gestor' || role === 'tecnico' || role === 'consulta'
+  const canSeeReports =
+    role === 'admin' || role === 'gestor' || role === 'tecnico' || role === 'consulta'
   const canManageUsers = role === 'admin' || role === 'gestor'
   const canDelete = role === 'admin'
 
@@ -584,16 +635,16 @@ export default function DashboardPage() {
     if (resolvidas.length === 0) return 0
 
     const resolvidasValidas = resolvidas.filter((o) => {
-      const inicio = new Date(o.data_reporte as string).getTime()
-      const fim = new Date(o.data_encerramento as string).getTime()
-      return !Number.isNaN(inicio) && !Number.isNaN(fim)
+      const inicio = parseDateSafe(o.data_reporte as string)?.getTime()
+      const fim = parseDateSafe(o.data_encerramento as string)?.getTime()
+      return inicio != null && fim != null && !Number.isNaN(inicio) && !Number.isNaN(fim)
     })
 
     if (resolvidasValidas.length === 0) return 0
 
     const totalMs = resolvidasValidas.reduce((acc, o) => {
-      const inicio = new Date(o.data_reporte as string).getTime()
-      const fim = new Date(o.data_encerramento as string).getTime()
+      const inicio = parseDateSafe(o.data_reporte as string)?.getTime() || 0
+      const fim = parseDateSafe(o.data_encerramento as string)?.getTime() || 0
       return acc + (fim - inicio)
     }, 0)
 
@@ -648,7 +699,7 @@ export default function DashboardPage() {
       const matchSearch =
         !search.trim() || textoPesquisa.includes(search.trim().toLowerCase())
 
-      const dataItem = item.data_reporte ? new Date(item.data_reporte) : null
+      const dataItem = item.data_reporte ? parseDateSafe(item.data_reporte) : null
       const dataItemTime =
         dataItem && !Number.isNaN(dataItem.getTime()) ? dataItem.getTime() : null
 
