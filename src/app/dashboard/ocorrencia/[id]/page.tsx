@@ -761,37 +761,143 @@ export default function EditOccurrencePage() {
     return base
   }, [estado])
 
-  async function sendConclusionEmail() {
-    if (!createdByEmail) return
-
-    const response = await fetch('/api/notify-occurrence-closed', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        occurrenceId: id,
-        recipientEmail: createdByEmail,
-        occurrenceTitle: ocorrencia,
-        unitName: unidade,
-      }),
-    })
-
-    if (!response.ok) {
-      const result = await response.json().catch(() => null)
-      throw new Error(result?.error || 'Não foi possível enviar o email de avaliação.')
-    }
-  }
-
-  async function sendEmail(to: string, subject: string, message: string) {
+  async function sendEmail(params: {
+    to: string
+    subject: string
+    html: string
+    text: string
+  }) {
     const response = await fetch('/api/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, subject, message }),
+      body: JSON.stringify(params),
     })
 
     if (!response.ok) {
       const result = await response.json().catch(() => null)
       throw new Error(result?.error || 'Não foi possível enviar o email.')
     }
+  }
+
+  function getOccurrenceLink(occurrenceId: string) {
+    if (typeof window === 'undefined') return ''
+    return `${window.location.origin}/dashboard/ocorrencia/${occurrenceId}`
+  }
+
+  function buildAssignmentEmail(params: {
+    roleLabel: 'Gestor' | 'Técnico'
+    occurrenceTitle: string
+    unitName: string
+    category: string
+    priority: string
+    impact: string
+    senderEmail: string
+    occurrenceId: string
+  }) {
+    const link = getOccurrenceLink(params.occurrenceId)
+
+    return {
+      subject: `Nova ocorrência atribuída - ${params.occurrenceTitle}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height:1.6; color:#0f172a;">
+          <h2>Nova ocorrência atribuída</h2>
+          <p>Foi-te atribuída uma ocorrência no perfil de <strong>${params.roleLabel}</strong>.</p>
+          <ul>
+            <li><strong>Ocorrência:</strong> ${params.occurrenceTitle}</li>
+            <li><strong>Unidade:</strong> ${params.unitName}</li>
+            <li><strong>Categoria:</strong> ${params.category}</li>
+            <li><strong>Prioridade:</strong> ${params.priority}</li>
+            <li><strong>Impacto:</strong> ${params.impact}</li>
+            <li><strong>Encaminhado por:</strong> ${params.senderEmail}</li>
+          </ul>
+          ${
+            link
+              ? `<p><a href="${link}" style="display:inline-block;padding:10px 16px;background:#0f172a;color:#fff;text-decoration:none;border-radius:10px;font-weight:600;">Abrir ocorrência</a></p>`
+              : ''
+          }
+        </div>
+      `,
+      text:
+        `Nova ocorrência atribuída.\n` +
+        `Perfil: ${params.roleLabel}\n` +
+        `Ocorrência: ${params.occurrenceTitle}\n` +
+        `Unidade: ${params.unitName}\n` +
+        `Categoria: ${params.category}\n` +
+        `Prioridade: ${params.priority}\n` +
+        `Impacto: ${params.impact}\n` +
+        `Encaminhado por: ${params.senderEmail}\n` +
+        `${link ? `Abrir: ${link}` : ''}`,
+    }
+  }
+
+  function buildStatusEmail(params: {
+    occurrenceTitle: string
+    unitName: string
+    oldStatus: string | null
+    newStatus: string
+    occurrenceId: string
+  }) {
+    const link = getOccurrenceLink(params.occurrenceId)
+
+    return {
+      subject: `Estado atualizado - ${params.occurrenceTitle}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height:1.6; color:#0f172a;">
+          <h2>Estado da ocorrência atualizado</h2>
+          <ul>
+            <li><strong>Ocorrência:</strong> ${params.occurrenceTitle}</li>
+            <li><strong>Unidade:</strong> ${params.unitName}</li>
+            <li><strong>Estado anterior:</strong> ${params.oldStatus || '-'}</li>
+            <li><strong>Novo estado:</strong> ${params.newStatus}</li>
+          </ul>
+          ${
+            link
+              ? `<p><a href="${link}" style="display:inline-block;padding:10px 16px;background:#0f172a;color:#fff;text-decoration:none;border-radius:10px;font-weight:600;">Abrir ocorrência</a></p>`
+              : ''
+          }
+        </div>
+      `,
+      text:
+        `Estado da ocorrência atualizado.\n` +
+        `Ocorrência: ${params.occurrenceTitle}\n` +
+        `Unidade: ${params.unitName}\n` +
+        `Estado anterior: ${params.oldStatus || '-'}\n` +
+        `Novo estado: ${params.newStatus}\n` +
+        `${link ? `Abrir: ${link}` : ''}`,
+    }
+  }
+
+  async function sendConclusionEmail() {
+    if (!createdByEmail) return
+
+    const link = getOccurrenceLink(id)
+
+    await sendEmail({
+      to: createdByEmail,
+      subject: `Ocorrência concluída - ${ocorrencia || 'Ocorrência'}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height:1.6; color:#0f172a;">
+          <h2>Ocorrência concluída</h2>
+          <p>A tua ocorrência foi concluída.</p>
+          <ul>
+            <li><strong>Ocorrência:</strong> ${ocorrencia || '-'}</li>
+            <li><strong>Unidade:</strong> ${unidade || '-'}</li>
+            <li><strong>Estado:</strong> ${estado}</li>
+          </ul>
+          ${
+            link
+              ? `<p><a href="${link}" style="display:inline-block;padding:10px 16px;background:#0f172a;color:#fff;text-decoration:none;border-radius:10px;font-weight:600;">Abrir ocorrência</a></p>`
+              : ''
+          }
+        </div>
+      `,
+      text:
+        `Ocorrência concluída.\n` +
+        `Ocorrência: ${ocorrencia || '-'}\n` +
+        `Unidade: ${unidade || '-'}\n` +
+        `Estado: ${estado}\n` +
+        `${link ? `Abrir: ${link}` : ''}`,
+    })
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -901,13 +1007,25 @@ export default function EditOccurrencePage() {
       }
     }
 
-    if (gestorChanged && selectedGestor?.email) {
+    if (gestorChanged && selectedGestor?.email && user?.email) {
       try {
-        await sendEmail(
-          selectedGestor.email,
-          'Nova ocorrência atribuída',
-          `Foi-lhe atribuída a ocorrência "${ocorrencia || '-'}" da unidade "${unidade || '-'}".`
-        )
+        const email = buildAssignmentEmail({
+          roleLabel: 'Gestor',
+          occurrenceTitle: ocorrencia || '-',
+          unitName: unidade || '-',
+          category: categoria || '-',
+          priority: prioridade || '-',
+          impact: impacto || '-',
+          senderEmail: user.email,
+          occurrenceId: id,
+        })
+
+        await sendEmail({
+          to: selectedGestor.email,
+          subject: email.subject,
+          html: email.html,
+          text: email.text,
+        })
       } catch (err: any) {
         setErrorMessage(
           `Ocorrência guardada, mas falhou o email para o gestor: ${
@@ -920,13 +1038,25 @@ export default function EditOccurrencePage() {
       }
     }
 
-    if (tecnicoChanged && selectedTecnico?.email) {
+    if (tecnicoChanged && selectedTecnico?.email && user?.email) {
       try {
-        await sendEmail(
-          selectedTecnico.email,
-          'Nova ocorrência atribuída',
-          `Foi-lhe atribuída a ocorrência "${ocorrencia || '-'}" da unidade "${unidade || '-'}".`
-        )
+        const email = buildAssignmentEmail({
+          roleLabel: 'Técnico',
+          occurrenceTitle: ocorrencia || '-',
+          unitName: unidade || '-',
+          category: categoria || '-',
+          priority: prioridade || '-',
+          impact: impacto || '-',
+          senderEmail: user.email,
+          occurrenceId: id,
+        })
+
+        await sendEmail({
+          to: selectedTecnico.email,
+          subject: email.subject,
+          html: email.html,
+          text: email.text,
+        })
       } catch (err: any) {
         setErrorMessage(
           `Ocorrência guardada, mas falhou o email para o técnico: ${
@@ -939,14 +1069,49 @@ export default function EditOccurrencePage() {
       }
     }
 
+    const statusChanged = originalEstado !== estado
+
+    if (
+      statusChanged &&
+      createdByEmail &&
+      user?.email &&
+      createdByEmail !== user.email
+    ) {
+      try {
+        const email = buildStatusEmail({
+          occurrenceTitle: ocorrencia || '-',
+          unitName: unidade || '-',
+          oldStatus: originalEstado,
+          newStatus: estado,
+          occurrenceId: id,
+        })
+
+        await sendEmail({
+          to: createdByEmail,
+          subject: email.subject,
+          html: email.html,
+          text: email.text,
+        })
+      } catch (err: any) {
+        setErrorMessage(
+          `Ocorrência guardada, mas falhou o email de atualização de estado: ${
+            err?.message || 'Erro desconhecido.'
+          }`
+        )
+        setSaving(false)
+        await loadOccurrence()
+        return
+      }
+    }
+
     const becameConcluded = originalEstado !== 'Concluída' && estado === 'Concluída'
 
-    if (becameConcluded && createdByEmail && !satisfactionRequestedAt) {
+    if (becameConcluded && createdByEmail) {
       try {
         await sendConclusionEmail()
       } catch (err: any) {
         setErrorMessage(
-          `Estado guardado com sucesso, mas falhou o envio do email de avaliação: ${
+          `Estado guardado com sucesso, mas falhou o envio do email de conclusão: ${
             err?.message || 'Erro desconhecido.'
           }`
         )
