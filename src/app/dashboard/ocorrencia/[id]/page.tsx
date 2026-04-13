@@ -773,8 +773,13 @@ export default function EditOccurrencePage() {
       body: JSON.stringify(params),
     })
 
+    const result = await response.json().catch(() => null)
+
+    console.log('sendEmail params =', params)
+    console.log('sendEmail status =', response.status)
+    console.log('sendEmail result =', result)
+
     if (!response.ok) {
-      const result = await response.json().catch(() => null)
       throw new Error(result?.error || 'Não foi possível enviar o email.')
     }
   }
@@ -997,75 +1002,97 @@ export default function EditOccurrencePage() {
           data_alteracao: dataEstadoIso || new Date().toISOString(),
         })
 
-      if (historyError) {
-        setErrorMessage(
-          `Ocorrência guardada, mas sem histórico: ${historyError.message}`
-        )
-        setSaving(false)
-        await loadOccurrence()
-        return
+        if (historyError) {
+          setErrorMessage(
+            `Ocorrência guardada, mas sem histórico: ${historyError.message}`
+          )
+          setSaving(false)
+          await loadOccurrence()
+          return
+        }
+    }
+
+    if (gestorChanged) {
+      console.log('gestorChanged = true')
+      console.log('selectedGestor =', selectedGestor)
+      console.log('selectedGestor.email =', selectedGestor?.email)
+      console.log('user.email =', user?.email)
+      console.log('assignedGestorId =', assignedGestorId)
+      console.log('originalAssignedGestorId =', originalAssignedGestorId)
+
+      if (selectedGestor?.email && user?.email) {
+        try {
+          const email = buildAssignmentEmail({
+            roleLabel: 'Gestor',
+            occurrenceTitle: ocorrencia || '-',
+            unitName: unidade || '-',
+            category: categoria || '-',
+            priority: prioridade || '-',
+            impact: impacto || '-',
+            senderEmail: user.email,
+            occurrenceId: id,
+          })
+
+          await sendEmail({
+            to: selectedGestor.email,
+            subject: email.subject,
+            html: email.html,
+            text: email.text,
+          })
+        } catch (err: any) {
+          setErrorMessage(
+            `Ocorrência guardada, mas falhou o email para o gestor: ${
+              err?.message || 'Erro desconhecido.'
+            }`
+          )
+          setSaving(false)
+          await loadOccurrence()
+          return
+        }
+      } else {
+        console.log('Não enviou email ao gestor porque faltou email do gestor ou do utilizador.')
       }
     }
 
-    if (gestorChanged && selectedGestor?.email && user?.email) {
-      try {
-        const email = buildAssignmentEmail({
-          roleLabel: 'Gestor',
-          occurrenceTitle: ocorrencia || '-',
-          unitName: unidade || '-',
-          category: categoria || '-',
-          priority: prioridade || '-',
-          impact: impacto || '-',
-          senderEmail: user.email,
-          occurrenceId: id,
-        })
+    if (tecnicoChanged) {
+      console.log('tecnicoChanged = true')
+      console.log('selectedTecnico =', selectedTecnico)
+      console.log('selectedTecnico.email =', selectedTecnico?.email)
+      console.log('user.email =', user?.email)
+      console.log('assignedTecnicoId =', assignedTecnicoId)
+      console.log('originalAssignedTecnicoId =', originalAssignedTecnicoId)
 
-        await sendEmail({
-          to: selectedGestor.email,
-          subject: email.subject,
-          html: email.html,
-          text: email.text,
-        })
-      } catch (err: any) {
-        setErrorMessage(
-          `Ocorrência guardada, mas falhou o email para o gestor: ${
-            err?.message || 'Erro desconhecido.'
-          }`
-        )
-        setSaving(false)
-        await loadOccurrence()
-        return
-      }
-    }
+      if (selectedTecnico?.email && user?.email) {
+        try {
+          const email = buildAssignmentEmail({
+            roleLabel: 'Técnico',
+            occurrenceTitle: ocorrencia || '-',
+            unitName: unidade || '-',
+            category: categoria || '-',
+            priority: prioridade || '-',
+            impact: impacto || '-',
+            senderEmail: user.email,
+            occurrenceId: id,
+          })
 
-    if (tecnicoChanged && selectedTecnico?.email && user?.email) {
-      try {
-        const email = buildAssignmentEmail({
-          roleLabel: 'Técnico',
-          occurrenceTitle: ocorrencia || '-',
-          unitName: unidade || '-',
-          category: categoria || '-',
-          priority: prioridade || '-',
-          impact: impacto || '-',
-          senderEmail: user.email,
-          occurrenceId: id,
-        })
-
-        await sendEmail({
-          to: selectedTecnico.email,
-          subject: email.subject,
-          html: email.html,
-          text: email.text,
-        })
-      } catch (err: any) {
-        setErrorMessage(
-          `Ocorrência guardada, mas falhou o email para o técnico: ${
-            err?.message || 'Erro desconhecido.'
-          }`
-        )
-        setSaving(false)
-        await loadOccurrence()
-        return
+          await sendEmail({
+            to: selectedTecnico.email,
+            subject: email.subject,
+            html: email.html,
+            text: email.text,
+          })
+        } catch (err: any) {
+          setErrorMessage(
+            `Ocorrência guardada, mas falhou o email para o técnico: ${
+              err?.message || 'Erro desconhecido.'
+            }`
+          )
+          setSaving(false)
+          await loadOccurrence()
+          return
+        }
+      } else {
+        console.log('Não enviou email ao técnico porque faltou email do técnico ou do utilizador.')
       }
     }
 
