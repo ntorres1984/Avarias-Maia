@@ -102,21 +102,22 @@ function isClosedEstado(estado: string | null) {
 
 function getForaPrazoValue(item: Occurrence) {
   if (!item.data_reporte || item.sla_dias == null) return false
-  if (isClosedEstado(item.estado)) return false
 
-  const dataReporte = parseDateSafe(item.data_reporte)
-  if (!dataReporte) return false
+  const inicio = parseDateSafe(item.data_reporte)
+  if (!inicio) return false
 
-  const inicio = new Date(dataReporte)
-  inicio.setHours(0, 0, 0, 0)
+  const referencia = isClosedEstado(item.estado)
+    ? item.data_encerramento
+      ? parseDateSafe(item.data_encerramento)
+      : new Date()
+    : new Date()
 
-  const hoje = new Date()
-  hoje.setHours(0, 0, 0, 0)
+  if (!referencia) return false
 
-  const prazoFinal = new Date(inicio)
-  prazoFinal.setDate(prazoFinal.getDate() + item.sla_dias)
+  const diasPassados =
+    (referencia.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24)
 
-  return hoje > prazoFinal
+  return diasPassados > item.sla_dias
 }
 
 function getRoleLabel(role: string | null) {
