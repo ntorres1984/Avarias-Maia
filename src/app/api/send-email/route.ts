@@ -21,7 +21,7 @@ export async function POST(req: Request) {
 
     if (!to || !subject || (!html && !text)) {
       return NextResponse.json(
-        { error: 'Dados incompletos.' },
+        { error: 'Dados incompletos para envio de email.' },
         { status: 400 }
       )
     }
@@ -48,7 +48,17 @@ export async function POST(req: Request) {
       text,
     })
 
-    return NextResponse.json({ success: true, result })
+    if ((result as any)?.error) {
+      return NextResponse.json(
+        { error: (result as any).error.message || 'Erro devolvido pelo Resend.' },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      result,
+    })
   } catch (error: any) {
     console.error('Erro ao enviar email:', error)
 
