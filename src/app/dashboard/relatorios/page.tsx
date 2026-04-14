@@ -130,27 +130,27 @@ function hasSla(item: Occurrence) {
 }
 
 function getForaPrazoValue(item: Occurrence) {
-  if (!hasSla(item)) return false
-  if (isClosedEstado(item.estado)) return false
+  if (!item.data_reporte || item.sla_dias == null) return false
 
-  const dataReporte = parseDateSafe(item.data_reporte as string)
-  if (!dataReporte) return false
+  const inicio = parseDateSafe(item.data_reporte)
+  if (!inicio) return false
 
-  const inicio = new Date(dataReporte)
-  inicio.setHours(0, 0, 0, 0)
+  const referencia = isClosedEstado(item.estado)
+    ? item.data_encerramento
+      ? parseDateSafe(item.data_encerramento)
+      : new Date()
+    : new Date()
 
-  const hoje = new Date()
-  hoje.setHours(0, 0, 0, 0)
+  if (!referencia) return false
 
-  const prazoFinal = new Date(inicio)
-  prazoFinal.setDate(prazoFinal.getDate() + Number(item.sla_dias))
+  const diasPassados =
+    (referencia.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24)
 
-  return hoje > prazoFinal
+  return diasPassados > Number(item.sla_dias)
 }
 
 function getDentroPrazoValue(item: Occurrence) {
   if (!hasSla(item)) return false
-  if (isClosedEstado(item.estado)) return false
   return !getForaPrazoValue(item)
 }
 
@@ -181,22 +181,27 @@ function calcResolutionDays(item: Occurrence) {
 
 function calcDiasAtraso(item: Occurrence) {
   if (!hasSla(item)) return 0
-  if (isClosedEstado(item.estado)) return 0
+  if (!getForaPrazoValue(item)) return 0
 
-  const inicio = parseDateSafe(item.data_reporte as string)?.getTime()
-  if (inicio == null || Number.isNaN(inicio)) return 0
+  const inicio = parseDateSafe(item.data_reporte as string)
+  if (!inicio) return 0
 
-  const prazoMs = Number(item.sla_dias) * 24 * 60 * 60 * 1000
-  const limite = inicio + prazoMs
+  const referencia = isClosedEstado(item.estado)
+    ? item.data_encerramento
+      ? parseDateSafe(item.data_encerramento)
+      : new Date()
+    : new Date()
 
-  const hoje = new Date()
-  hoje.setHours(0, 0, 0, 0)
-  const referencia = hoje.getTime()
+  if (!referencia) return 0
 
-  const atrasoMs = referencia - limite
-  if (atrasoMs <= 0) return 0
+  const diasPassados =
+    (referencia.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24)
 
-  return Math.ceil(atrasoMs / (1000 * 60 * 60 * 24))
+  const atraso = diasPassados - Number(item.sla_dias)
+
+  if (atraso <= 0) return 0
+
+  return Math.ceil(atraso)
 }
 
 function exportUnitsCSV(lista: UnitSummary[]) {
@@ -1029,9 +1034,9 @@ export default function RelatoriosPage() {
 
   const totalAbertas = rows.filter((o) => isOpenEstado(o.estado)).length
 
-  const ocorrenciasAbertasComSla = rows.filter((o) => isOpenEstado(o.estado) && hasSla(o))
-  const totalForaPrazo = ocorrenciasAbertasComSla.filter((o) => getForaPrazoValue(o)).length
-  const totalDentroPrazo = ocorrenciasAbertasComSla.filter((o) => getDentroPrazoValue(o)).length
+  const ocorrenciasComSla = rows.filter((o) => hasSla(o))
+  const totalForaPrazo = ocorrenciasComSla.filter((o) => getForaPrazoValue(o)).length
+  const totalDentroPrazo = ocorrenciasComSla.filter((o) => getDentroPrazoValue(o)).length
 
   const avaliacoes = rows.filter(
     (item) => item.satisfaction_score != null && item.satisfaction_submitted_at
