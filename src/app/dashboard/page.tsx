@@ -712,10 +712,16 @@ export default function DashboardPage() {
     return Math.round(totalMs / resolvidasValidas.length / (1000 * 60 * 60 * 24))
   })()
 
-  const listaDashboard =
-    role === 'consulta'
-      ? rows
-      : rows.filter((o) => o.estado !== 'Concluída' && o.estado !== 'Encerrada')
+  const listaDashboard = rows.filter((o) => {
+    const estado = (o.estado || '').toLowerCase().trim()
+
+    return (
+      estado !== 'concluída' &&
+      estado !== 'concluida' &&
+      estado !== 'encerrada' &&
+      estado !== 'resolvida'
+    )
+  })
 
   const unidades = useMemo(() => {
     const values = rows
@@ -894,9 +900,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <h2 style={styles.sectionTitle}>
-        {role === 'consulta' ? 'Ocorrências' : 'Ocorrências em aberto'}
-      </h2>
+      <h2 style={styles.sectionTitle}>Ocorrências em aberto</h2>
 
       <div style={styles.filtersBox}>
         <div style={styles.filterGroup}>
