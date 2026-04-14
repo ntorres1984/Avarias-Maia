@@ -979,8 +979,6 @@ export default function EditOccurrencePage() {
 
       {loading ? (
         <div style={styles.card}>A carregar...</div>
-      ) : !canEdit && !canForwardToGestor && !canForwardToTecnico ? (
-        <div style={styles.card}>Não tens permissão para consultar esta ocorrência.</div>
       ) : (
         <>
           <div style={styles.topSummaryGrid}>
@@ -1326,19 +1324,31 @@ export default function EditOccurrencePage() {
                 ) : null}
               </div>
 
-              <div style={styles.actions}>
-                <button type="submit" style={styles.btnPrimary} disabled={saving}>
-                  {saving ? 'A guardar...' : 'Guardar alterações'}
-                </button>
+              {(canEdit || canForwardToGestor || canForwardToTecnico) ? (
+                <div style={styles.actions}>
+                  <button type="submit" style={styles.btnPrimary} disabled={saving}>
+                    {saving ? 'A guardar...' : 'Guardar alterações'}
+                  </button>
 
-                <button
-                  type="button"
-                  style={styles.btnSecondary}
-                  onClick={() => router.push('/dashboard')}
-                >
-                  Cancelar
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    style={styles.btnSecondary}
+                    onClick={() => router.push('/dashboard')}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <div style={styles.actions}>
+                  <button
+                    type="button"
+                    style={styles.btnSecondary}
+                    onClick={() => router.push('/dashboard')}
+                  >
+                    Voltar
+                  </button>
+                </div>
+              )}
             </div>
           </form>
 
