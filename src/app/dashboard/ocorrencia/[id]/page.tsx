@@ -83,10 +83,8 @@ function getUnitName(units: UnitRelation, fallback: string | null) {
 
 function parseSafeDate(dateString: string | null) {
   if (!dateString) return null
-
   const date = new Date(dateString)
   if (Number.isNaN(date.getTime())) return null
-
   return date
 }
 
@@ -142,11 +140,24 @@ function toInputDateTime(dateString: string | null) {
 
 function fromInputDateTime(value: string) {
   if (!value) return null
-
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return null
-
   return date.toISOString()
+}
+
+function getNowLocalInputDateTime() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const hours = String(now.getHours()).padStart(2, '0')
+  const minutes = String(now.getMinutes()).padStart(2, '0')
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+function isClosedEstado(estado: string | null) {
+  return estado === 'Concluída' || estado === 'Encerrada'
 }
 
 function isForaPrazo(item: {
@@ -161,7 +172,7 @@ function isForaPrazo(item: {
   if (Number.isNaN(inicio)) return false
 
   const referencia =
-    item.estado === 'Concluída' || item.estado === 'Encerrada'
+    isClosedEstado(item.estado)
       ? item.data_encerramento
         ? new Date(item.data_encerramento).getTime()
         : Date.now()
@@ -733,6 +744,23 @@ export default function EditOccurrencePage() {
     }
   }, [id])
 
+  useEffect(() => {
+    if (!isClosedEstado(estado)) {
+      setDataEncerramento('')
+      return
+    }
+
+    const nowLocal = getNowLocalInputDateTime()
+
+    if (!dataEstado) {
+      setDataEstado(nowLocal)
+    }
+
+    if (!dataEncerramento) {
+      setDataEncerramento(nowLocal)
+    }
+  }, [estado])
+
   const canEdit = useMemo(() => {
     if (currentRole === 'admin') return true
 
@@ -806,23 +834,34 @@ export default function EditOccurrencePage() {
 
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser()
 
-    const dataEstadoIso =
-      fromInputDateTime(dataEstado) ||
-      (estado !== originalEstado ? new Date().toISOString() : originalDataEstado)
-
-    let dataEncerramentoIso = fromInputDateTime(dataEncerramento)
-
-    if ((estado === 'Concluída' || estado === 'Encerrada') && !dataEncerramentoIso) {
-      dataEncerramentoIso = dataEstadoIso || new Date().toISOString()
-    }
-
-    if (estado !== 'Concluída' && estado !== 'Encerrada') {
-      dataEncerramentoIso = null
+    if (userError || !user) {
+      setErrorMessage('Sessão inválida.')
+      setSaving(false)
+      return
     }
 
     const nowIso = new Date().toISOString()
+    const estadoMudou = estado !== originalEstado
+
+    let dataEstadoIso = fromInputDateTime(dataEstado)
+    let dataEncerramentoIso = fromInputDateTime(dataEncerramento)
+
+    if (estadoMudou) {
+      dataEstadoIso = nowIso
+    }
+
+    if (!dataEstadoIso) {
+      dataEstadoIso = originalDataEstado || nowIso
+    }
+
+    if (isClosedEstado(estado)) {
+      dataEncerramentoIso = nowIso
+    } else {
+      dataEncerramentoIso = null
+    }
 
     const nextAssignedGestorEmail =
       assignedGestorId && selectedGestor ? selectedGestor.email || null : null
@@ -835,7 +874,7 @@ export default function EditOccurrencePage() {
       data_estado: dataEstadoIso,
       data_encerramento: dataEncerramentoIso,
       observacoes: observacoes.trim() || null,
-      updated_by_email: user?.email || updatedByEmail || null,
+      updated_by_email: user.email || updatedByEmail || null,
     }
 
     const gestorChanged =
@@ -848,8 +887,8 @@ export default function EditOccurrencePage() {
       updatePayload.assigned_gestor = assignedGestorId || null
       updatePayload.assigned_gestor_email = nextAssignedGestorEmail
       updatePayload.assigned_gestor_at = assignedGestorId ? nowIso : null
-      updatePayload.forwarded_by = user?.id || null
-      updatePayload.forwarded_by_email = user?.email || null
+      updatePayload.forwarded_by = user.id || null
+      updatePayload.forwarded_by_email = user.email || null
 
       if (!assignedGestorId) {
         updatePayload.assigned_tecnico = null
@@ -862,9 +901,11 @@ export default function EditOccurrencePage() {
       updatePayload.assigned_tecnico = assignedTecnicoId || null
       updatePayload.assigned_tecnico_email = nextAssignedTecnicoEmail
       updatePayload.assigned_tecnico_at = assignedTecnicoId ? nowIso : null
-      updatePayload.forwarded_by = user?.id || null
-      updatePayload.forwarded_by_email = user?.email || null
+      updatePayload.forwarded_by = user.id || null
+      updatePayload.forwarded_by_email = user.email || null
     }
+
+    console.log('UPDATE PAYLOAD', updatePayload)
 
     const { error: updateError } = await supabase
       .from('occurrences')
@@ -877,7 +918,7 @@ export default function EditOccurrencePage() {
       return
     }
 
-    if (originalEstado !== estado) {
+    if (estadoMudou) {
       const { error: historyError } = await supabase
         .from('occurrence_history')
         .insert({
@@ -885,14 +926,12 @@ export default function EditOccurrencePage() {
           estado_anterior: originalEstado,
           estado_novo: estado,
           observacoes: observacoes.trim() || null,
-          user_email: user?.email || null,
-          data_alteracao: dataEstadoIso || new Date().toISOString(),
+          user_email: user.email || null,
+          data_alteracao: dataEstadoIso,
         })
 
       if (historyError) {
-        setErrorMessage(
-          `Ocorrência guardada, mas sem histórico: ${historyError.message}`
-        )
+        setErrorMessage(`Ocorrência guardada, mas sem histórico: ${historyError.message}`)
         setSaving(false)
         await loadOccurrence()
         return
@@ -941,9 +980,7 @@ export default function EditOccurrencePage() {
       }
     }
 
-    const statusChanged = originalEstado !== estado
-
-    if (statusChanged && createdBy && user?.id && createdBy !== user.id) {
+    if (estadoMudou && createdBy && createdBy !== user.id) {
       try {
         await createNotification({
           supabase,
@@ -1144,7 +1181,7 @@ export default function EditOccurrencePage() {
                     style={styles.input}
                     value={dataEncerramento}
                     onChange={(e) => setDataEncerramento(e.target.value)}
-                    disabled={!canEdit}
+                    disabled={!canEdit || !isClosedEstado(estado)}
                   />
                 </div>
 
