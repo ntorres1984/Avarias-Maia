@@ -776,21 +776,20 @@ export default function EditOccurrencePage() {
       data: { user },
     } = await supabase.auth.getUser()
 
-    const dataEstadoIso =
+    const nowIso = new Date().toISOString()
+
+    let dataEstadoIso =
       fromInputDateTime(dataEstado) ||
-      (estado !== originalEstado ? new Date().toISOString() : originalDataEstado)
+      (estado !== originalEstado ? nowIso : originalDataEstado)
 
     let dataEncerramentoIso = fromInputDateTime(dataEncerramento)
 
-    if (estado === 'Concluída' && !dataEncerramentoIso) {
-      dataEncerramentoIso = dataEstadoIso || new Date().toISOString()
-    }
-
-    if (estado !== 'Concluída') {
+    if (estado === 'Concluída' || estado === 'Encerrada') {
+      dataEstadoIso = nowIso
+      dataEncerramentoIso = nowIso
+    } else {
       dataEncerramentoIso = null
     }
-
-    const nowIso = new Date().toISOString()
 
     const nextAssignedGestorEmail =
       assignedGestorId && selectedGestor ? selectedGestor.email || null : null
@@ -1098,10 +1097,10 @@ export default function EditOccurrencePage() {
                   <label style={styles.label}>Data alteração de estado</label>
                   <input
                     type="datetime-local"
-                    style={styles.input}
+                    style={{ ...styles.input, ...styles.readOnly }}
                     value={dataEstado}
-                    onChange={(e) => setDataEstado(e.target.value)}
-                    disabled={!canEdit}
+                    readOnly
+                    disabled
                   />
                 </div>
 
@@ -1109,10 +1108,10 @@ export default function EditOccurrencePage() {
                   <label style={styles.label}>Data fim</label>
                   <input
                     type="datetime-local"
-                    style={styles.input}
+                    style={{ ...styles.input, ...styles.readOnly }}
                     value={dataEncerramento}
-                    onChange={(e) => setDataEncerramento(e.target.value)}
-                    disabled={!canEdit}
+                    readOnly
+                    disabled
                   />
                 </div>
 
@@ -1324,7 +1323,7 @@ export default function EditOccurrencePage() {
                 ) : null}
               </div>
 
-              {(canEdit || canForwardToGestor || canForwardToTecnico) ? (
+              {canEdit || canForwardToGestor || canForwardToTecnico ? (
                 <div style={styles.actions}>
                   <button type="submit" style={styles.btnPrimary} disabled={saving}>
                     {saving ? 'A guardar...' : 'Guardar alterações'}
