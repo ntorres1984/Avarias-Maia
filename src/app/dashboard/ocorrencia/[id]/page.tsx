@@ -81,39 +81,71 @@ function getUnitName(units: UnitRelation, fallback: string | null) {
   return units?.nome || fallback || '-'
 }
 
-function formatDate(dateString: string | null) {
-  if (!dateString) return '-'
+function parseSafeDate(dateString: string | null) {
+  if (!dateString) return null
+
   const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return '-'
-  return date.toLocaleDateString('pt-PT')
+  if (Number.isNaN(date.getTime())) return null
+
+  return date
+}
+
+function formatDate(dateString: string | null) {
+  const date = parseSafeDate(dateString)
+  if (!date) return '-'
+
+  return new Intl.DateTimeFormat('pt-PT', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
 }
 
 function formatDateTime(dateString: string | null) {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return '-'
-  return date.toLocaleString('pt-PT')
+  const date = parseSafeDate(dateString)
+  if (!date) return '-'
+
+  return new Intl.DateTimeFormat('pt-PT', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(date)
 }
 
 function toInputDate(dateString: string | null) {
-  if (!dateString) return ''
-  const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toISOString().slice(0, 10)
+  const date = parseSafeDate(dateString)
+  if (!date) return ''
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
 }
 
 function toInputDateTime(dateString: string | null) {
-  if (!dateString) return ''
-  const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return ''
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-  return local.toISOString().slice(0, 16)
+  const date = parseSafeDate(dateString)
+  if (!date) return ''
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`
 }
 
 function fromInputDateTime(value: string) {
   if (!value) return null
+
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return null
+
   return date.toISOString()
 }
 
@@ -776,20 +808,21 @@ export default function EditOccurrencePage() {
       data: { user },
     } = await supabase.auth.getUser()
 
-    const nowIso = new Date().toISOString()
-
-    let dataEstadoIso =
+    const dataEstadoIso =
       fromInputDateTime(dataEstado) ||
-      (estado !== originalEstado ? nowIso : originalDataEstado)
+      (estado !== originalEstado ? new Date().toISOString() : originalDataEstado)
 
     let dataEncerramentoIso = fromInputDateTime(dataEncerramento)
 
-    if (estado === 'Concluída' || estado === 'Encerrada') {
-      dataEstadoIso = nowIso
-      dataEncerramentoIso = nowIso
-    } else {
+    if ((estado === 'Concluída' || estado === 'Encerrada') && !dataEncerramentoIso) {
+      dataEncerramentoIso = dataEstadoIso || new Date().toISOString()
+    }
+
+    if (estado !== 'Concluída' && estado !== 'Encerrada') {
       dataEncerramentoIso = null
     }
+
+    const nowIso = new Date().toISOString()
 
     const nextAssignedGestorEmail =
       assignedGestorId && selectedGestor ? selectedGestor.email || null : null
@@ -1097,10 +1130,10 @@ export default function EditOccurrencePage() {
                   <label style={styles.label}>Data alteração de estado</label>
                   <input
                     type="datetime-local"
-                    style={{ ...styles.input, ...styles.readOnly }}
+                    style={styles.input}
                     value={dataEstado}
-                    readOnly
-                    disabled
+                    onChange={(e) => setDataEstado(e.target.value)}
+                    disabled={!canEdit}
                   />
                 </div>
 
@@ -1108,10 +1141,10 @@ export default function EditOccurrencePage() {
                   <label style={styles.label}>Data fim</label>
                   <input
                     type="datetime-local"
-                    style={{ ...styles.input, ...styles.readOnly }}
+                    style={styles.input}
                     value={dataEncerramento}
-                    readOnly
-                    disabled
+                    onChange={(e) => setDataEncerramento(e.target.value)}
+                    disabled={!canEdit}
                   />
                 </div>
 
