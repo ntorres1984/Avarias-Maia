@@ -129,18 +129,25 @@ function hasSla(item: Occurrence) {
   return item.sla_dias != null && item.data_reporte != null
 }
 
+function getReferenceDateForSla(item: Occurrence) {
+  if (isClosedEstado(item.estado)) {
+    return (
+      (item.data_encerramento ? parseDateSafe(item.data_encerramento) : null) ||
+      (item.data_estado ? parseDateSafe(item.data_estado) : null) ||
+      new Date()
+    )
+  }
+
+  return new Date()
+}
+
 function getForaPrazoValue(item: Occurrence) {
   if (!item.data_reporte || item.sla_dias == null) return false
 
   const inicio = parseDateSafe(item.data_reporte)
   if (!inicio) return false
 
-  const referencia = isClosedEstado(item.estado)
-    ? item.data_encerramento
-      ? parseDateSafe(item.data_encerramento)
-      : new Date()
-    : new Date()
-
+  const referencia = getReferenceDateForSla(item)
   if (!referencia) return false
 
   const diasPassados =
@@ -167,12 +174,19 @@ function formatDate(dateString: string | null) {
 }
 
 function calcResolutionDays(item: Occurrence) {
-  if (!item.data_reporte || !item.data_encerramento) return null
+  if (!item.data_reporte) return null
 
   const inicio = parseDateSafe(item.data_reporte)?.getTime()
-  const fim = parseDateSafe(item.data_encerramento)?.getTime()
+  const fimFonte = item.data_encerramento || item.data_estado
+  const fim = fimFonte ? parseDateSafe(fimFonte)?.getTime() : null
 
-  if (inicio == null || fim == null || Number.isNaN(inicio) || Number.isNaN(fim) || fim < inicio) {
+  if (
+    inicio == null ||
+    fim == null ||
+    Number.isNaN(inicio) ||
+    Number.isNaN(fim) ||
+    fim < inicio
+  ) {
     return null
   }
 
@@ -186,12 +200,7 @@ function calcDiasAtraso(item: Occurrence) {
   const inicio = parseDateSafe(item.data_reporte as string)
   if (!inicio) return 0
 
-  const referencia = isClosedEstado(item.estado)
-    ? item.data_encerramento
-      ? parseDateSafe(item.data_encerramento)
-      : new Date()
-    : new Date()
-
+  const referencia = getReferenceDateForSla(item)
   if (!referencia) return 0
 
   const diasPassados =
@@ -1185,7 +1194,7 @@ export default function RelatoriosPage() {
     const validos = rows
       .filter((item) => item.estado === 'Concluída' || item.estado === 'Encerrada')
       .map((item) => calcResolutionDays(item))
-      .filter((value): value is number => value != null)
+      .filter((value): value is number => value != null && value >= 0)
 
     if (validos.length === 0) return 0
 
