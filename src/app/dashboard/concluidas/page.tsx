@@ -44,38 +44,63 @@ type Profile = {
   ativo?: boolean | null
 }
 
-function parseDateSafe(dateString: string) {
+function pad2(value: number) {
+  return String(value).padStart(2, '0')
+}
+
+function parseDateSafe(dateString: string | null) {
   if (!dateString) return null
 
-  if (/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
-    const date = new Date(dateString)
-    if (!Number.isNaN(date.getTime())) return date
+  const value = String(dateString).trim()
+  if (!value) return null
+
+  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (dateOnlyMatch) {
+    const [, y, m, d] = dateOnlyMatch
+    return new Date(Number(y), Number(m) - 1, Number(d), 0, 0, 0, 0)
   }
 
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
-    const [day, month, year] = dateString.split('/')
-    const date = new Date(Number(year), Number(month) - 1, Number(day))
-    if (!Number.isNaN(date.getTime())) return date
+  const localDateTimeMatch = value.match(
+    /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?$/
+  )
+
+  if (localDateTimeMatch) {
+    const [, y, m, d, hh, mm, ss] = localDateTimeMatch
+    return new Date(
+      Number(y),
+      Number(m) - 1,
+      Number(d),
+      Number(hh),
+      Number(mm),
+      Number(ss || '0'),
+      0
+    )
   }
 
-  const fallback = new Date(dateString)
+  const ptDateMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (ptDateMatch) {
+    const [, d, m, y] = ptDateMatch
+    return new Date(Number(y), Number(m) - 1, Number(d), 0, 0, 0, 0)
+  }
+
+  const fallback = new Date(value)
   if (!Number.isNaN(fallback.getTime())) return fallback
 
   return null
 }
 
 function formatDate(dateString: string | null) {
-  if (!dateString) return '-'
   const date = parseDateSafe(dateString)
   if (!date) return '-'
-  return date.toLocaleDateString('pt-PT')
+
+  return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()}`
 }
 
 function formatDateTime(dateString: string | null) {
-  if (!dateString) return '-'
   const date = parseDateSafe(dateString)
   if (!date) return '-'
-  return date.toLocaleString('pt-PT')
+
+  return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`
 }
 
 function getUnitName(units: UnitRelation, fallback: string | null) {
@@ -527,10 +552,10 @@ export default function ConcluidasPage() {
         : null
 
       const matchDataInicio =
-        !inicioTime || (dataItemTime !== null && dataItemTime >= inicioTime)
+        inicioTime == null || (dataItemTime !== null && dataItemTime >= inicioTime)
 
       const matchDataFim =
-        !fimTime || (dataItemTime !== null && dataItemTime <= fimTime)
+        fimTime == null || (dataItemTime !== null && dataItemTime <= fimTime)
 
       return (
         matchUnidade &&
@@ -548,9 +573,7 @@ export default function ConcluidasPage() {
       <DashboardTopbar
         title="Ocorrências Concluídas"
         subtitle={`${profile?.nome || profile?.email || 'Utilizador'} • ${getRoleLabel(role)}`}
-        actions={[
-          { label: 'Voltar ao dashboard', href: '/dashboard', variant: 'gray' },
-        ]}
+        actions={[{ label: 'Voltar ao dashboard', href: '/dashboard', variant: 'gray' }]}
       />
 
       {errorMessage && <div style={styles.error}>{errorMessage}</div>}
