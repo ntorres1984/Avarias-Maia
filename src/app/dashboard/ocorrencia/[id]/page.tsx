@@ -600,6 +600,7 @@ export default function EditOccurrencePage() {
   async function loadOccurrence() {
     setLoading(true)
     setFotoSignedUrl('')
+    setErrorMessage('')
 
     const {
       data: { user },
@@ -726,9 +727,7 @@ export default function EditOccurrencePage() {
         .from('ocorrencias')
         .createSignedUrl(item.foto_url, 3600)
 
-      if (signedError) {
-        console.error('Erro ao gerar signed URL da foto:', signedError)
-      } else {
+      if (!signedError && signedData?.signedUrl) {
         setFotoSignedUrl(signedData.signedUrl)
       }
     }
@@ -745,19 +744,15 @@ export default function EditOccurrencePage() {
   }, [id])
 
   useEffect(() => {
-    if (!isClosedEstado(estado)) {
+    if (isClosedEstado(estado)) {
+      if (!dataEstado) {
+        setDataEstado(getNowLocalInputDateTime())
+      }
+      if (!dataEncerramento) {
+        setDataEncerramento(getNowLocalInputDateTime())
+      }
+    } else {
       setDataEncerramento('')
-      return
-    }
-
-    const nowLocal = getNowLocalInputDateTime()
-
-    if (!dataEstado) {
-      setDataEstado(nowLocal)
-    }
-
-    if (!dataEncerramento) {
-      setDataEncerramento(nowLocal)
     }
   }, [estado])
 
@@ -847,20 +842,13 @@ export default function EditOccurrencePage() {
     const estadoMudou = estado !== originalEstado
 
     let dataEstadoIso = fromInputDateTime(dataEstado)
-    let dataEncerramentoIso = fromInputDateTime(dataEncerramento)
-
-    if (estadoMudou) {
-      dataEstadoIso = nowIso
-    }
-
     if (!dataEstadoIso) {
-      dataEstadoIso = originalDataEstado || nowIso
+      dataEstadoIso = estadoMudou ? nowIso : originalDataEstado || nowIso
     }
 
+    let dataEncerramentoIso: string | null = null
     if (isClosedEstado(estado)) {
-      dataEncerramentoIso = nowIso
-    } else {
-      dataEncerramentoIso = null
+      dataEncerramentoIso = fromInputDateTime(dataEncerramento) || nowIso
     }
 
     const nextAssignedGestorEmail =
@@ -905,16 +893,40 @@ export default function EditOccurrencePage() {
       updatePayload.forwarded_by_email = user.email || null
     }
 
-    console.log('UPDATE PAYLOAD', updatePayload)
-
-    const { error: updateError } = await supabase
+    const { data: updatedRows, error: updateError } = await supabase
       .from('occurrences')
       .update(updatePayload)
       .eq('id', id)
+      .select('id, estado, data_estado, data_encerramento')
+      .limit(1)
 
     if (updateError) {
       setErrorMessage(updateError.message)
       setSaving(false)
+      return
+    }
+
+    const updatedRow = updatedRows?.[0]
+
+    if (!updatedRow) {
+      setErrorMessage('A base de dados não devolveu a ocorrência atualizada.')
+      setSaving(false)
+      return
+    }
+
+    if (updatedRow.estado !== estado) {
+      setErrorMessage(
+        `A ocorrência não ficou gravada com o estado "${estado}". Ficou com "${updatedRow.estado}".`
+      )
+      setSaving(false)
+      await loadOccurrence()
+      return
+    }
+
+    if (isClosedEstado(estado) && !updatedRow.data_encerramento) {
+      setErrorMessage('A ocorrência mudou de estado, mas a data fim não ficou gravada.')
+      setSaving(false)
+      await loadOccurrence()
       return
     }
 
@@ -927,7 +939,7 @@ export default function EditOccurrencePage() {
           estado_novo: estado,
           observacoes: observacoes.trim() || null,
           user_email: user.email || null,
-          data_alteracao: dataEstadoIso,
+          data_alteracao: updatedRow.data_estado || dataEstadoIso,
         })
 
       if (historyError) {
