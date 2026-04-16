@@ -81,37 +81,65 @@ function getUnitName(units: UnitRelation, fallback: string | null) {
   return units?.nome || fallback || '-'
 }
 
+/**
+ * Converte vários formatos de data para Date em hora local, sem deslocamentos indevidos.
+ * Suporta:
+ * - YYYY-MM-DD
+ * - YYYY-MM-DDTHH:mm
+ * - YYYY-MM-DDTHH:mm:ss
+ * - YYYY-MM-DD HH:mm:ss
+ * - ISO com timezone/Z
+ */
 function parseSafeDate(dateString: string | null) {
   if (!dateString) return null
-  const date = new Date(dateString)
+
+  const value = String(dateString).trim()
+  if (!value) return null
+
+  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (dateOnlyMatch) {
+    const [, y, m, d] = dateOnlyMatch
+    return new Date(Number(y), Number(m) - 1, Number(d), 0, 0, 0, 0)
+  }
+
+  const localDateTimeMatch = value.match(
+    /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?$/
+  )
+
+  if (localDateTimeMatch) {
+    const [, y, m, d, hh, mm, ss] = localDateTimeMatch
+    return new Date(
+      Number(y),
+      Number(m) - 1,
+      Number(d),
+      Number(hh),
+      Number(mm),
+      Number(ss || '0'),
+      0
+    )
+  }
+
+  const date = new Date(value)
   if (Number.isNaN(date.getTime())) return null
   return date
+}
+
+function pad2(value: number) {
+  return String(value).padStart(2, '0')
 }
 
 function formatDate(dateString: string | null) {
   const date = parseSafeDate(dateString)
   if (!date) return '-'
 
-  return new Intl.DateTimeFormat('pt-PT', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(date)
+  return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()}`
 }
 
 function formatDateTime(dateString: string | null) {
   const date = parseSafeDate(dateString)
   if (!date) return '-'
 
-  return new Intl.DateTimeFormat('pt-PT', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).format(date)
+  return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`
 }
 
 function toInputDate(dateString: string | null) {
@@ -119,8 +147,8 @@ function toInputDate(dateString: string | null) {
   if (!date) return ''
 
   const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
+  const month = pad2(date.getMonth() + 1)
+  const day = pad2(date.getDate())
 
   return `${year}-${month}-${day}`
 }
@@ -130,30 +158,51 @@ function toInputDateTime(dateString: string | null) {
   if (!date) return ''
 
   const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const month = pad2(date.getMonth() + 1)
+  const day = pad2(date.getDate())
+  const hours = pad2(date.getHours())
+  const minutes = pad2(date.getMinutes())
 
   return `${year}-${month}-${day}T${hours}:${minutes}`
 }
 
+/**
+ * Converte valor de input datetime-local para string SQL local:
+ * YYYY-MM-DD HH:mm:ss
+ *
+ * Evita o uso de toISOString(), que introduz diferenças de fuso horário.
+ */
 function fromInputDateTime(value: string) {
   if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  return date.toISOString()
+
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/)
+  if (!match) return null
+
+  const [, year, month, day, hours, minutes] = match
+  return `${year}-${month}-${day} ${hours}:${minutes}:00`
 }
 
 function getNowLocalInputDateTime() {
   const now = new Date()
   const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  const hours = String(now.getHours()).padStart(2, '0')
-  const minutes = String(now.getMinutes()).padStart(2, '0')
+  const month = pad2(now.getMonth() + 1)
+  const day = pad2(now.getDate())
+  const hours = pad2(now.getHours())
+  const minutes = pad2(now.getMinutes())
 
   return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+function getNowLocalSqlDateTime() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = pad2(now.getMonth() + 1)
+  const day = pad2(now.getDate())
+  const hours = pad2(now.getHours())
+  const minutes = pad2(now.getMinutes())
+  const seconds = pad2(now.getSeconds())
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
 }
 
 function isClosedEstado(estado: string | null) {
@@ -168,17 +217,18 @@ function isForaPrazo(item: {
 }) {
   if (!item.data_reporte || item.sla_dias == null) return false
 
-  const inicio = new Date(item.data_reporte).getTime()
-  if (Number.isNaN(inicio)) return false
+  const inicioDate = parseSafeDate(item.data_reporte)
+  if (!inicioDate) return false
 
-  const referencia =
-    isClosedEstado(item.estado)
-      ? item.data_encerramento
-        ? new Date(item.data_encerramento).getTime()
-        : Date.now()
-      : Date.now()
+  const inicio = inicioDate.getTime()
 
-  if (Number.isNaN(referencia)) return false
+  const referenciaDate = isClosedEstado(item.estado)
+    ? parseSafeDate(item.data_encerramento) || new Date()
+    : new Date()
+
+  const referencia = referenciaDate.getTime()
+
+  if (Number.isNaN(inicio) || Number.isNaN(referencia)) return false
 
   const diasPassados = (referencia - inicio) / (1000 * 60 * 60 * 24)
   return diasPassados > item.sla_dias
@@ -754,7 +804,7 @@ export default function EditOccurrencePage() {
     } else {
       setDataEncerramento('')
     }
-  }, [estado])
+  }, [estado, dataEstado, dataEncerramento])
 
   const canEdit = useMemo(() => {
     if (currentRole === 'admin') return true
@@ -838,17 +888,17 @@ export default function EditOccurrencePage() {
       return
     }
 
-    const nowIso = new Date().toISOString()
+    const nowSql = getNowLocalSqlDateTime()
     const estadoMudou = estado !== originalEstado
 
-    let dataEstadoIso = fromInputDateTime(dataEstado)
-    if (!dataEstadoIso) {
-      dataEstadoIso = estadoMudou ? nowIso : originalDataEstado || nowIso
+    let dataEstadoSql = fromInputDateTime(dataEstado)
+    if (!dataEstadoSql) {
+      dataEstadoSql = estadoMudou ? nowSql : originalDataEstado || nowSql
     }
 
-    let dataEncerramentoIso: string | null = null
+    let dataEncerramentoSql: string | null = null
     if (isClosedEstado(estado)) {
-      dataEncerramentoIso = fromInputDateTime(dataEncerramento) || nowIso
+      dataEncerramentoSql = fromInputDateTime(dataEncerramento) || nowSql
     }
 
     const nextAssignedGestorEmail =
@@ -859,8 +909,8 @@ export default function EditOccurrencePage() {
 
     const updatePayload: Record<string, any> = {
       estado,
-      data_estado: dataEstadoIso,
-      data_encerramento: dataEncerramentoIso,
+      data_estado: dataEstadoSql,
+      data_encerramento: dataEncerramentoSql,
       observacoes: observacoes.trim() || null,
       updated_by_email: user.email || updatedByEmail || null,
     }
@@ -874,7 +924,7 @@ export default function EditOccurrencePage() {
     if (gestorChanged) {
       updatePayload.assigned_gestor = assignedGestorId || null
       updatePayload.assigned_gestor_email = nextAssignedGestorEmail
-      updatePayload.assigned_gestor_at = assignedGestorId ? nowIso : null
+      updatePayload.assigned_gestor_at = assignedGestorId ? nowSql : null
       updatePayload.forwarded_by = user.id || null
       updatePayload.forwarded_by_email = user.email || null
 
@@ -888,7 +938,7 @@ export default function EditOccurrencePage() {
     if (tecnicoChanged) {
       updatePayload.assigned_tecnico = assignedTecnicoId || null
       updatePayload.assigned_tecnico_email = nextAssignedTecnicoEmail
-      updatePayload.assigned_tecnico_at = assignedTecnicoId ? nowIso : null
+      updatePayload.assigned_tecnico_at = assignedTecnicoId ? nowSql : null
       updatePayload.forwarded_by = user.id || null
       updatePayload.forwarded_by_email = user.email || null
     }
@@ -913,7 +963,7 @@ export default function EditOccurrencePage() {
           estado_novo: estado,
           observacoes: observacoes.trim() || null,
           user_email: user.email || null,
-          data_alteracao: dataEstadoIso,
+          data_alteracao: dataEstadoSql,
         })
 
       if (historyError) {
