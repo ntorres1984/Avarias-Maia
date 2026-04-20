@@ -182,25 +182,7 @@ function toInputDateTime(dateString: string | null) {
 
 function fromInputDateTime(value: string) {
   if (!value) return null
-
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/)
-  if (!match) return null
-
-  const [, year, month, day, hours, minutes] = match
-
-  const date = new Date(
-    Number(year),
-    Number(month) - 1,
-    Number(day),
-    Number(hours),
-    Number(minutes),
-    0,
-    0
-  )
-
-  if (Number.isNaN(date.getTime())) return null
-
-  return value.replace('T', ' ')
+  return `${value.replace('T', ' ').slice(0, 16)}:00`
 }
 
 function getNowLocalInputDateTime() {
@@ -209,6 +191,19 @@ function getNowLocalInputDateTime() {
   const pad = (n: number) => String(n).padStart(2, '0')
 
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
+}
+
+function getNowLocalSqlDateTime() {
+  return `${getNowLocalInputDateTime().replace('T', ' ')}:00`
+}
+
+function normalizeStoredDateTime(value: string | null) {
+  if (!value) return null
+
+  return value
+    .replace('T', ' ')
+    .replace('Z', '')
+    .slice(0, 19)
 }
 
 function isClosedEstado(estado: string | null) {
@@ -894,37 +889,22 @@ export default function EditOccurrencePage() {
       return
     }
 
-   const nowLocal = getNowLocalInputDateTime()
+    const nowSql = getNowLocalSqlDateTime()
+    const estadoMudou = estado !== originalEstado
 
-let dataEstadoIso =
-  dataEstado && dataEstado.trim()
-    ? dataEstado
-        .replace('T', ' ')
-        .slice(0, 16) + ':00'
-    : estadoMudou
-    ? nowLocal
-        .replace('T', ' ')
-        .slice(0, 16) + ':00'
-    : originalDataEstado
-    ? originalDataEstado
-        .replace('T', ' ')
-        .replace('Z', '')
-        .slice(0, 19)
-    : null
+    let dataEstadoSql = fromInputDateTime(dataEstado)
 
-let dataEncerramentoIso: string | null = null
+    if (!dataEstadoSql) {
+      dataEstadoSql = estadoMudou
+        ? nowSql
+        : normalizeStoredDateTime(originalDataEstado) || nowSql
+    }
 
-if (isClosedEstado(estado)) {
-  dataEncerramentoIso =
-    dataEncerramento && dataEncerramento.trim()
-      ? dataEncerramento
-          .replace('T', ' ')
-          .slice(0, 16) + ':00'
-      : nowLocal
-          .replace('T', ' ')
-          .slice(0, 16) + ':00'
-}
+    let dataEncerramentoSql: string | null = null
 
+    if (isClosedEstado(estado)) {
+      dataEncerramentoSql = fromInputDateTime(dataEncerramento) || nowSql
+    }
 
     const nextAssignedGestorEmail =
       assignedGestorId && selectedGestor ? selectedGestor.email || null : null
@@ -934,8 +914,8 @@ if (isClosedEstado(estado)) {
 
     const updatePayload: Record<string, any> = {
       estado,
-      data_estado: dataEstadoIso,
-      data_encerramento: dataEncerramentoIso,
+      data_estado: dataEstadoSql,
+      data_encerramento: dataEncerramentoSql,
       observacoes: observacoes.trim() || null,
       updated_by_email: user.email || updatedByEmail || null,
     }
@@ -949,7 +929,7 @@ if (isClosedEstado(estado)) {
     if (gestorChanged) {
       updatePayload.assigned_gestor = assignedGestorId || null
       updatePayload.assigned_gestor_email = nextAssignedGestorEmail
-      updatePayload.assigned_gestor_at = assignedGestorId ? nowIso : null
+      updatePayload.assigned_gestor_at = assignedGestorId ? nowSql : null
       updatePayload.forwarded_by = user.id || null
       updatePayload.forwarded_by_email = user.email || null
 
@@ -963,7 +943,7 @@ if (isClosedEstado(estado)) {
     if (tecnicoChanged) {
       updatePayload.assigned_tecnico = assignedTecnicoId || null
       updatePayload.assigned_tecnico_email = nextAssignedTecnicoEmail
-      updatePayload.assigned_tecnico_at = assignedTecnicoId ? nowIso : null
+      updatePayload.assigned_tecnico_at = assignedTecnicoId ? nowSql : null
       updatePayload.forwarded_by = user.id || null
       updatePayload.forwarded_by_email = user.email || null
     }
@@ -988,7 +968,7 @@ if (isClosedEstado(estado)) {
           estado_novo: estado,
           observacoes: observacoes.trim() || null,
           user_email: user.email || null,
-          data_alteracao: dataEstadoIso,
+          data_alteracao: dataEstadoSql,
         })
 
       if (historyError) {
