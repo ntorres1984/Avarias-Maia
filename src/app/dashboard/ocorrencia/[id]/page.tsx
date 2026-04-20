@@ -187,7 +187,6 @@ function fromInputDateTime(value: string) {
 
 function getNowLocalInputDateTime() {
   const now = new Date()
-
   const pad = (n: number) => String(n).padStart(2, '0')
 
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
@@ -903,7 +902,13 @@ export default function EditOccurrencePage() {
     let dataEncerramentoSql: string | null = null
 
     if (isClosedEstado(estado)) {
-      dataEncerramentoSql = fromInputDateTime(dataEncerramento) || nowSql
+      const parsedEnc = fromInputDateTime(dataEncerramento)
+
+      if (!parsedEnc || parsedEnc.endsWith('00:00:00')) {
+        dataEncerramentoSql = nowSql
+      } else {
+        dataEncerramentoSql = parsedEnc
+      }
     }
 
     const nextAssignedGestorEmail =
