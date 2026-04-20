@@ -200,26 +200,15 @@ function fromInputDateTime(value: string) {
 
   if (Number.isNaN(date.getTime())) return null
 
-  return date.toISOString()
+  return value.replace('T', ' ')
 }
 
 function getNowLocalInputDateTime() {
   const now = new Date()
 
-  const formatter = new Intl.DateTimeFormat('sv-SE', {
-    timeZone: 'Europe/Lisbon',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
+  const pad = (n: number) => String(n).padStart(2, '0')
 
-  const parts = formatter.formatToParts(now)
-  const map = Object.fromEntries(parts.map((p) => [p.type, p.value]))
-
-  return `${map.year}-${map.month}-${map.day}T${map.hour}:${map.minute}`
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
 }
 
 function isClosedEstado(estado: string | null) {
