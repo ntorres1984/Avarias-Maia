@@ -44,10 +44,6 @@ type Profile = {
   ativo?: boolean | null
 }
 
-function pad2(value: number) {
-  return String(value).padStart(2, '0')
-}
-
 function parseDateSafe(dateString: string | null) {
   if (!dateString) return null
 
@@ -64,7 +60,7 @@ function parseDateSafe(dateString: string | null) {
     /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?$/
   )
 
-  if (localDateTimeMatch) {
+  if (localDateTimeMatch && !value.endsWith('Z')) {
     const [, y, m, d, hh, mm, ss] = localDateTimeMatch
     return new Date(
       Number(y),
@@ -93,14 +89,28 @@ function formatDate(dateString: string | null) {
   const date = parseDateSafe(dateString)
   if (!date) return '-'
 
-  return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()}`
+  return new Intl.DateTimeFormat('pt-PT', {
+    timeZone: 'Europe/Lisbon',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
 }
 
 function formatDateTime(dateString: string | null) {
   const date = parseDateSafe(dateString)
   if (!date) return '-'
 
-  return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`
+  return new Intl.DateTimeFormat('pt-PT', {
+    timeZone: 'Europe/Lisbon',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(date)
 }
 
 function getUnitName(units: UnitRelation, fallback: string | null) {
