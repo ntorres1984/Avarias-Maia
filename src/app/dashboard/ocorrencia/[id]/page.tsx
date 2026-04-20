@@ -81,15 +81,6 @@ function getUnitName(units: UnitRelation, fallback: string | null) {
   return units?.nome || fallback || '-'
 }
 
-/**
- * Converte vários formatos de data para Date em hora local, sem deslocamentos indevidos.
- * Suporta:
- * - YYYY-MM-DD
- * - YYYY-MM-DDTHH:mm
- * - YYYY-MM-DDTHH:mm:ss
- * - YYYY-MM-DD HH:mm:ss
- * - ISO com timezone/Z
- */
 function parseSafeDate(dateString: string | null) {
   if (!dateString) return null
 
@@ -106,7 +97,7 @@ function parseSafeDate(dateString: string | null) {
     /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?$/
   )
 
-  if (localDateTimeMatch) {
+  if (localDateTimeMatch && !value.endsWith('Z')) {
     const [, y, m, d, hh, mm, ss] = localDateTimeMatch
     return new Date(
       Number(y),
@@ -124,54 +115,71 @@ function parseSafeDate(dateString: string | null) {
   return date
 }
 
-function pad2(value: number) {
-  return String(value).padStart(2, '0')
-}
-
 function formatDate(dateString: string | null) {
   const date = parseSafeDate(dateString)
   if (!date) return '-'
 
-  return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()}`
+  return new Intl.DateTimeFormat('pt-PT', {
+    timeZone: 'Europe/Lisbon',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
 }
 
 function formatDateTime(dateString: string | null) {
   const date = parseSafeDate(dateString)
   if (!date) return '-'
 
-  return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`
+  return new Intl.DateTimeFormat('pt-PT', {
+    timeZone: 'Europe/Lisbon',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(date)
 }
 
 function toInputDate(dateString: string | null) {
   const date = parseSafeDate(dateString)
   if (!date) return ''
 
-  const year = date.getFullYear()
-  const month = pad2(date.getMonth() + 1)
-  const day = pad2(date.getDate())
+  const formatter = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Europe/Lisbon',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
 
-  return `${year}-${month}-${day}`
+  const parts = formatter.formatToParts(date)
+  const map = Object.fromEntries(parts.map((p) => [p.type, p.value]))
+
+  return `${map.year}-${map.month}-${map.day}`
 }
 
 function toInputDateTime(dateString: string | null) {
   const date = parseSafeDate(dateString)
   if (!date) return ''
 
-  const year = date.getFullYear()
-  const month = pad2(date.getMonth() + 1)
-  const day = pad2(date.getDate())
-  const hours = pad2(date.getHours())
-  const minutes = pad2(date.getMinutes())
+  const formatter = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Europe/Lisbon',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 
-  return `${year}-${month}-${day}T${hours}:${minutes}`
+  const parts = formatter.formatToParts(date)
+  const map = Object.fromEntries(parts.map((p) => [p.type, p.value]))
+
+  return `${map.year}-${map.month}-${map.day}T${map.hour}:${map.minute}`
 }
 
-/**
- * Converte valor de input datetime-local para string SQL local:
- * YYYY-MM-DD HH:mm:ss
- *
- * Evita o uso de toISOString(), que introduz diferenças de fuso horário.
- */
 function fromInputDateTime(value: string) {
   if (!value) return null
 
@@ -179,30 +187,39 @@ function fromInputDateTime(value: string) {
   if (!match) return null
 
   const [, year, month, day, hours, minutes] = match
-  return `${year}-${month}-${day} ${hours}:${minutes}:00`
+
+  const date = new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hours),
+    Number(minutes),
+    0,
+    0
+  )
+
+  if (Number.isNaN(date.getTime())) return null
+
+  return date.toISOString()
 }
 
 function getNowLocalInputDateTime() {
   const now = new Date()
-  const year = now.getFullYear()
-  const month = pad2(now.getMonth() + 1)
-  const day = pad2(now.getDate())
-  const hours = pad2(now.getHours())
-  const minutes = pad2(now.getMinutes())
 
-  return `${year}-${month}-${day}T${hours}:${minutes}`
-}
+  const formatter = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Europe/Lisbon',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 
-function getNowLocalSqlDateTime() {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = pad2(now.getMonth() + 1)
-  const day = pad2(now.getDate())
-  const hours = pad2(now.getHours())
-  const minutes = pad2(now.getMinutes())
-  const seconds = pad2(now.getSeconds())
+  const parts = formatter.formatToParts(now)
+  const map = Object.fromEntries(parts.map((p) => [p.type, p.value]))
 
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+  return `${map.year}-${map.month}-${map.day}T${map.hour}:${map.minute}`
 }
 
 function isClosedEstado(estado: string | null) {
@@ -804,7 +821,7 @@ export default function EditOccurrencePage() {
     } else {
       setDataEncerramento('')
     }
-  }, [estado, dataEstado, dataEncerramento])
+  }, [estado])
 
   const canEdit = useMemo(() => {
     if (currentRole === 'admin') return true
@@ -888,17 +905,17 @@ export default function EditOccurrencePage() {
       return
     }
 
-    const nowSql = getNowLocalSqlDateTime()
+    const nowIso = new Date().toISOString()
     const estadoMudou = estado !== originalEstado
 
-    let dataEstadoSql = fromInputDateTime(dataEstado)
-    if (!dataEstadoSql) {
-      dataEstadoSql = estadoMudou ? nowSql : originalDataEstado || nowSql
+    let dataEstadoIso = fromInputDateTime(dataEstado)
+    if (!dataEstadoIso) {
+      dataEstadoIso = estadoMudou ? nowIso : originalDataEstado || nowIso
     }
 
-    let dataEncerramentoSql: string | null = null
+    let dataEncerramentoIso: string | null = null
     if (isClosedEstado(estado)) {
-      dataEncerramentoSql = fromInputDateTime(dataEncerramento) || nowSql
+      dataEncerramentoIso = fromInputDateTime(dataEncerramento) || nowIso
     }
 
     const nextAssignedGestorEmail =
@@ -909,8 +926,8 @@ export default function EditOccurrencePage() {
 
     const updatePayload: Record<string, any> = {
       estado,
-      data_estado: dataEstadoSql,
-      data_encerramento: dataEncerramentoSql,
+      data_estado: dataEstadoIso,
+      data_encerramento: dataEncerramentoIso,
       observacoes: observacoes.trim() || null,
       updated_by_email: user.email || updatedByEmail || null,
     }
@@ -924,7 +941,7 @@ export default function EditOccurrencePage() {
     if (gestorChanged) {
       updatePayload.assigned_gestor = assignedGestorId || null
       updatePayload.assigned_gestor_email = nextAssignedGestorEmail
-      updatePayload.assigned_gestor_at = assignedGestorId ? nowSql : null
+      updatePayload.assigned_gestor_at = assignedGestorId ? nowIso : null
       updatePayload.forwarded_by = user.id || null
       updatePayload.forwarded_by_email = user.email || null
 
@@ -938,7 +955,7 @@ export default function EditOccurrencePage() {
     if (tecnicoChanged) {
       updatePayload.assigned_tecnico = assignedTecnicoId || null
       updatePayload.assigned_tecnico_email = nextAssignedTecnicoEmail
-      updatePayload.assigned_tecnico_at = assignedTecnicoId ? nowSql : null
+      updatePayload.assigned_tecnico_at = assignedTecnicoId ? nowIso : null
       updatePayload.forwarded_by = user.id || null
       updatePayload.forwarded_by_email = user.email || null
     }
@@ -963,7 +980,7 @@ export default function EditOccurrencePage() {
           estado_novo: estado,
           observacoes: observacoes.trim() || null,
           user_email: user.email || null,
-          data_alteracao: dataEstadoSql,
+          data_alteracao: dataEstadoIso,
         })
 
       if (historyError) {
