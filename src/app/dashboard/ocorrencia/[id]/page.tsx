@@ -894,18 +894,37 @@ export default function EditOccurrencePage() {
       return
     }
 
-    const nowIso = new Date().toISOString()
-    const estadoMudou = estado !== originalEstado
+   const nowLocal = getNowLocalInputDateTime()
 
-    let dataEstadoIso = fromInputDateTime(dataEstado)
-    if (!dataEstadoIso) {
-      dataEstadoIso = estadoMudou ? nowIso : originalDataEstado || nowIso
-    }
+let dataEstadoIso =
+  dataEstado && dataEstado.trim()
+    ? dataEstado
+        .replace('T', ' ')
+        .slice(0, 16) + ':00'
+    : estadoMudou
+    ? nowLocal
+        .replace('T', ' ')
+        .slice(0, 16) + ':00'
+    : originalDataEstado
+    ? originalDataEstado
+        .replace('T', ' ')
+        .replace('Z', '')
+        .slice(0, 19)
+    : null
 
-    let dataEncerramentoIso: string | null = null
-    if (isClosedEstado(estado)) {
-      dataEncerramentoIso = fromInputDateTime(dataEncerramento) || nowIso
-    }
+let dataEncerramentoIso: string | null = null
+
+if (isClosedEstado(estado)) {
+  dataEncerramentoIso =
+    dataEncerramento && dataEncerramento.trim()
+      ? dataEncerramento
+          .replace('T', ' ')
+          .slice(0, 16) + ':00'
+      : nowLocal
+          .replace('T', ' ')
+          .slice(0, 16) + ':00'
+}
+
 
     const nextAssignedGestorEmail =
       assignedGestorId && selectedGestor ? selectedGestor.email || null : null
