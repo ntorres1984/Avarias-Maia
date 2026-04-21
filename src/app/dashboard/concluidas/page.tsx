@@ -204,6 +204,16 @@ const styles = {
     fontSize: '14px',
   } as const,
 
+  success: {
+    color: '#166534',
+    backgroundColor: '#dcfce7',
+    border: '1px solid #bbf7d0',
+    borderRadius: '10px',
+    padding: '12px 14px',
+    marginBottom: '16px',
+    fontSize: '14px',
+  } as const,
+
   filtersBox: {
     backgroundColor: '#ffffff',
     border: '1px solid #e2e8f0',
@@ -318,6 +328,13 @@ const styles = {
     wordBreak: 'break-word' as const,
   },
 
+  actionsCell: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '8px',
+    alignItems: 'flex-start',
+  } as const,
+
   editBtn: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -329,6 +346,28 @@ const styles = {
     textDecoration: 'none',
     fontWeight: 600,
     fontSize: '13px',
+    border: '1px solid #0f172a',
+    cursor: 'pointer',
+  } as const,
+
+  deleteBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    color: '#b91c1c',
+    padding: '8px 12px',
+    borderRadius: '8px',
+    textDecoration: 'none',
+    fontWeight: 600,
+    fontSize: '13px',
+    border: '1px solid #fecaca',
+    cursor: 'pointer',
+  } as const,
+
+  deleteBtnDisabled: {
+    opacity: 0.6,
+    cursor: 'not-allowed',
   } as const,
 
   imageThumb: {
@@ -361,9 +400,11 @@ export default function ConcluidasPage() {
   const [rows, setRows] = useState<Occurrence[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [profile, setProfile] = useState<Profile | null>(null)
   const [role, setRole] = useState<string>('user')
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const [filtroUnidade, setFiltroUnidade] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('')
@@ -497,6 +538,51 @@ export default function ConcluidasPage() {
     setLoading(false)
   }
 
+  async function handleDelete(item: Occurrence) {
+    if (role !== 'admin') return
+
+    const confirmed = window.confirm(
+      `Tens a certeza que pretendes apagar definitivamente a ocorrência "${item.ocorrencia || '-'}"?`
+    )
+
+    if (!confirmed) return
+
+    setDeletingId(item.id)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    const { error: historyDeleteError } = await supabase
+      .from('occurrence_history')
+      .delete()
+      .eq('occurrence_id', item.id)
+
+    if (historyDeleteError) {
+      setErrorMessage(`Falha ao apagar histórico: ${historyDeleteError.message}`)
+      setDeletingId(null)
+      return
+    }
+
+    const { error: occurrenceDeleteError } = await supabase
+      .from('occurrences')
+      .delete()
+      .eq('id', item.id)
+
+    if (occurrenceDeleteError) {
+      setErrorMessage(`Falha ao apagar ocorrência: ${occurrenceDeleteError.message}`)
+      setDeletingId(null)
+      return
+    }
+
+    setRows((prev) => prev.filter((row) => row.id !== item.id))
+    setPhotoUrls((prev) => {
+      const next = { ...prev }
+      delete next[item.id]
+      return next
+    })
+    setSuccessMessage('Ocorrência apagada com sucesso.')
+    setDeletingId(null)
+  }
+
   useEffect(() => {
     void loadConcluidas()
   }, [])
@@ -587,6 +673,7 @@ export default function ConcluidasPage() {
       />
 
       {errorMessage && <div style={styles.error}>{errorMessage}</div>}
+      {successMessage && <div style={styles.success}>{successMessage}</div>}
 
       <div style={styles.filtersBox}>
         <div style={styles.filterGroup}>
@@ -754,9 +841,25 @@ export default function ConcluidasPage() {
                       <td style={styles.td}>{formatDateTime(item.data_encerramento)}</td>
                       <td style={{ ...styles.td, ...styles.obsCell }}>{item.observacoes || '-'}</td>
                       <td style={styles.td}>
-                        <Link href={`/dashboard/ocorrencia/${item.id}`} style={styles.editBtn}>
-                          {role === 'consulta' ? 'Consultar' : 'Ver'}
-                        </Link>
+                        <div style={styles.actionsCell}>
+                          <Link href={`/dashboard/ocorrencia/${item.id}`} style={styles.editBtn}>
+                            {role === 'consulta' ? 'Consultar' : 'Ver'}
+                          </Link>
+
+                          {role === 'admin' ? (
+                            <button
+                              type="button"
+                              style={{
+                                ...styles.deleteBtn,
+                                ...(deletingId === item.id ? styles.deleteBtnDisabled : {}),
+                              }}
+                              onClick={() => void handleDelete(item)}
+                              disabled={deletingId === item.id}
+                            >
+                              {deletingId === item.id ? 'A apagar...' : 'Apagar'}
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   )
