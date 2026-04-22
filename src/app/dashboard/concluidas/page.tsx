@@ -413,39 +413,6 @@ export default function ConcluidasPage() {
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
 
-  async function buildSignedPhotoUrls(items: Occurrence[]) {
-    const withPhoto = items.filter((item) => item.foto_url)
-
-    if (withPhoto.length === 0) {
-      setPhotoUrls({})
-      return
-    }
-
-    const entries = await Promise.all(
-      withPhoto.map(async (item) => {
-        const path = item.foto_url as string
-
-        const { data, error } = await supabase.storage
-          .from('ocorrencias')
-          .createSignedUrl(path, 3600)
-
-        if (error || !data?.signedUrl) {
-          console.error(`Erro ao gerar signed URL para ocorrência ${item.id}:`, error)
-          return [item.id, ''] as const
-        }
-
-        return [item.id, data.signedUrl] as const
-      })
-    )
-
-    const nextMap: Record<string, string> = {}
-    entries.forEach(([id, url]) => {
-      if (url) nextMap[id] = url
-    })
-
-    setPhotoUrls(nextMap)
-  }
-
   async function loadConcluidas() {
     setLoading(true)
     setErrorMessage('')
@@ -532,10 +499,35 @@ export default function ConcluidasPage() {
       return
     }
 
-    const occurrences = (data || []) as Occurrence[]
-    setRows(occurrences)
-    await buildSignedPhotoUrls(occurrences)
+    setRows((data || []) as Occurrence[])
     setLoading(false)
+  }
+
+  async function loadVisiblePhotoUrls(items: Occurrence[]) {
+    const itemsWithPhoto = items.filter((item) => item.foto_url)
+
+    if (itemsWithPhoto.length === 0) {
+      setPhotoUrls({})
+      return
+    }
+
+    const nextMap: Record<string, string> = {}
+
+    await Promise.all(
+      itemsWithPhoto.map(async (item) => {
+        const path = item.foto_url as string
+
+        const { data, error } = await supabase.storage
+          .from('ocorrencias')
+          .createSignedUrl(path, 3600)
+
+        if (!error && data?.signedUrl) {
+          nextMap[item.id] = data.signedUrl
+        }
+      })
+    )
+
+    setPhotoUrls(nextMap)
   }
 
   async function handleDelete(item: Occurrence) {
@@ -573,14 +565,9 @@ export default function ConcluidasPage() {
       return
     }
 
-    setRows((prev) => prev.filter((row) => row.id !== item.id))
-    setPhotoUrls((prev) => {
-      const next = { ...prev }
-      delete next[item.id]
-      return next
-    })
     setSuccessMessage('Ocorrência apagada com sucesso.')
     setDeletingId(null)
+    await loadConcluidas()
   }
 
   useEffect(() => {
@@ -663,6 +650,10 @@ export default function ConcluidasPage() {
       )
     })
   }, [rows, filtroUnidade, filtroCategoria, filtroEstado, search, dataInicio, dataFim])
+
+  useEffect(() => {
+    void loadVisiblePhotoUrls(listaFiltrada)
+  }, [listaFiltrada])
 
   return (
     <div style={styles.page}>
