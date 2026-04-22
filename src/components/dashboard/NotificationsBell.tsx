@@ -150,34 +150,35 @@ function formatDateTime(value: string) {
 export default function NotificationsBell() {
   const supabase = createClient()
   const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [items, setItems] = useState<NotificationItem[]>([])
+  const [hasLoadedItems, setHasLoadedItems] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
   const wrapperRef = useRef<HTMLDivElement | null>(null)
 
-  const unreadCount = useMemo(
-    () => items.filter((item) => !item.read).length,
-    [items]
-  )
+  async function loadUnreadCount(currentUserId: string) {
+    const { count, error } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', currentUserId)
+      .eq('read', false)
 
-  async function loadNotifications() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      setUserId(null)
-      setItems([])
-      setLoading(false)
+    if (error) {
+      console.error('Erro ao carregar contador de notificações:', error)
       return
     }
 
-    setUserId(user.id)
+    setUnreadCount(count || 0)
+  }
+
+  async function loadNotifications(currentUserId: string) {
+    setLoading(true)
 
     const { data, error } = await supabase
       .from('notifications')
       .select('id, occurrence_id, title, message, read, created_at')
-      .eq('user_id', user.id)
+      .eq('user_id', currentUserId)
       .order('created_at', { ascending: false })
       .limit(20)
 
@@ -188,8 +189,27 @@ export default function NotificationsBell() {
       return
     }
 
-    setItems((data || []) as NotificationItem[])
+    const nextItems = (data || []) as NotificationItem[]
+    setItems(nextItems)
+    setUnreadCount(nextItems.filter((item) => !item.read).length)
+    setHasLoadedItems(true)
     setLoading(false)
+  }
+
+  async function bootstrapUser() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      setUserId(null)
+      setItems([])
+      setUnreadCount(0)
+      return
+    }
+
+    setUserId(user.id)
+    await loadUnreadCount(user.id)
   }
 
   async function markAsRead(notificationId: string) {
@@ -208,6 +228,8 @@ export default function NotificationsBell() {
         item.id === notificationId ? { ...item, read: true } : item
       )
     )
+
+    setUnreadCount((prev) => Math.max(0, prev - 1))
   }
 
   async function markAllAsRead() {
@@ -227,10 +249,11 @@ export default function NotificationsBell() {
     }
 
     setItems((prev) => prev.map((item) => ({ ...item, read: true })))
+    setUnreadCount(0)
   }
 
   useEffect(() => {
-    void loadNotifications()
+    void bootstrapUser()
   }, [])
 
   useEffect(() => {
@@ -248,6 +271,11 @@ export default function NotificationsBell() {
   }, [])
 
   useEffect(() => {
+    if (!open || !userId || hasLoadedItems) return
+    void loadNotifications(userId)
+  }, [open, userId, hasLoadedItems])
+
+  useEffect(() => {
     if (!userId) return
 
     const channel = supabase
@@ -261,7 +289,11 @@ export default function NotificationsBell() {
           filter: `user_id=eq.${userId}`,
         },
         () => {
-          void loadNotifications()
+          void loadUnreadCount(userId)
+
+          if (open) {
+            void loadNotifications(userId)
+          }
         }
       )
       .subscribe()
@@ -269,7 +301,7 @@ export default function NotificationsBell() {
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [supabase, userId])
+  }, [supabase, userId, open])
 
   return (
     <div style={styles.wrapper} ref={wrapperRef}>
