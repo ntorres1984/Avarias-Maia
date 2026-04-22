@@ -504,39 +504,6 @@ export default function DashboardPage() {
   const canManageUsers = role === 'admin' || role === 'gestor'
   const canDelete = role === 'admin'
 
-  async function buildSignedPhotoUrls(items: Occurrence[]) {
-    const withPhoto = items.filter((item) => item.foto_url)
-
-    if (withPhoto.length === 0) {
-      setPhotoUrls({})
-      return
-    }
-
-    const entries = await Promise.all(
-      withPhoto.map(async (item) => {
-        const path = item.foto_url as string
-
-        const { data, error } = await supabase.storage
-          .from('ocorrencias')
-          .createSignedUrl(path, 3600)
-
-        if (error || !data?.signedUrl) {
-          console.error(`Erro ao gerar signed URL para ocorrência ${item.id}:`, error)
-          return [item.id, ''] as const
-        }
-
-        return [item.id, data.signedUrl] as const
-      })
-    )
-
-    const nextMap: Record<string, string> = {}
-    entries.forEach(([id, url]) => {
-      if (url) nextMap[id] = url
-    })
-
-    setPhotoUrls(nextMap)
-  }
-
   async function loadOccurrences() {
     setLoading(true)
     setErrorMessage('')
@@ -622,10 +589,35 @@ export default function DashboardPage() {
       return
     }
 
-    const occurrences = (data || []) as Occurrence[]
-    setRows(occurrences)
-    await buildSignedPhotoUrls(occurrences)
+    setRows((data || []) as Occurrence[])
     setLoading(false)
+  }
+
+  async function loadVisiblePhotoUrls(items: Occurrence[]) {
+    const withPhoto = items.filter((item) => item.foto_url)
+
+    if (withPhoto.length === 0) {
+      setPhotoUrls({})
+      return
+    }
+
+    const nextMap: Record<string, string> = {}
+
+    await Promise.all(
+      withPhoto.map(async (item) => {
+        const path = item.foto_url as string
+
+        const { data, error } = await supabase.storage
+          .from('ocorrencias')
+          .createSignedUrl(path, 3600)
+
+        if (!error && data?.signedUrl) {
+          nextMap[item.id] = data.signedUrl
+        }
+      })
+    )
+
+    setPhotoUrls(nextMap)
   }
 
   async function handleLogout() {
@@ -713,16 +705,18 @@ export default function DashboardPage() {
     return Math.round(totalMs / resolvidasValidas.length / (1000 * 60 * 60 * 24))
   })()
 
-  const listaDashboard = rows.filter((o) => {
-    const estado = (o.estado || '').toLowerCase().trim()
+  const listaDashboard = useMemo(() => {
+    return rows.filter((o) => {
+      const estado = (o.estado || '').toLowerCase().trim()
 
-    return (
-      estado !== 'concluída' &&
-      estado !== 'concluida' &&
-      estado !== 'encerrada' &&
-      estado !== 'resolvida'
-    )
-  })
+      return (
+        estado !== 'concluída' &&
+        estado !== 'concluida' &&
+        estado !== 'encerrada' &&
+        estado !== 'resolvida'
+      )
+    })
+  }, [rows])
 
   const unidades = useMemo(() => {
     const values = rows
@@ -803,6 +797,10 @@ export default function DashboardPage() {
     dataInicio,
     dataFim,
   ])
+
+  useEffect(() => {
+    void loadVisiblePhotoUrls(listaFiltrada)
+  }, [listaFiltrada])
 
   const topbarActions = [
     ...(canExport
