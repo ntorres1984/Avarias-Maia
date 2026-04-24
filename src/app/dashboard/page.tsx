@@ -940,41 +940,55 @@ const totalEstados =
     marginBottom: '24px',
   }}
 >
-  <h3 style={{ marginBottom: '16px' }}>Distribuição de ocorrências</h3>
+<div style={{
+  backgroundColor: '#ffffff',
+  border: '1px solid #e2e8f0',
+  borderRadius: '16px',
+  padding: '20px',
+  marginBottom: '24px'
+}}>
+  <h3 style={{ marginBottom: '16px', fontSize: '18px' }}>
+    Distribuição de ocorrências
+  </h3>
 
-  <div style={{ display: 'flex', height: '24px', borderRadius: '999px', overflow: 'hidden' }}>
-    {totalEstados > 0 && (
-      <>
-        <div
-          style={{
-            width: `${(estadoStats.aberto / totalEstados) * 100}%`,
-            backgroundColor: '#6366f1',
-          }}
-        />
-
-        <div
-          style={{
-            width: `${(estadoStats.analise / totalEstados) * 100}%`,
-            backgroundColor: '#f59e0b',
-          }}
-        />
-
-        <div
-          style={{
-            width: `${(estadoStats.execucao / totalEstados) * 100}%`,
-            backgroundColor: '#3b82f6',
-          }}
-        />
-
-        <div
-          style={{
-            width: `${(estadoStats.concluida / totalEstados) * 100}%`,
-            backgroundColor: '#22c55e',
-          }}
-        />
-      </>
-    )}
+  <div style={{
+    display: 'flex',
+    height: '26px',
+    borderRadius: '999px',
+    overflow: 'hidden',
+    backgroundColor: '#e2e8f0'
+  }}>
+    <div style={{
+      width: `${(estadoStats.aberto / (totalEstados || 1)) * 100}%`,
+      backgroundColor: '#8b5cf6'
+    }} />
+    <div style={{
+      width: `${(estadoStats.analise / (totalEstados || 1)) * 100}%`,
+      backgroundColor: '#f59e0b'
+    }} />
+    <div style={{
+      width: `${(estadoStats.execucao / (totalEstados || 1)) * 100}%`,
+      backgroundColor: '#3b82f6'
+    }} />
+    <div style={{
+      width: `${(estadoStats.concluida / (totalEstados || 1)) * 100}%`,
+      backgroundColor: '#22c55e'
+    }} />
   </div>
+
+  <div style={{
+    display: 'flex',
+    gap: '16px',
+    marginTop: '12px',
+    fontSize: '13px',
+    flexWrap: 'wrap'
+  }}>
+    <span>🟣 Em aberto: {estadoStats.aberto}</span>
+    <span>🟡 Em análise: {estadoStats.analise}</span>
+    <span>🔵 Em execução: {estadoStats.execucao}</span>
+    <span>🟢 Concluídas: {estadoStats.concluida}</span>
+  </div>
+</div>
 
   <div style={{ display: 'flex', gap: '16px', marginTop: '12px', flexWrap: 'wrap' }}>
     <span>🟣 Em aberto: {estadoStats.aberto}</span>
