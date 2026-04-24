@@ -990,13 +990,6 @@ const totalEstados =
   </div>
 </div>
 
-  <div style={{ display: 'flex', gap: '16px', marginTop: '12px', flexWrap: 'wrap' }}>
-    <span>🟣 Em aberto: {estadoStats.aberto}</span>
-    <span>🟡 Em análise: {estadoStats.analise}</span>
-    <span>🔵 Em execução: {estadoStats.execucao}</span>
-    <span>🟢 Concluídas: {estadoStats.concluida}</span>
-  </div>
-</div>
       <h2 style={styles.sectionTitle}>Ocorrências em aberto</h2>
 
       <div style={styles.filtersBox}>
