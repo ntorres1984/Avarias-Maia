@@ -671,12 +671,14 @@ export default function DashboardPage() {
   const percentagemForaPrazo =
     total > 0 ? Math.round((foraPrazo / total) * 100) : 0
 
-  const ocorrenciasCriticasAbertas = rows.filter(
-    (o) =>
-      (o.impacto === 'Crítico' || o.prioridade === 'Alta') &&
-      o.estado !== 'Concluída' &&
-      o.estado !== 'Encerrada'
-  ).length
+  const ocorrenciasCriticasAbertas = rows.filter((o) => {
+  const isOpen = !isClosedEstado(o.estado)
+
+  const isCritical =
+    normalizeEstado(o.impacto) === 'crítico'
+
+  return isOpen && isCritical
+}).length
 
   const tempoMedioResolucao = (() => {
     const resolvidas = rows.filter(
