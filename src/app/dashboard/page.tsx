@@ -476,7 +476,29 @@ function getPrazoBadgeStyle(foraPrazo: boolean) {
     color: '#ffffff',
   }
 }
+function getEstadoStats(rows: Occurrence[]) {
+  const stats = {
+    aberto: 0,
+    analise: 0,
+    execucao: 0,
+    concluida: 0,
+  }
 
+  rows.forEach((o) => {
+    const estado = normalizeEstado(o.estado)
+
+    if (estado === 'em aberto') stats.aberto++
+    else if (estado === 'em análise' || estado === 'em analise') stats.analise++
+    else if (estado === 'em execução' || estado === 'em execucao') stats.execucao++
+    else if (
+      estado === 'concluída' ||
+      estado === 'concluida' ||
+      estado === 'encerrada'
+    ) stats.concluida++
+  })
+
+  return stats
+}
 export default function DashboardPage() {
   const supabase = createClient()
   const router = useRouter()
@@ -706,7 +728,15 @@ export default function DashboardPage() {
 
     return Math.round(totalMs / resolvidasValidas.length / (1000 * 60 * 60 * 24))
   })()
+const estadoStats = useMemo(() => {
+  return getEstadoStats(rows)
+}, [rows]);
 
+const totalEstados =
+  estadoStats.aberto +
+  estadoStats.analise +
+  estadoStats.execucao +
+  estadoStats.concluida
   const listaDashboard = useMemo(() => {
     return rows.filter((o) => {
       const estado = (o.estado || '').toLowerCase().trim()
@@ -900,7 +930,59 @@ export default function DashboardPage() {
           <p style={styles.cardValue}>{tempoMedioResolucao} dias</p>
         </div>
       </div>
+{/* 📊 Gráfico de estados */}
+<div
+  style={{
+    backgroundColor: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '16px',
+    padding: '20px',
+    marginBottom: '24px',
+  }}
+>
+  <h3 style={{ marginBottom: '16px' }}>Distribuição de ocorrências</h3>
 
+  <div style={{ display: 'flex', height: '24px', borderRadius: '999px', overflow: 'hidden' }}>
+    {totalEstados > 0 && (
+      <>
+        <div
+          style={{
+            width: `${(estadoStats.aberto / totalEstados) * 100}%`,
+            backgroundColor: '#6366f1',
+          }}
+        />
+
+        <div
+          style={{
+            width: `${(estadoStats.analise / totalEstados) * 100}%`,
+            backgroundColor: '#f59e0b',
+          }}
+        />
+
+        <div
+          style={{
+            width: `${(estadoStats.execucao / totalEstados) * 100}%`,
+            backgroundColor: '#3b82f6',
+          }}
+        />
+
+        <div
+          style={{
+            width: `${(estadoStats.concluida / totalEstados) * 100}%`,
+            backgroundColor: '#22c55e',
+          }}
+        />
+      </>
+    )}
+  </div>
+
+  <div style={{ display: 'flex', gap: '16px', marginTop: '12px', flexWrap: 'wrap' }}>
+    <span>🟣 Em aberto: {estadoStats.aberto}</span>
+    <span>🟡 Em análise: {estadoStats.analise}</span>
+    <span>🔵 Em execução: {estadoStats.execucao}</span>
+    <span>🟢 Concluídas: {estadoStats.concluida}</span>
+  </div>
+</div>
       <h2 style={styles.sectionTitle}>Ocorrências em aberto</h2>
 
       <div style={styles.filtersBox}>
