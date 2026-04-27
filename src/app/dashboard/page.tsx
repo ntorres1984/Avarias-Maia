@@ -45,55 +45,94 @@ type Profile = {
   [key: string]: unknown
 }
 
-function parseDateSafe(dateString: string) {
+function parseDateSafe(dateString: string | null) {
   if (!dateString) return null
 
-  if (/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
-    const date = new Date(dateString)
-    if (!Number.isNaN(date.getTime())) return date
+  const value = String(dateString).trim()
+  if (!value) return null
+
+  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (dateOnlyMatch) {
+    const [, y, m, d] = dateOnlyMatch
+    return new Date(Number(y), Number(m) - 1, Number(d), 0, 0, 0, 0)
   }
 
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
-    const [day, month, year] = dateString.split('/')
-    const date = new Date(Number(year), Number(month) - 1, Number(day))
-    if (!Number.isNaN(date.getTime())) return date
+  const localDateTimeMatch = value.match(
+    /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?$/
+  )
+
+  if (localDateTimeMatch && !value.endsWith('Z')) {
+    const [, y, m, d, hh, mm, ss] = localDateTimeMatch
+    return new Date(
+      Number(y),
+      Number(m) - 1,
+      Number(d),
+      Number(hh),
+      Number(mm),
+      Number(ss || '0'),
+      0
+    )
   }
 
-  const fallback = new Date(dateString)
+  const ptDateMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (ptDateMatch) {
+    const [, d, m, y] = ptDateMatch
+    return new Date(Number(y), Number(m) - 1, Number(d), 0, 0, 0, 0)
+  }
+
+  const fallback = new Date(value)
   if (!Number.isNaN(fallback.getTime())) return fallback
 
   return null
 }
 
 function formatDate(dateString: string | null) {
-  if (!dateString) return '-'
   const date = parseDateSafe(dateString)
   if (!date) return '-'
-  return date.toLocaleDateString('pt-PT')
+
+  return new Intl.DateTimeFormat('pt-PT', {
+    timeZone: 'Europe/Lisbon',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
 }
 
 function formatDateTime(dateString: string | null) {
-  if (!dateString) return '-'
   const date = parseDateSafe(dateString)
   if (!date) return '-'
-  return date.toLocaleString('pt-PT')
+
+  return new Intl.DateTimeFormat('pt-PT', {
+    timeZone: 'Europe/Lisbon',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(date)
 }
 
 function getUnitName(units: UnitRelation, fallback: string | null) {
   if (Array.isArray(units)) {
     return units[0]?.nome || fallback || '-'
   }
+
   return units?.nome || fallback || '-'
 }
 
-function normalizeEstado(estado: string | null) {
-  return (estado || '').trim().toLowerCase()
+function normalizeText(value: string | null) {
+  return (value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
 }
 
 function isClosedEstado(estado: string | null) {
-  const normalized = normalizeEstado(estado)
+  const normalized = normalizeText(estado)
   return (
-    normalized === 'concluída' ||
     normalized === 'concluida' ||
     normalized === 'encerrada' ||
     normalized === 'resolvida'
@@ -189,27 +228,6 @@ const styles = {
     color: '#0f172a',
   } as const,
 
-  deleteBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#dc2626',
-    color: '#fff',
-    padding: '8px 12px',
-    borderRadius: '8px',
-    border: 'none',
-    textDecoration: 'none',
-    fontWeight: 600,
-    fontSize: '13px',
-    cursor: 'pointer',
-  } as const,
-
-  rowActions: {
-    display: 'flex',
-    gap: '8px',
-    flexWrap: 'wrap' as const,
-  },
-
   statsGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
@@ -237,6 +255,15 @@ const styles = {
     fontSize: '34px',
     fontWeight: 700,
     color: '#0f172a',
+  } as const,
+
+  chartCard: {
+    backgroundColor: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '16px',
+    padding: '20px',
+    marginBottom: '24px',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
   } as const,
 
   sectionTitle: {
@@ -372,6 +399,27 @@ const styles = {
     fontSize: '13px',
   } as const,
 
+  deleteBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#dc2626',
+    color: '#fff',
+    padding: '8px 12px',
+    borderRadius: '8px',
+    border: 'none',
+    textDecoration: 'none',
+    fontWeight: 600,
+    fontSize: '13px',
+    cursor: 'pointer',
+  } as const,
+
+  rowActions: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap' as const,
+  },
+
   error: {
     color: '#b91c1c',
     backgroundColor: '#fee2e2',
@@ -476,29 +524,7 @@ function getPrazoBadgeStyle(foraPrazo: boolean) {
     color: '#ffffff',
   }
 }
-function getEstadoStats(rows: Occurrence[]) {
-  const stats = {
-    aberto: 0,
-    analise: 0,
-    execucao: 0,
-    concluida: 0,
-  }
 
-  rows.forEach((o) => {
-    const estado = normalizeEstado(o.estado)
-
-    if (estado === 'em aberto') stats.aberto++
-    else if (estado === 'em análise' || estado === 'em analise') stats.analise++
-    else if (estado === 'em execução' || estado === 'em execucao') stats.execucao++
-    else if (
-      estado === 'concluída' ||
-      estado === 'concluida' ||
-      estado === 'encerrada'
-    ) stats.concluida++
-  })
-
-  return stats
-}
 export default function DashboardPage() {
   const supabase = createClient()
   const router = useRouter()
@@ -521,8 +547,10 @@ export default function DashboardPage() {
 
   const canExport =
     role === 'admin' || role === 'gestor' || role === 'tecnico' || role === 'consulta'
+
   const canSeeReports =
     role === 'admin' || role === 'gestor' || role === 'tecnico' || role === 'consulta'
+
   const canManageUsers = role === 'admin' || role === 'gestor'
   const canDelete = role === 'admin'
 
@@ -675,18 +703,15 @@ export default function DashboardPage() {
     void loadOccurrences()
   }, [])
 
+  const listaDashboard = useMemo(() => {
+    return rows.filter((o) => !isClosedEstado(o.estado))
+  }, [rows])
+
   const total = rows.length
 
-  const emAberto = rows.filter(
-    (o) =>
-      o.estado === 'Em aberto' ||
-      o.estado === 'Em análise' ||
-      o.estado === 'Em execução'
-  ).length
+  const emAberto = rows.filter((o) => !isClosedEstado(o.estado)).length
 
-  const concluidas = rows.filter(
-    (o) => o.estado === 'Concluída' || o.estado === 'Encerrada'
-  ).length
+  const concluidas = rows.filter((o) => isClosedEstado(o.estado)).length
 
   const foraPrazo = rows.filter((o) => getForaPrazoValue(o)).length
 
@@ -694,61 +719,65 @@ export default function DashboardPage() {
     total > 0 ? Math.round((foraPrazo / total) * 100) : 0
 
   const ocorrenciasCriticasAbertas = rows.filter((o) => {
-  const isOpen = !isClosedEstado(o.estado)
-
-  const isCritical =
-    normalizeEstado(o.impacto) === 'crítico'
-
-  return isOpen && isCritical
-}).length
+    const isOpen = !isClosedEstado(o.estado)
+    const isCritical = normalizeText(o.impacto) === 'critico'
+    return isOpen && isCritical
+  }).length
 
   const tempoMedioResolucao = (() => {
     const resolvidas = rows.filter(
-      (o) =>
-        o.data_reporte &&
-        o.data_encerramento &&
-        (o.estado === 'Concluída' || o.estado === 'Encerrada')
+      (o) => o.data_reporte && o.data_encerramento && isClosedEstado(o.estado)
     )
 
     if (resolvidas.length === 0) return 0
 
     const resolvidasValidas = resolvidas.filter((o) => {
-      const inicio = parseDateSafe(o.data_reporte as string)?.getTime()
-      const fim = parseDateSafe(o.data_encerramento as string)?.getTime()
+      const inicio = parseDateSafe(o.data_reporte)?.getTime()
+      const fim = parseDateSafe(o.data_encerramento)?.getTime()
       return inicio != null && fim != null && !Number.isNaN(inicio) && !Number.isNaN(fim)
     })
 
     if (resolvidasValidas.length === 0) return 0
 
     const totalMs = resolvidasValidas.reduce((acc, o) => {
-      const inicio = parseDateSafe(o.data_reporte as string)?.getTime() || 0
-      const fim = parseDateSafe(o.data_encerramento as string)?.getTime() || 0
+      const inicio = parseDateSafe(o.data_reporte)?.getTime() || 0
+      const fim = parseDateSafe(o.data_encerramento)?.getTime() || 0
       return acc + (fim - inicio)
     }, 0)
 
     return Math.round(totalMs / resolvidasValidas.length / (1000 * 60 * 60 * 24))
   })()
-const estadoStats = useMemo(() => {
-  return getEstadoStats(rows)
-}, [rows]);
 
-const totalEstados =
-  estadoStats.aberto +
-  estadoStats.analise +
-  estadoStats.execucao +
-  estadoStats.concluida
-  const listaDashboard = useMemo(() => {
-    return rows.filter((o) => {
-      const estado = (o.estado || '').toLowerCase().trim()
+  const estadoStats = useMemo(() => {
+    const stats = {
+      aberto: 0,
+      analise: 0,
+      execucao: 0,
+      concluida: 0,
+    }
 
-      return (
-        estado !== 'concluída' &&
-        estado !== 'concluida' &&
-        estado !== 'encerrada' &&
-        estado !== 'resolvida'
-      )
+    rows.forEach((o) => {
+      const estado = normalizeText(o.estado)
+
+      if (estado === 'em aberto') {
+        stats.aberto += 1
+      } else if (estado === 'em analise') {
+        stats.analise += 1
+      } else if (estado === 'em execucao') {
+        stats.execucao += 1
+      } else if (isClosedEstado(o.estado)) {
+        stats.concluida += 1
+      }
     })
+
+    return stats
   }, [rows])
+
+  const totalEstados =
+    estadoStats.aberto +
+    estadoStats.analise +
+    estadoStats.execucao +
+    estadoStats.concluida
 
   const unidades = useMemo(() => {
     const values = rows
@@ -882,6 +911,7 @@ const totalEstados =
       variant: 'red' as const,
       disabled: loggingOut,
     },
+  ]
 
   return (
     <div style={styles.page}>
@@ -930,56 +960,73 @@ const totalEstados =
         </div>
       </div>
 
-<div style={{
-  backgroundColor: '#ffffff',
-  border: '1px solid #e2e8f0',
-  borderRadius: '16px',
-  padding: '20px',
-  marginBottom: '24px'
-}}>
-  <h3 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: 600 }}>
-    Distribuição de ocorrências
-  </h3>
+      <div style={styles.chartCard}>
+        <h3 style={{ margin: '0 0 18px 0', fontSize: '18px', fontWeight: 700 }}>
+          Distribuição de ocorrências
+        </h3>
 
-  {[
-   {[
-  { label: 'Em aberto', value: estadoStats.aberto, color: '#3b82f6' },
-  { label: 'Em análise', value: estadoStats.analise, color: '#f59e0b' },
-  { label: 'Em execução', value: estadoStats.execucao, color: '#8b5cf6' },
-  { label: 'Concluídas', value: estadoStats.concluida, color: '#22c55e' }
-].map((item) => {
-  const percent = totalEstados > 0
-    ? Math.round((item.value / totalEstados) * 100)
-    : 0
+        {[
+          { label: 'Em aberto', value: estadoStats.aberto, color: '#3b82f6' },
+          { label: 'Em análise', value: estadoStats.analise, color: '#f59e0b' },
+          { label: 'Em execução', value: estadoStats.execucao, color: '#8b5cf6' },
+          { label: 'Concluídas', value: estadoStats.concluida, color: '#22c55e' },
+        ].map((item) => {
+          const percent =
+            totalEstados > 0 ? Math.round((item.value / totalEstados) * 100) : 0
 
-  return (
-    <div key={item.label} style={{ marginBottom: '12px' }}>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        fontSize: '13px',
-        marginBottom: '4px'
-      }}>
-        <span>{item.label}</span>
-        <span>{item.value} ({percent}%)</span>
+          return (
+            <div key={item.label} style={{ marginBottom: '14px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: '13px',
+                  marginBottom: '5px',
+                  fontWeight: 600,
+                }}
+              >
+                <span>{item.label}</span>
+                <span>
+                  {item.value} ({percent}%)
+                </span>
+              </div>
+
+              <div
+                style={{
+                  height: '12px',
+                  backgroundColor: '#e5e7eb',
+                  borderRadius: '999px',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    width: `${percent}%`,
+                    backgroundColor: item.color,
+                    height: '100%',
+                    borderRadius: '999px',
+                    transition: 'width 0.5s ease',
+                  }}
+                />
+              </div>
+            </div>
+          )
+        })}
       </div>
 
-      <div style={{
-        height: '10px',
-        backgroundColor: '#e5e7eb',
-        borderRadius: '999px',
-        overflow: 'hidden'
-      }}>
-        <div style={{
-          width: `${percent}%`,
-          backgroundColor: item.color,
-          height: '100%',
-          borderRadius: '999px',
-          transition: 'width 0.5s ease'
-        }} />
-      </div>
-    </div>
-})}
+      <h2 style={styles.sectionTitle}>Ocorrências em aberto</h2>
+
+      <div style={styles.filtersBox}>
+        <div style={styles.filterGroup}>
+          <label style={styles.label}>Pesquisar</label>
+          <input
+            type="text"
+            style={styles.select}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Pesquisar ocorrência, unidade, observações..."
+          />
+        </div>
 
         <div style={styles.filterGroup}>
           <label style={styles.label}>Data início</label>
