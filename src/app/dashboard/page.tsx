@@ -882,7 +882,6 @@ const totalEstados =
       variant: 'red' as const,
       disabled: loggingOut,
     },
-  ]
 
   return (
     <div style={styles.page}>
