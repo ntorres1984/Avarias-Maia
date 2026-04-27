@@ -938,69 +938,50 @@ const totalEstados =
   padding: '20px',
   marginBottom: '24px'
 }}>
-  <h3 style={{ marginBottom: '16px', fontSize: '18px' }}>
+  <h3 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: 600 }}>
     Distribuição de ocorrências
   </h3>
 
- <div
-  style={{
-    backgroundColor: '#ffffff',
-    border: '1px solid #e2e8f0',
-    borderRadius: '16px',
-    padding: '20px',
-    marginBottom: '24px',
-  }}
->
-  <h3 style={{ marginBottom: '18px', fontSize: '18px' }}>
-    Distribuição de ocorrências
-  </h3>
+  {[
+    { label: 'Em aberto', value: estadoStats.aberto, color: '#3b82f6' },
+    { label: 'Em análise', value: estadoStats.analise, color: '#f59e0b' },
+    { label: 'Em execução', value: estadoStats.execucao, color: '#8b5cf6' },
+    { label: 'Concluídas', value: estadoStats.concluida, color: '#22c55e' }
+  ].map((item) => {
+    const percent = totalEstados > 0
+      ? Math.round((item.value / totalEstados) * 100)
+      : 0
 
-  {totalEstados === 0 ? (
-    <p style={{ color: '#64748b' }}>Sem dados</p>
-  ) : (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      
-      {/* Em aberto */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-          <span>Em aberto</span>
-          <span>
-            {estadoStats.aberto} (
-            {Math.round((estadoStats.aberto / totalEstados) * 100)}%)
-          </span>
+    return (
+      <div key={item.label} style={{ marginBottom: '12px' }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontSize: '13px',
+          marginBottom: '4px'
+        }}>
+          <span>{item.label}</span>
+          <span>{item.value} ({percent}%)</span>
         </div>
-        <div style={{ background: '#e2e8f0', height: '10px', borderRadius: '999px' }}>
-          <div
-            style={{
-              width: `${(estadoStats.aberto / totalEstados) * 100}%`,
-              background: '#8b5cf6',
-              height: '100%',
-              borderRadius: '999px',
-            }}
-          />
+
+        <div style={{
+          height: '10px',
+          backgroundColor: '#e5e7eb',
+          borderRadius: '999px',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            width: `${percent}%`,
+            backgroundColor: item.color,
+            height: '100%',
+            borderRadius: '999px',
+            transition: 'width 0.5s ease'
+          }} />
         </div>
       </div>
-
-      {/* Em análise */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-          <span>Em análise</span>
-          <span>
-            {estadoStats.analise} (
-            {Math.round((estadoStats.analise / totalEstados) * 100)}%)
-          </span>
-        </div>
-        <div style={{ background: '#e2e8f0', height: '10px', borderRadius: '999px' }}>
-          <div
-            style={{
-              width: `${(estadoStats.analise / totalEstados) * 100}%`,
-              background: '#f59e0b',
-              height: '100%',
-              borderRadius: '999px',
-            }}
-          />
-        </div>
-      </div>
+    )
+  })}
+</div>
 
       {/* Em execução */}
       <div>
