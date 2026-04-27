@@ -930,16 +930,7 @@ const totalEstados =
           <p style={styles.cardValue}>{tempoMedioResolucao} dias</p>
         </div>
       </div>
-{/* 📊 Gráfico de estados */}
-<div
-  style={{
-    backgroundColor: '#ffffff',
-    border: '1px solid #e2e8f0',
-    borderRadius: '16px',
-    padding: '20px',
-    marginBottom: '24px',
-  }}
->
+
 <div style={{
   backgroundColor: '#ffffff',
   border: '1px solid #e2e8f0',
@@ -951,58 +942,111 @@ const totalEstados =
     Distribuição de ocorrências
   </h3>
 
-  <div style={{
-    display: 'flex',
-    height: '26px',
-    borderRadius: '999px',
-    overflow: 'hidden',
-    backgroundColor: '#e2e8f0'
-  }}>
-    <div style={{
-      width: `${(estadoStats.aberto / (totalEstados || 1)) * 100}%`,
-      backgroundColor: '#8b5cf6'
-    }} />
-    <div style={{
-      width: `${(estadoStats.analise / (totalEstados || 1)) * 100}%`,
-      backgroundColor: '#f59e0b'
-    }} />
-    <div style={{
-      width: `${(estadoStats.execucao / (totalEstados || 1)) * 100}%`,
-      backgroundColor: '#3b82f6'
-    }} />
-    <div style={{
-      width: `${(estadoStats.concluida / (totalEstados || 1)) * 100}%`,
-      backgroundColor: '#22c55e'
-    }} />
-  </div>
+ <div
+  style={{
+    backgroundColor: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '16px',
+    padding: '20px',
+    marginBottom: '24px',
+  }}
+>
+  <h3 style={{ marginBottom: '18px', fontSize: '18px' }}>
+    Distribuição de ocorrências
+  </h3>
 
-  <div style={{
-    display: 'flex',
-    gap: '16px',
-    marginTop: '12px',
-    fontSize: '13px',
-    flexWrap: 'wrap'
-  }}>
-    <span>🟣 Em aberto: {estadoStats.aberto}</span>
-    <span>🟡 Em análise: {estadoStats.analise}</span>
-    <span>🔵 Em execução: {estadoStats.execucao}</span>
-    <span>🟢 Concluídas: {estadoStats.concluida}</span>
-  </div>
-</div>
-
-      <h2 style={styles.sectionTitle}>Ocorrências em aberto</h2>
-
-      <div style={styles.filtersBox}>
-        <div style={styles.filterGroup}>
-          <label style={styles.label}>Pesquisar</label>
-          <input
-            type="text"
-            style={styles.select}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Pesquisar ocorrência, unidade, observações..."
+  {totalEstados === 0 ? (
+    <p style={{ color: '#64748b' }}>Sem dados</p>
+  ) : (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      
+      {/* Em aberto */}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+          <span>Em aberto</span>
+          <span>
+            {estadoStats.aberto} (
+            {Math.round((estadoStats.aberto / totalEstados) * 100)}%)
+          </span>
+        </div>
+        <div style={{ background: '#e2e8f0', height: '10px', borderRadius: '999px' }}>
+          <div
+            style={{
+              width: `${(estadoStats.aberto / totalEstados) * 100}%`,
+              background: '#8b5cf6',
+              height: '100%',
+              borderRadius: '999px',
+            }}
           />
         </div>
+      </div>
+
+      {/* Em análise */}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+          <span>Em análise</span>
+          <span>
+            {estadoStats.analise} (
+            {Math.round((estadoStats.analise / totalEstados) * 100)}%)
+          </span>
+        </div>
+        <div style={{ background: '#e2e8f0', height: '10px', borderRadius: '999px' }}>
+          <div
+            style={{
+              width: `${(estadoStats.analise / totalEstados) * 100}%`,
+              background: '#f59e0b',
+              height: '100%',
+              borderRadius: '999px',
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Em execução */}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+          <span>Em execução</span>
+          <span>
+            {estadoStats.execucao} (
+            {Math.round((estadoStats.execucao / totalEstados) * 100)}%)
+          </span>
+        </div>
+        <div style={{ background: '#e2e8f0', height: '10px', borderRadius: '999px' }}>
+          <div
+            style={{
+              width: `${(estadoStats.execucao / totalEstados) * 100}%`,
+              background: '#3b82f6',
+              height: '100%',
+              borderRadius: '999px',
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Concluídas */}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+          <span>Concluídas</span>
+          <span>
+            {estadoStats.concluida} (
+            {Math.round((estadoStats.concluida / totalEstados) * 100)}%)
+          </span>
+        </div>
+        <div style={{ background: '#e2e8f0', height: '10px', borderRadius: '999px' }}>
+          <div
+            style={{
+              width: `${(estadoStats.concluida / totalEstados) * 100}%`,
+              background: '#22c55e',
+              height: '100%',
+              borderRadius: '999px',
+            }}
+          />
+        </div>
+      </div>
+
+    </div>
+  )}
+</div>
 
         <div style={styles.filterGroup}>
           <label style={styles.label}>Data início</label>
