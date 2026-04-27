@@ -943,91 +943,44 @@ const totalEstados =
   </h3>
 
   {[
-    { label: 'Em aberto', value: estadoStats.aberto, color: '#3b82f6' },
-    { label: 'Em análise', value: estadoStats.analise, color: '#f59e0b' },
-    { label: 'Em execução', value: estadoStats.execucao, color: '#8b5cf6' },
-    { label: 'Concluídas', value: estadoStats.concluida, color: '#22c55e' }
-  ].map((item) => {
-    const percent = totalEstados > 0
-      ? Math.round((item.value / totalEstados) * 100)
-      : 0
+   {[
+  { label: 'Em aberto', value: estadoStats.aberto, color: '#3b82f6' },
+  { label: 'Em análise', value: estadoStats.analise, color: '#f59e0b' },
+  { label: 'Em execução', value: estadoStats.execucao, color: '#8b5cf6' },
+  { label: 'Concluídas', value: estadoStats.concluida, color: '#22c55e' }
+].map((item) => {
+  const percent = totalEstados > 0
+    ? Math.round((item.value / totalEstados) * 100)
+    : 0
 
-    return (
-      <div key={item.label} style={{ marginBottom: '12px' }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          fontSize: '13px',
-          marginBottom: '4px'
-        }}>
-          <span>{item.label}</span>
-          <span>{item.value} ({percent}%)</span>
-        </div>
+  return (
+    <div key={item.label} style={{ marginBottom: '12px' }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        fontSize: '13px',
+        marginBottom: '4px'
+      }}>
+        <span>{item.label}</span>
+        <span>{item.value} ({percent}%)</span>
+      </div>
 
+      <div style={{
+        height: '10px',
+        backgroundColor: '#e5e7eb',
+        borderRadius: '999px',
+        overflow: 'hidden'
+      }}>
         <div style={{
-          height: '10px',
-          backgroundColor: '#e5e7eb',
+          width: `${percent}%`,
+          backgroundColor: item.color,
+          height: '100%',
           borderRadius: '999px',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            width: `${percent}%`,
-            backgroundColor: item.color,
-            height: '100%',
-            borderRadius: '999px',
-            transition: 'width 0.5s ease'
-          }} />
-        </div>
+          transition: 'width 0.5s ease'
+        }} />
       </div>
-    )
-  })}
-</div>
-
-      {/* Em execução */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-          <span>Em execução</span>
-          <span>
-            {estadoStats.execucao} (
-            {Math.round((estadoStats.execucao / totalEstados) * 100)}%)
-          </span>
-        </div>
-        <div style={{ background: '#e2e8f0', height: '10px', borderRadius: '999px' }}>
-          <div
-            style={{
-              width: `${(estadoStats.execucao / totalEstados) * 100}%`,
-              background: '#3b82f6',
-              height: '100%',
-              borderRadius: '999px',
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Concluídas */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-          <span>Concluídas</span>
-          <span>
-            {estadoStats.concluida} (
-            {Math.round((estadoStats.concluida / totalEstados) * 100)}%)
-          </span>
-        </div>
-        <div style={{ background: '#e2e8f0', height: '10px', borderRadius: '999px' }}>
-          <div
-            style={{
-              width: `${(estadoStats.concluida / totalEstados) * 100}%`,
-              background: '#22c55e',
-              height: '100%',
-              borderRadius: '999px',
-            }}
-          />
-        </div>
-      </div>
-
     </div>
-  )}
-</div>
+})}
 
         <div style={styles.filterGroup}>
           <label style={styles.label}>Data início</label>
